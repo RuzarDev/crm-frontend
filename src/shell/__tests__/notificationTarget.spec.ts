@@ -6,6 +6,13 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ caseId: null, reestrEntryId: null, type: 'ForeignContractDeadline', foreignContractId: 'k 1' }, false))
       .toBe('/contracts/k%201')
   })
+  it('договор/доверенность клиента: клиенту — «Моя компания», сотруднику с clients.read — «Документы клиентов»', () => {
+    const n = { caseId: null, reestrEntryId: null, type: 'ClientDocument' }
+    expect(notificationTarget(n, false, () => false, true)).toBe('/import-40/company')
+    expect(notificationTarget(n, false, (p) => p === 'clients.read', false)).toBe('/client-documents')
+    expect(notificationTarget(n, false, () => false, false)).toBeNull()
+    expect(notificationTarget(n, true, () => true, false)).toBeNull()
+  })
   it('заявка: сотруднику — карточка заявки', () => {
     expect(notificationTarget({ caseId: 'c1', reestrEntryId: null }, false)).toBe('/import-40/c1')
   })

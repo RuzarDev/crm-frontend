@@ -77,7 +77,7 @@ const open = async (n: AppNotification) => {
       n.isRead = true
     } catch { /* не отметилось (тост уже показан) — переходим всё равно */ }
   }
-  const to = notificationTarget(n, auth.isFinanceOnly, auth.hasPermission)
+  const to = notificationTarget(n, auth.isFinanceOnly, auth.hasPermission, auth.isClient)
   if (to) void router.push(to)
 }
 

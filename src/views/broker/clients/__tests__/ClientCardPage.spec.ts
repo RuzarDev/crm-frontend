@@ -9,13 +9,18 @@ import type { ReestrEntry } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 
 const api = vi.hoisted(() => ({
-  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(),
+  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(), renew: vi.fn(),
+  confirm: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/clientCard', () => ({ clientCardApi: { card: api.card } }))
 vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.reestr } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.billing } }))
-vi.mock('@/api/import40Contract', () => ({ import40ContractApi: { downloadDocument: api.download } }))
+vi.mock('@/api/import40Contract', async (orig) => ({
+  ...(await orig<typeof import('@/api/import40Contract')>()),
+  import40ContractApi: { downloadDocument: api.download, renewDocument: api.renew },
+}))
+vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
 vi.mock('@/ui/download', () => ({ saveBlob: api.saveBlob }))
 vi.mock('@/api/clientRegistry', async (orig) => ({
   ...(await orig<typeof import('@/api/clientRegistry')>()),
@@ -401,6 +406,81 @@ describe('карточка клиента: обзор', () => {
     expect(w.get('[data-card-no-cases]').text()).toBe('Заявок пока нет')
     expect(w.get('[data-card-no-docs]').text()).toBe('Документов пока нет')
     expect(has('[data-card-all-cases]')).toBe(false)
+  })
+})
+
+// 30.10.2026: «Продлить» многоразовый договор — администратору/руководителю, за 60 дней до конца срока и 30 после.
+describe('карточка клиента: «Продлить» договор', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const untilIn = (days: number) => new Date(Date.now() + days * DAY).toISOString()
+
+  it('видна руководителю в окне 60/30 дней; вне окна, разовому, декларанту — нет', async () => {
+    api.card.mockResolvedValue(card({ documents: [doc({ id: 'dc', validUntilUtc: untilIn(20) })] }))
+    as('manager', ALL, ['rop'])
+    await mountAt()
+    expect(has('[data-doc-card="contract"] [data-doc-extend]')).toBe(true)
+    w.unmount()
+
+    as('manager', ALL, ['declarant'])
+    await mountAt()
+    expect(has('[data-doc-extend]')).toBe(false)
+    w.unmount()
+
+    for (const d of [doc({ validUntilUtc: untilIn(61) }), doc({ validUntilUtc: untilIn(-31) }), doc({ isSingleUse: true, validUntilUtc: untilIn(10) }), doc({ status: 4, validUntilUtc: untilIn(10) })]) {
+      api.card.mockResolvedValue(card({ documents: [d] }))
+      as('administrator', ALL)
+      await mountAt()
+      expect(has('[data-doc-extend]')).toBe(false)
+      w.unmount()
+    }
+    api.card.mockResolvedValue(card({ documents: [doc({ validUntilUtc: untilIn(-29) })] }))
+    as('administrator', ALL)
+    await mountAt()
+    expect(has('[data-doc-extend]')).toBe(true)
+  })
+
+  it('продление: подтверждение, запрос, тост с новым сроком, карточка перечитана', async () => {
+    api.card.mockResolvedValue(card({ documents: [doc({ id: 'dc', validUntilUtc: '2026-12-31T23:59:59Z' })] }))
+    api.confirm.mockResolvedValue(true)
+    api.renew.mockResolvedValue({ ...doc({ id: 'dc' }), validUntilUtc: '2027-12-31T23:59:59Z' })
+    as('administrator', ALL)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-12-01T08:00:00Z'))
+    try {
+      await mountAt()
+      await w.get('[data-doc-extend]').trigger('click')
+      await flushPromises()
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(api.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('31.12.2027') }))
+    expect(api.renew).toHaveBeenCalledWith('c1', 'dc', { silent: true })
+    expect(api.toast.success).toHaveBeenCalledWith('Договор продлён до 31.12.2027')
+    expect(api.card).toHaveBeenCalledTimes(2)
+  })
+
+  it('«Выпустить новую» доверенность скрыта, если доверенность на следующий год уже выпущена', async () => {
+    api.card.mockResolvedValue(card({
+      documents: [
+        doc({ id: 'dp', kind: 'poa', number: '9', providerSigned: false, validUntilUtc: '2026-12-31T23:59:59Z', daysLeft: 11, expiringSoon: true }),
+        doc({ id: 'dn', kind: 'poa', number: '12', status: 1, clientSigned: false, providerSigned: false, validUntilUtc: '2027-12-31T23:59:59Z', daysLeft: 400 }),
+      ],
+    }))
+    await mountAt()
+    expect(has('[data-doc-renew]')).toBe(false)
+  })
+
+  it('ИП: «Руководитель» вместо «Директор», основание по умолчанию — талон; неполные реквизиты названы', async () => {
+    const base = card().profile
+    api.card.mockResolvedValue(card({
+      // «устава» — значение по умолчанию в базе (раунд 1 ревью, I-2): у ИП показываем талон.
+      profile: { ...base, companyName: 'ИП ТЕСТОВ', ownershipType: 'ИП', directorBasis: 'устава', bank: '', isComplete: false, missingFields: ['bank'] },
+    }))
+    await mountAt()
+    expect(has('[data-req="director"]')).toBe(false)
+    expect(w.get('[data-req="directorIp"]').text()).toContain('Руководитель')
+    expect(w.get('[data-req="directorIp"]').text()).toContain('уведомления о начале деятельности (талон)')
+    expect(w.get('[data-card-missing]').text()).toBe('Не хватает: Банк')
   })
 })
 

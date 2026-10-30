@@ -152,3 +152,59 @@ export function joinList(items: string[], locale: string): string {
   }
   return items.join(', ')
 }
+
+// ---- Реквизиты (30.10.2026, аудит C-2) ----
+
+/** Обязательные реквизиты — то же правило, что на сервере (Import40ContractEndpoints.MissingRequisites): без них не выпустить договор и доверенность. */
+export const REQUIRED_REQUISITES = ['companyName', 'bin', 'directorName', 'legalAddress', 'bank', 'iik', 'bik', 'kbe'] as const
+export type RequisiteCode = (typeof REQUIRED_REQUISITES)[number]
+/** Подпись поля в форме реквизитов для кода. */
+export const REQUISITE_LABEL_KEY: Record<RequisiteCode, string> = {
+  companyName: 'client.company.form.companyName',
+  bin: 'client.company.form.bin',
+  directorName: 'client.company.form.director',
+  legalAddress: 'client.company.form.legalAddress',
+  bank: 'client.company.form.bank',
+  iik: 'client.company.form.iik',
+  bik: 'client.company.form.bik',
+  kbe: 'client.company.form.kbe',
+}
+
+/** Каких обязательных реквизитов не хватает (пустые и из одних пробелов). */
+export function missingRequisites(p: Partial<Record<RequisiteCode, string | null | undefined>> | null | undefined): RequisiteCode[] {
+  return REQUIRED_REQUISITES.filter((k) => !(p?.[k] ?? '').trim())
+}
+
+/** Недостающие по профилю: список сервера, если он есть (свежий сервер), иначе — тем же правилом здесь. */
+export function profileMissing(p: (Partial<Record<RequisiteCode, string | null>> & { missingFields?: string[] | null }) | null | undefined): RequisiteCode[] {
+  if (!p) return [...REQUIRED_REQUISITES]
+  if (Array.isArray(p.missingFields)) return p.missingFields.filter((k): k is RequisiteCode => (REQUIRED_REQUISITES as readonly string[]).includes(k))
+  return missingRequisites(p)
+}
+
+/** Основание для ИП по умолчанию: у ИП нет устава — талон (уведомление о начале деятельности). Как на сервере. */
+export const IP_TALON_BASIS = 'уведомления о начале деятельности (талон)'
+export const CHARTER_BASIS = 'устава'
+
+/**
+ * ИП ли это (30.10.2026): тип собственности «ИП»/«ЖК»/«индивидуальный предприниматель» или название с «ИП …».
+ * Отдельного признака в профиле нет — поиск по ИИН ставит тип «ИП».
+ */
+export function isIndividualEntrepreneur(p: { ownershipType?: string | null; companyName?: string | null } | null | undefined): boolean {
+  // \b в JS не видит границу у кириллицы — граница слова явно: конец, пробел, кавычка, скобка, точка, запятая.
+  const looksIp = (v: string | null | undefined) => {
+    const s = (v ?? '').trim().toLowerCase()
+    return /^(ип|жк)(?=$|[\s«"(.,])/u.test(s) || s.startsWith('индивидуальный предприниматель') || s.startsWith('жеке кәсіпкер')
+  }
+  return looksIp(p?.ownershipType) || looksIp(p?.companyName)
+}
+
+/**
+ * Основание, как его показать и с чего начать форму: у ИП пусто или «устава» — талон (раунд 1 ревью, I-2: «устава» — значение
+ * по умолчанию в базе у всех профилей, у ИП устава не бывает); у остальных пусто — устав. Введённое вручную — как есть.
+ */
+export function basisOrDefault(p: { directorBasis?: string | null; ownershipType?: string | null; companyName?: string | null }): string {
+  const b = (p.directorBasis ?? '').trim()
+  if (isIndividualEntrepreneur(p) && (!b || b.toLowerCase() === CHARTER_BASIS)) return IP_TALON_BASIS
+  return b || CHARTER_BASIS
+}

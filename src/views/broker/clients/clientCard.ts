@@ -7,6 +7,7 @@ import { matchesQuery } from '@/views/broker/list'
 import { stageTone } from '@/views/broker/requests/requests'
 import { billingStats } from '@/views/broker/finance/billing'
 import { DATA_KEY } from '@/views/broker/transit/transit'
+import { IP_TALON_BASIS, isIndividualEntrepreneur } from '@/views/client/company/company'
 import { docStatusLabelKey, docStatusTone } from './clients'
 
 // Чистая логика карточки клиента /clients/:id (редизайн, волна 4а): вкладки, показатели, документы, заявки.
@@ -15,8 +16,11 @@ import { docStatusLabelKey, docStatusTone } from './clients'
  * «Действует на основании»: у клиента без профиля (updatedAtUtc == null) сервер собирает пустой профиль
  * с основанием по умолчанию «устава» — это не данные клиента, показываем «—».
  */
-export const directorBasisOf = (p: Pick<ClientCardProfile, 'directorBasis' | 'updatedAtUtc'>): string =>
-  p.updatedAtUtc == null ? '—' : p.directorBasis || '—'
+export const directorBasisOf = (p: Pick<ClientCardProfile, 'directorBasis' | 'updatedAtUtc'> & Partial<Pick<ClientCardProfile, 'ownershipType' | 'companyName'>>): string =>
+  // ИП: пусто или «устава» (значение по умолчанию в базе) — талон (раунд 1 ревью, I-2).
+  p.updatedAtUtc == null ? '—'
+    : isIndividualEntrepreneur(p) && (!p.directorBasis?.trim() || p.directorBasis.trim().toLowerCase() === 'устава') ? IP_TALON_BASIS
+    : p.directorBasis || '—'
 
 // ---- Вкладки ----
 export type ClientCardTab = 'overview' | 'cases' | 'transit' | 'docs' | 'contracts' | 'invoices'
@@ -67,6 +71,14 @@ export function docTag(d: Pick<ClientCardDoc, 'status' | 'daysLeft' | 'expiringS
  */
 export const canRenewPoa = (d: Pick<ClientCardDoc, 'kind' | 'status' | 'daysLeft' | 'expiringSoon'>): boolean =>
   d.kind === 'poa' && (d.status === 3 || (d.status === 2 && (d.expiringSoon || (d.daysLeft !== null && d.daysLeft < 0))))
+
+/**
+ * Следующая доверенность уже есть (30.10.2026): с 1 декабря система сама выпускает доверенность на следующий год —
+ * многоразовая, ждёт подписи или действует, срок позже, чем у этой. Тогда «Выпустить новую» не нужна.
+ */
+export const hasNextPoa = (docs: ClientCardDoc[], d: Pick<ClientCardDoc, 'id' | 'validUntilUtc'>): boolean =>
+  docs.some((x) => x.id !== d.id && x.kind === 'poa' && !x.isSingleUse && (x.status === 1 || x.status === 2)
+    && !!x.validUntilUtc && (!d.validUntilUtc || new Date(x.validUntilUtc).getTime() > new Date(d.validUntilUtc).getTime()))
 
 const RANK = (d: ClientCardDoc): number => (d.status === 2 && !(d.daysLeft !== null && d.daysLeft < 0) ? 0 : d.status === 1 ? 1 : 2)
 

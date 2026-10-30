@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhMagnifyingGlass } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
@@ -19,10 +19,13 @@ import type { ZOption, ZOptionValue } from '@/ui/options'
 import type { ZRule } from '@/ui/validation'
 import { message } from '@/ui/message'
 import { phoneField, phoneSelect } from '@/views/client/wizard/wizardUi'
+import { CHARTER_BASIS, IP_TALON_BASIS, REQUISITE_LABEL_KEY, basisOrDefault, isIndividualEntrepreneur, joinList, missingRequisites } from './company'
 
 // Форма реквизитов компании клиента — все поля прежнего шага «Реквизиты» (Import40CompanyView), на ZForm.
-// Обязательны наименование, БИН (12 цифр) и руководитель. «Найти» по БИН (ГБД ЮЛ / КГД) заполняет как
-// прежний applyCompanyLookup. Сохранение — здесь же (ошибка сервера — на месте, без тоста), наверх — saved.
+// Без наименования, БИН (12 цифр) и руководителя не сохранить. 30.10.2026 (аудит C-2): юр. адрес, банк, ИИК, БИК и КБе
+// тоже обязательны (звёздочка) — без них сервер не выпустит договор и доверенность; сохранить без них можно, но форма
+// называет, чего не хватает, а после сохранения — предупреждение вместо «Сохранено». «Найти» по БИН (ГБД ЮЛ / КГД)
+// заполняет как прежний applyCompanyLookup. Сохранение — здесь же (ошибка сервера — на месте, без тоста), наверх — saved.
 const props = defineProps<{
   clientId: string
   profile: ClientCompanyProfileDto | null
@@ -31,14 +34,16 @@ const props = defineProps<{
   cancellable?: boolean
 }>()
 const emit = defineEmits<{ saved: [profile: ClientCompanyProfileDto]; cancel: [] }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const p = props.profile
 const form = reactive({
   companyName: p?.companyName ?? '',
   bin: p?.bin ?? '',
   directorName: p?.directorName ?? '',
-  directorBasis: p?.directorBasis || 'устава',
+  // 30.10.2026: у ИП основание по умолчанию — талон, а не устав.
+  // Раунд 1 ревью (I-2): у ИП и «устава» (значение по умолчанию в базе) — талон; сохранится при «Сохранить».
+  directorBasis: basisOrDefault(p ?? {}),
   legalAddress: p?.legalAddress ?? '',
   bank: p?.bank ?? '',
   iik: p?.iik ?? '',
@@ -66,6 +71,19 @@ const rules = computed<Record<string, ZRule[]>>(() => ({
   ],
   directorName: [{ required: true, whitespace: true, message: () => t('client.company.form.required') }],
 }))
+
+// ИП (по типу собственности или названию): основание по умолчанию — талон. Меняем только «по умолчанию» (пусто или
+// «устава» у ИП, талон у не-ИП) — введённое вручную основание не трогаем.
+const isIp = computed(() => isIndividualEntrepreneur(form))
+watch(isIp, (ip) => {
+  const basis = form.directorBasis.trim()
+  if (ip && (!basis || basis === CHARTER_BASIS)) form.directorBasis = IP_TALON_BASIS
+  else if (!ip && basis === IP_TALON_BASIS) form.directorBasis = CHARTER_BASIS
+})
+
+// Чего не хватает для договора и доверенности — по тем же полям, что на сервере.
+const missing = computed(() => missingRequisites(form))
+const missingText = computed(() => joinList(missing.value.map((k) => t(REQUISITE_LABEL_KEY[k])), locale.value))
 
 // Страна в ZSelect — null, а не '' (пустая строка — выбранное значение без подписи).
 const country = computed<ZOptionValue | null>({
@@ -99,6 +117,8 @@ const applyCompanyLookup = (c: CompanyLookupDto) => {
     if (!form.legalStreet && streetLine) form.legalStreet = streetLine
   }
   form.legalCountryCode = form.legalCountryCode || '398'
+  // Поиск по ИИН нашёл ИП — тип собственности «ИП» (по нему основание и подписи для ИП).
+  if (c.kind === 'ip' && !(form.ownershipType ?? '').trim()) form.ownershipType = 'ИП'
 }
 const findByBin = async () => {
   if (!binReady.value) return
@@ -114,7 +134,9 @@ const save = async () => {
   saveError.value = ''
   try {
     const saved = await import40ContractApi.saveProfile(props.clientId, { ...form, bin: form.bin.trim() }, { silent: true })
-    message.success(t('client.company.form.saved'))
+    // Неполные сохраняются, но «Сохранено» без оговорки вводило в заблуждение (аудит C-2): называем, чего не хватает.
+    if (saved.isComplete || !missing.value.length) message.success(t('client.company.form.saved'))
+    else message.warning(t('client.company.form.savedIncomplete', { list: missingText.value }))
     emit('saved', saved)
   } catch (e: unknown) {
     saveError.value = extractServerText((e as { response?: { data?: unknown } })?.response?.data) ?? t('client.company.form.saveError')
@@ -167,7 +189,7 @@ const groupGap = 'mt-3 border-0 border-t border-solid border-line pt-5'
     <ZField :label="t('client.company.form.ownership')" :span="6">
       <ZInput v-model:value="form.ownershipType" :class="phoneField" data-f="ownershipType" />
     </ZField>
-    <ZField :label="t('client.company.form.legalAddress')" :span="12">
+    <ZField :label="t('client.company.form.legalAddress')" :span="12" required>
       <ZInput v-model:value="form.legalAddress" :class="phoneField" data-f="legalAddress" />
     </ZField>
 
@@ -195,16 +217,16 @@ const groupGap = 'mt-3 border-0 border-t border-solid border-line pt-5'
     </ZField>
 
     <h3 :class="[group, groupGap]">{{ t('client.company.form.groupBank') }}</h3>
-    <ZField :label="t('client.company.form.bank')" :span="12">
+    <ZField :label="t('client.company.form.bank')" :span="12" required>
       <ZInput v-model:value="form.bank" :class="phoneField" data-f="bank" />
     </ZField>
-    <ZField :label="t('client.company.form.iik')" :span="6">
+    <ZField :label="t('client.company.form.iik')" :span="6" required>
       <ZInput v-model:value="form.iik" mono autocomplete="off" :class="phoneField" data-f="iik" />
     </ZField>
-    <ZField :label="t('client.company.form.bik')" :span="6">
+    <ZField :label="t('client.company.form.bik')" :span="6" required>
       <ZInput v-model:value="form.bik" mono autocomplete="off" :class="phoneField" data-f="bik" />
     </ZField>
-    <ZField :label="t('client.company.form.kbe')" :span="6">
+    <ZField :label="t('client.company.form.kbe')" :span="6" required>
       <ZInput v-model:value="form.kbe" mono autocomplete="off" :class="phoneField" data-f="kbe" />
     </ZField>
     <ZField :label="t('client.company.form.okpo')" :span="6">
@@ -231,6 +253,16 @@ const groupGap = 'mt-3 border-0 border-t border-solid border-line pt-5'
       <ZInput v-model:value="form.contactEmail" type="email" autocomplete="off" :class="phoneField" data-f="contactEmail" />
     </ZField>
 
+    <!-- Не хватает обязательных для договора и доверенности (сохранить можно, но документы не выпустить). -->
+    <ZAlert
+      v-if="missing.length"
+      type="warning"
+      show-icon
+      :message="t('client.company.form.missingTitle')"
+      :description="t('client.company.form.missingList', { list: missingText })"
+      class="mt-1"
+      data-requisites-missing
+    />
     <ZAlert v-if="saveError" type="error" show-icon :message="saveError" class="mt-1" data-requisites-error />
 
     <div class="mt-2 flex flex-wrap items-center gap-2 max-sm:flex-col-reverse max-sm:items-stretch">

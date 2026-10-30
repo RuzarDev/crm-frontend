@@ -69,6 +69,8 @@ describe('подписи и тона', () => {
   it('способ подписи', () => {
     expect(signMethodLabelKey('egov')).toBe('admin.ecpEgov')
     expect(signMethodLabelKey('upload')).toBe('admin.zagruzhenFayl')
+    // 30.10.2026: NCALayer — это ЭЦП, а не «отметка в системе».
+    expect(signMethodLabelKey('ncalayer')).toBe('admin.ecpNcaLayer')
     expect(signMethodLabelKey(null)).toBe('admin.otmetkaVSisteme')
   })
   it('имя файла бланка', () => {

@@ -11,6 +11,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
 import CompanyRequisitesForm from '@/views/client/company/CompanyRequisitesForm.vue'
+import { REQUISITE_LABEL_KEY, joinList, profileMissing } from '@/views/client/company/company'
 import StaffDocumentsPanel from './StaffDocumentsPanel.vue'
 import { import40ContractApi, type ClientCompanyProfileDto, type Import40DocumentDto } from '@/api/import40Contract'
 import { import40Api } from '@/api/import40'
@@ -25,7 +26,7 @@ import { STAFF_STEPS, defaultStep, missingOf, onboardingOf, parseStep, stepState
 // выбор клиента (?client=), три шага (?step=requisites|contract|poa) — реквизиты (общая с кабинетом клиента
 // форма), договор и доверенность (панель документов сотрудника). Без ?step= открывается первый незавершённый
 // шаг клиента — выбирается при загрузке клиента и после действий не «уезжает».
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -138,6 +139,11 @@ referencesApi.listCountries({ silent: true })
 // ---- Регистрация и шаги ----
 const onboarding = computed(() => onboardingOf(contracts.value, poas.value))
 const profileComplete = computed(() => !!profile.value?.isComplete)
+// Чего не хватает (30.10.2026, аудит C-2): сохранённые реквизиты по правилу сервера.
+const missingReq = computed(() =>
+  profile.value && !profile.value.isComplete
+    ? joinList(profileMissing(profile.value).map((k) => t(REQUISITE_LABEL_KEY[k])), locale.value)
+    : '')
 const states = computed(() => stepStates(profileComplete.value, onboarding.value))
 const missingHint = computed(() => {
   const list = missingOf(profileComplete.value, onboarding.value).map((m) => t(`broker.company.missing.${m}`))
@@ -249,6 +255,7 @@ const circle = (s: StaffStep) => {
             <ZTag :tone="profileComplete ? 'done' : 'wait'" data-req-tag>
               {{ t(profileComplete ? 'broker.company.stepState.filled' : 'broker.company.fillRequired') }}
             </ZTag>
+            <span v-if="missingReq" class="text-[13px] text-gold-ink" data-req-missing>{{ t('broker.company.missingList', { list: missingReq }) }}</span>
           </div>
           <CompanyRequisitesForm
             :key="clientId"

@@ -8,6 +8,8 @@ export const INVOICE_CHECK_UPLOADED = 'InvoiceCheckUploaded'
 // на «Справочники → ТН ВЭД → Обновления ЕЭК». Сервер шлёт n.Type.ToString() («EecTariffUpdate»), сравниваем без регистра.
 export const EEC_TARIFF_UPDATE = 'EecTariffUpdate'
 export const EEC_UPDATES_PATH = '/tnved/eec'
+// Договор и доверенность клиента (30.10.2026, аудит C-3): клиенту — «Моя компания», сотруднику — «Документы клиентов».
+export const CLIENT_DOCUMENT = 'ClientDocument'
 
 // Куда ведёт клик по уведомлению. Финансист (только finance.read) не пускается в карточку заявки
 // (guard уводит его на /finance), поэтому по заявке ему открываем список «Счета и акты», отфильтрованный
@@ -18,7 +20,12 @@ export function notificationTarget(
   n: Pick<AppNotification, 'caseId' | 'reestrEntryId'> & Partial<Pick<AppNotification, 'type' | 'declarationId' | 'foreignContractId'>>,
   isFinanceOnly: boolean,
   hasPermission?: (p: string) => boolean,
+  isClient?: boolean,
 ): string | null {
+  if (n.type === CLIENT_DOCUMENT) {
+    if (isClient) return '/import-40/company'
+    return !isFinanceOnly && (!hasPermission || hasPermission('clients.read')) ? '/client-documents' : null
+  }
   if (n.type && n.type.toLowerCase() === EEC_TARIFF_UPDATE.toLowerCase()) {
     return !isFinanceOnly && (!hasPermission || hasPermission('tnved.manage')) ? EEC_UPDATES_PATH : null
   }

@@ -61,8 +61,10 @@ const DOC_LABEL: Record<number, string> = { 2: 'admin.deystvuet', 1: 'admin.zhde
 export const docStatusLabelKey = (status: number): string => DOC_LABEL[status] ?? 'admin.chernovik'
 
 /** Чем подписано: ЭЦП eGov, загруженный файл, отметка в системе. */
+// 30.10.2026: подпись в NCALayer показывалась как «отметка в системе» — будто подпись поставлена без ЭЦП.
+// «Отметка в системе» осталась только для старых документов без записанного способа подписи.
 export const signMethodLabelKey = (method: string | null): string =>
-  method === 'egov' ? 'admin.ecpEgov' : method === 'upload' ? 'admin.zagruzhenFayl' : 'admin.otmetkaVSisteme'
+  method === 'egov' ? 'admin.ecpEgov' : method === 'ncalayer' ? 'admin.ecpNcaLayer' : method === 'upload' ? 'admin.zagruzhenFayl' : 'admin.otmetkaVSisteme'
 
 export const docKindLabelKey = (kind: Import40DocumentDto['kind']): string => (kind === 'contract' ? 'admin.dogovor' : 'admin.doverennost')
 

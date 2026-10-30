@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40DocumentDto } from '@/api/import40Contract'
-import { companySteps, currentDoc, endOfDayUtc, historyDocs, historyStatus, joinList, validDate, type RegistrationSnapshot } from '../company'
+import {
+  basisOrDefault, companySteps, currentDoc, endOfDayUtc, historyDocs, historyStatus, isIndividualEntrepreneur, joinList,
+  missingRequisites, profileMissing, validDate, type RegistrationSnapshot,
+} from '../company'
 
 const doc = (o: Partial<Import40DocumentDto>): Import40DocumentDto => ({
   id: 'd', clientId: 'cl', kind: 'contract', number: '1', year: 2026, generatedAtUtc: '2026-10-01T06:00:00Z',
@@ -75,6 +78,26 @@ describe('company helpers', () => {
     expect(endOfDayUtc('2027-03-05')).toBe('2027-03-05T23:59:59.000Z')
   })
 
+  it('реквизиты: недостающие по правилу сервера; список сервера важнее', () => {
+    expect(missingRequisites({ companyName: 'А', bin: ' ', directorName: 'Б', legalAddress: 'В', bank: null, iik: 'K', bik: 'B', kbe: '17' }))
+      .toEqual(['bin', 'bank'])
+    expect(profileMissing(null)).toHaveLength(8)
+    expect(profileMissing({ companyName: '', missingFields: ['kbe', 'unknown'] })).toEqual(['kbe'])
+  })
+  it('ИП: по типу собственности или названию; основание по умолчанию — талон', () => {
+    expect(isIndividualEntrepreneur({ ownershipType: 'ИП' })).toBe(true)
+    expect(isIndividualEntrepreneur({ companyName: 'ИП Тестов' })).toBe(true)
+    expect(isIndividualEntrepreneur({ companyName: 'ип «Тест»' })).toBe(true)
+    expect(isIndividualEntrepreneur({ companyName: 'Индивидуальный предприниматель Тестов' })).toBe(true)
+    expect(isIndividualEntrepreneur({ companyName: 'ЖК Тестов' })).toBe(true)
+    expect(isIndividualEntrepreneur({ companyName: 'ТОО ТЕСТ' })).toBe(false)
+    expect(isIndividualEntrepreneur({ companyName: 'Ипотека Плюс' })).toBe(false)
+    expect(basisOrDefault({ directorBasis: '', companyName: 'ИП Тестов' })).toBe('уведомления о начале деятельности (талон)')
+    expect(basisOrDefault({ directorBasis: '', companyName: 'ТОО ТЕСТ' })).toBe('устава')
+    expect(basisOrDefault({ directorBasis: 'доверенности', companyName: 'ИП Тестов' })).toBe('доверенности')
+    expect(basisOrDefault({ directorBasis: 'устава', companyName: 'ИП Тестов' })).toBe('уведомления о начале деятельности (талон)')
+    expect(basisOrDefault({ directorBasis: 'устава', companyName: 'ТОО ТЕСТ' })).toBe('устава')
+  })
   it('перечисление на языке интерфейса', () => {
     expect(joinList(['a', 'b', 'c'], 'ru')).toBe('a, b и c')
     expect(joinList(['a'], 'en')).toBe('a')

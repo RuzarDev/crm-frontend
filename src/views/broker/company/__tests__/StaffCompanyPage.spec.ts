@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   listDocuments: vi.fn(),
   generateDocument: vi.fn(),
   revokeDocument: vi.fn(),
+  renewDocument: vi.fn(),
   downloadDocument: vi.fn(),
   signDocument: vi.fn(),
   sigexStartSigningDocument: vi.fn(),
@@ -365,6 +366,89 @@ describe('StaffCompanyPage', () => {
     w.unmount()
     await mountAt('/import-40/company?step=poa')
     expect(w.find('[data-sign-egov]').exists()).toBe(false)
+  })
+
+  // 30.10.2026: «Продлить» многоразовый договор — администратор или РОП, за 60 дней до конца срока и 30 после.
+  it('«Продлить»: видна администратору и РОП в окне 60/30 дней; декларанту, разовому, доверенности, вне окна — нет', async () => {
+    const DAY = 24 * 60 * 60 * 1000
+    const untilIn = (days: number) => new Date(Date.now() + days * DAY).toISOString()
+    const active = (o: Partial<Import40DocumentDto>) => doc({ status: 2, clientSigned: true, providerSigned: true, ...o })
+    setDocs('c1', [
+      active({ id: 'soon', validUntilUtc: untilIn(30) }),
+      active({ id: 'late', number: '13', validUntilUtc: untilIn(-29) }),
+      active({ id: 'far', number: '14', validUntilUtc: untilIn(61) }),
+      active({ id: 'gone', number: '15', validUntilUtc: untilIn(-31) }),
+      active({ id: 'single', number: '16', isSingleUse: true, validUntilUtc: untilIn(10) }),
+    ], [active({ id: 'p1', kind: 'poa', validUntilUtc: untilIn(10) })])
+    await mountAt('/import-40/company?step=contract')
+    const renewable = () => w.findAll('[data-doc-renew]').map((b) => b.element.closest('[data-doc]')!.getAttribute('data-doc'))
+    expect(renewable()).toEqual(['soon', 'late'])
+    expect(w.get('[data-doc="soon"] [data-renew-hint]').text()).toContain('продлите его на следующий год')
+    w.unmount()
+    as('Declarant', ['rop'])
+    await mountAt('/import-40/company?step=contract')
+    expect(renewable()).toEqual(['soon', 'late'])
+    w.unmount()
+    as('Declarant', ['declarant'])
+    await mountAt('/import-40/company?step=contract')
+    expect(renewable()).toEqual([])
+    w.unmount()
+    as('Administrator')
+    await mountAt('/import-40/company?step=poa')
+    expect(renewable()).toEqual([])
+  })
+
+  it('«Продлить»: подтверждение со сроком 31.12 следующего года → renewDocument, тост, перечитывание; отказ — текст сервера', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-12-01T08:00:00Z'))
+    try {
+      setDocs('c1', [doc({ id: 'd1', status: 2, clientSigned: true, providerSigned: true, validUntilUtc: '2026-12-31T23:59:59Z' })], [])
+      api.renewDocument.mockResolvedValue(doc({ id: 'd1', status: 2, validUntilUtc: '2027-12-31T23:59:59Z' }))
+      await mountAt('/import-40/company?step=contract')
+      api.listDocuments.mockClear()
+      await w.get('[data-doc-renew]').trigger('click')
+      await flushPromises()
+      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Продлить договор № 12/2026?', content: expect.stringContaining('до 31.12.2027'),
+      }))
+      expect(api.renewDocument).toHaveBeenCalledWith('c1', 'd1', { silent: true })
+      expect(msg.success).toHaveBeenCalledWith('Договор продлён до 31.12.2027')
+      expect(api.listDocuments).toHaveBeenCalledWith('c1', 'contract', { silent: true })
+      api.renewDocument.mockRejectedValueOnce({ response: { status: 409, data: { error: 'Договор изменился' } } })
+      await w.get('[data-doc-renew]').trigger('click')
+      await flushPromises()
+      expect(w.get('[data-doc="d1"] [data-doc-error]').text()).toBe('Договор изменился')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('реквизиты неполные — рядом со статусом названо, чего не хватает', async () => {
+    api.getProfile.mockImplementation((id: string) => Promise.resolve({ ...PROFILE, clientId: id, kbe: '', isComplete: false, missingFields: ['kbe'] }))
+    await mountAt('/import-40/company?step=requisites')
+    expect(w.get('[data-req-missing]').text()).toBe('Не хватает: КБе')
+  })
+
+  // Раунд 1 ревью (M-7): доверенность на следующий год уже выпущена — вторую многоразовую не сформировать, только разовую.
+  it('доверенность на следующий год уже есть: в декабре — плашка и только разовая; в октябре — без ограничений', async () => {
+    const auto = doc({ id: 'auto', kind: 'poa', number: '40', status: 1, validUntilUtc: '2027-12-31T23:59:59Z' })
+    const current = doc({ id: 'cur', kind: 'poa', number: '7', status: 2, clientSigned: true, validUntilUtc: '2026-12-31T23:59:59Z' })
+    setDocs('c1', [], [auto, current])
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-12-02T08:00:00Z'))
+      await mountAt('/import-40/company?step=poa')
+      expect(w.get('[data-next-year-poa]').text()).toContain('Доверенность на 2027 год уже выпущена — № 40/2026')
+      expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('true')
+      expect(w.get('[data-opt-single]').attributes('disabled')).toBeDefined()
+      w.unmount()
+      vi.setSystemTime(new Date('2026-10-30T08:00:00Z'))
+      await mountAt('/import-40/company?step=poa')
+      expect(w.find('[data-next-year-poa]').exists()).toBe(false)
+      expect(w.get('[data-opt-single]').attributes('aria-checked')).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('подписано обеими сторонами — кнопок подписи нет', async () => {

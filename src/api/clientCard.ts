@@ -21,6 +21,9 @@ export interface ClientCardProfile {
   contactEmail: string
   isComplete: boolean
   updatedAtUtc: string | null
+  /** 30.10.2026: признак ИП и коды недостающих реквизитов (как у профиля компании). */
+  ownershipType?: string | null
+  missingFields?: string[] | null
 }
 
 export interface ClientCardDoc {
