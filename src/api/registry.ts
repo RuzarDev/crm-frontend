@@ -10,6 +10,8 @@ export interface RegistryRowDto {
   isProblem: boolean
   createdAtUtc: string
   updatedAtUtc: string
+  /** S-28 (30.10.2026): код статуса заявки Импорта 40 — подпись из i18n, как в списке заявок; у транзита нет. */
+  statusCode?: number | null
 }
 
 export interface RegistryListResponse {

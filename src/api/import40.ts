@@ -1015,7 +1015,14 @@ export interface Import40CanCreateDto {
   profileComplete: boolean
   contractOk: boolean
   poaOk: boolean
+  /** C-9 (30.10.2026): код причины отказа — текст на языке клиента берётся по нему (registrationBlock). */
+  reasonCode?: RegistrationBlockCode | null
+  /** Для busy — поставка, которая заняла разовый документ. */
+  busyCaseId?: string | null
+  busyCaseNumber?: string | null
 }
+
+export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'missing'
 
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {

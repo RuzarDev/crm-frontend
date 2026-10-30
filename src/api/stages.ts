@@ -8,7 +8,7 @@ export type StageEventKind =
   | 'dtSubmitted' | 'customsRequest' | 'customsRequestAnswered' | 'customsRequestClosed'
   | 'problemSet' | 'problemAnswered' | 'problemCleared' | 'released'
   | 'svhClosed' | 'svhInvoiced' | 'svhPaid' | 'brokerInvoiced' | 'brokerPaid' | 'brokerInvoiceCancelled'
-  | 'steppedBack' | 'done' | 'cancelled' | 'borderControl'
+  | 'steppedBack' | 'done' | 'cancelled' | 'borderControl' | 'brokerPaymentUnmarked'
 
 export interface StageEvent {
   id: string

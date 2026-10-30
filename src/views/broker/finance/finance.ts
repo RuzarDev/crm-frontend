@@ -15,8 +15,20 @@ export type FinanceFilter = 'all' | 'awaiting' | 'paid' | 'invoiced'
 /** Порядок сегментов над таблицей. */
 export const FINANCE_FILTERS: FinanceFilter[] = ['all', 'awaiting', 'paid', 'invoiced']
 
-/** Заявка оплатила СВХ и ждёт счёта AQNIET (аудит §4.4: отдельный список бухгалтера). */
-export const isAwaitingAqniet = (r: FinanceRow): boolean => r.status === STATUS_PAID
+/**
+ * Заявка оплатила СВХ и ждёт счёта AQNIET (аудит §4.4: отдельный список бухгалтера). S-36 (30.10.2026): только без
+ * выставленного счёта — статус 7 держится до оплаты, и заявка с уже выставленным счётом попадала сюда (риск дубля).
+ */
+export const isAwaitingAqniet = (r: FinanceRow): boolean => r.status === STATUS_PAID && !r.aqnietInvoiceIssued
+
+/** Ссылка из плашки: есть черновик счёта — только фильтр (?case=), иначе — окно нового счёта по заявке (?caseId=). */
+export const aqnietBillingHref = (r: FinanceRow): string =>
+  r.aqnietInvoiceDraft ? `/billing?case=${r.caseId}` : `/billing?caseId=${r.caseId}`
+
+/** Этап статуса 7: счета AQNIET оплачены — «счёт оплачен» (I-2 ревью), выставлен — «ждёт оплаты счёта», нет — «ждёт счёта». */
+export const aqnietStageKey = (r: FinanceRow): string =>
+  r.aqnietInvoicePaid ? 'broker.finance.stage.aqnietPaid'
+    : r.aqnietInvoiceIssued ? 'broker.finance.stage.aqnietPay' : 'broker.finance.stage.aqniet'
 
 /** Поиск: номер, клиент, груз (без учёта регистра и пробелов). */
 export const matchesFinance = (q: string, r: FinanceRow): boolean => matchesQuery(q, [r.number, r.clientName, r.cargo])
@@ -25,7 +37,8 @@ export const inFilter = (r: FinanceRow, f: FinanceFilter): boolean => {
   switch (f) {
     case 'awaiting': return r.status === STATUS_INVOICED && !r.paymentConfirmed
     case 'paid': return r.paymentConfirmed
-    case 'invoiced': return !!r.invoicedAtUtc || r.status >= STATUS_INVOICED
+    // S-37 (30.10.2026): отменённая заявка (9) — не «счёт выставлен» (раньше попадала из-за status >= 6).
+    case 'invoiced': return r.status !== STATUS_CANCELLED && (!!r.invoicedAtUtc || r.status >= STATUS_INVOICED)
     default: return true
   }
 }

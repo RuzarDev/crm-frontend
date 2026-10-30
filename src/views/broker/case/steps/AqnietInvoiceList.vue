@@ -10,7 +10,9 @@ import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
 
 // Счета и акты AQNIET по заявке (шаг 6, и текущий, и пройденный): «Счёт/Акт № …/год» или «Черновик», статус, сумма, PDF.
-const props = defineProps<{ invoices: Import40CaseInvoiceDto[] }>()
+// S-27 (30.10.2026): canUnmark — у оплаченного счёта кнопка «Снять отметку оплаты» (руководитель); окно причины — у родителя.
+const props = defineProps<{ invoices: Import40CaseInvoiceDto[]; canUnmark?: boolean }>()
+const emit = defineEmits<{ unmark: [inv: Import40CaseInvoiceDto] }>()
 const { t } = useI18n()
 
 // 0 черновик, 1 выставлен, 2 оплачен, 3 аннулирован (как в «Счетах»).
@@ -65,6 +67,13 @@ const pdfBtn = 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rou
       >
         <PhDownloadSimple :size="16" aria-hidden="true" />{{ t('broker.case.aqniet.pdf') }}
       </button>
+      <button
+        v-if="props.canUnmark && inv.kind === 'invoice' && inv.status === 2"
+        type="button"
+        :class="pdfBtn"
+        data-aqniet-unmark
+        @click="emit('unmark', inv)"
+      >{{ t('broker.case.aqniet.unmarkPaid') }}</button>
     </li>
   </ul>
   <p v-else class="m-0 text-sm text-ink-3" data-aqniet-empty>{{ t('import40Case.invoicesEmpty') }}</p>

@@ -23,6 +23,9 @@ const reg = vi.hoisted(() => ({
   complete: null as unknown as { value: boolean },
   reason: null as unknown as { value: string | null },
   needNew: null as unknown as { value: string | null },
+  blockReason: null as unknown as { value: string | null },
+  busyCaseId: null as unknown as { value: string | null },
+  busyCaseNumber: null as unknown as { value: string | null },
   refresh: vi.fn(),
 }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
@@ -35,7 +38,10 @@ vi.mock('@/ui/message', () => ({ message: msg }))
 const aiApi = vi.hoisted(() => ({ suggest: vi.fn(), select: vi.fn(), status: vi.fn(), settings: vi.fn(), saveSettings: vi.fn(), stats: vi.fn() }))
 vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/aiTnved')>()), aiTnvedApi: aiApi }))
 vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew, refresh: reg.refresh }),
+  useClientRegistration: () => ({
+    loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew,
+    blockReason: reg.blockReason, busyCaseId: reg.busyCaseId, busyCaseNumber: reg.busyCaseNumber, refresh: reg.refresh,
+  }),
 }))
 
 import ClientWizardView from '../ClientWizardView.vue'
@@ -66,6 +72,9 @@ beforeEach(() => {
   reg.complete = ref(true)
   reg.reason = ref(null)
   reg.needNew = ref(null)
+  reg.blockReason = ref(null)
+  reg.busyCaseId = ref(null)
+  reg.busyCaseNumber = ref(null)
   reg.refresh.mockResolvedValue(undefined)
   resetAiTnvedStatus()
   aiApi.status.mockResolvedValue({ available: false, configured: false, clientsEnabled: false, provider: 'Off', model: null })
@@ -125,11 +134,40 @@ describe('ClientWizardView', () => {
     expect(router.currentRoute.value.fullPath).toBe('/import-40/company?step=contract')
   })
 
-  it('регистрация не завершена — черновик по ссылке тоже не открывается', async () => {
+  // C-1 (30.10.2026): can-create отвечает про НОВУЮ поставку (разовый документ занят этим же черновиком, документы
+  // истекли) — свой черновик или возврат на доработку открываются без проверки регистрации.
+  it('can-create = false — свой черновик по ссылке всё равно открывается', async () => {
     reg.complete.value = false
+    reg.blockReason.value = 'busy'
+    server = { ...server, cargo: 'Ноутбуки' }
     await mountAt('/import-40/new/c1')
-    expect(w.find('[data-wz-gate]').exists()).toBe(true)
-    expect(api.get).not.toHaveBeenCalled()
+    expect(w.find('[data-wz-gate]').exists()).toBe(false)
+    expect(reg.refresh).not.toHaveBeenCalled()
+    expect(api.get.mock.calls[0]?.[0]).toBe('c1')
+    expect(w.find('[data-step]').exists()).toBe(true)
+  })
+
+  it('C-9: документ занят другой поставкой — «Нужен новый документ» с номером и ссылкой на неё', async () => {
+    reg.complete.value = false
+    reg.blockReason.value = 'busy'
+    reg.busyCaseId.value = 'c9'
+    reg.busyCaseNumber.value = 'ИМ-2026-0009'
+    reg.needNew.value = 'contract'
+    await mountAt('/import-40/new')
+    const gate = w.get('[data-wz-gate]')
+    expect(gate.text()).toContain('Нужен новый документ')
+    expect(gate.text()).toContain('ИМ-2026-0009')
+    expect(gate.text()).not.toContain('Завершите регистрацию')
+    expect(gate.get('[data-wz-gate-busy]').attributes('href')).toBe('/import-40/c9')
+  })
+
+  it('C-9: договор ждёт подписи AQNIET — «Ждём подписи AQNIET», а не «Завершите регистрацию»', async () => {
+    reg.complete.value = false
+    reg.blockReason.value = 'awaitingAqniet'
+    await mountAt('/import-40/new')
+    const gate = w.get('[data-wz-gate]')
+    expect(gate.text()).toContain('Ждём подписи AQNIET')
+    expect(gate.text()).not.toContain('Завершите регистрацию')
   })
 
   it('шаг 1: «Далее» выключена при пустом грузе; после ввода — черновик создан, в шапке его номер', async () => {
@@ -451,6 +489,26 @@ describe('ClientWizardView', () => {
       expect(router.currentRoute.value.fullPath).toBe('/import-40/c1')
       expect(confirmState.open).toBe(false)
       expect(api.update).not.toHaveBeenCalled()
+    })
+
+    // Раунд 2 (30.10.2026): сервер отказал — нет действующей доверенности: пояснение и ссылка на шаг доверенности.
+    it('нет действующей доверенности — пояснение и ссылка «Подписать доверенность», мастер остаётся', async () => {
+      server = fullDraft()
+      api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
+        fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
+      api.action.mockRejectedValueOnce(Object.assign(new Error('400'), {
+        response: { status: 400, data: { error: 'Нет действующей доверенности — подпишите доверенность в «Моей компании».', code: 'poaRequired' } },
+      }))
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      await submitBtn().trigger('click')
+      await flushPromises()
+      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
+      expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
+      const note = w.get('[data-wz-poa-required]')
+      expect(note.text()).toContain('Нет действующей доверенности')
+      expect(note.get('[data-wz-poa-link]').attributes('href')).toBe('/import-40/company?step=poa')
+      expect(msg.success).not.toHaveBeenCalled()
     })
 
     it('возврат по чек-листу: незагруженные пункты — вопрос перед отправкой', async () => {

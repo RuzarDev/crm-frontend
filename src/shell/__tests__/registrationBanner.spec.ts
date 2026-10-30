@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { registrationBannerState, shouldRedirectToRegistration } from '@/shell/registrationBanner'
+import { blockReasonOf, registrationBannerState, shouldRedirectToRegistration } from '@/shell/registrationBanner'
 
 const reg = (o = {}) => ({ isClient: true, loaded: true, complete: false, nextStep: 'contract' as const, doneCount: 1, needNew: null, ...o })
 
@@ -33,5 +33,20 @@ describe('shouldRedirectToRegistration', () => {
   })
   it('состояние не загрузилось (ошибка can-create) — не уводим, даже если шаги выглядят несделанными', () => {
     expect(shouldRedirectToRegistration(reg({ loaded: false, nextStep: 'profile', doneCount: 0 }), '/home', false)).toBe(false)
+  })
+})
+
+// I-1 ревью (30.10.2026): «ждём AQNIET — от вас ничего не нужно» только если доверенность уже действует.
+describe('blockReasonOf', () => {
+  const cc = (o = {}) => ({ canCreate: false, reason: null, needNew: 'contract' as const, profileComplete: true, contractOk: false, poaOk: true, ...o })
+  it('код сервера — как есть; можно создавать — null', () => {
+    expect(blockReasonOf(cc({ reasonCode: 'busy' }), false)).toBe('busy')
+    expect(blockReasonOf(cc({ canCreate: true }), true)).toBeNull()
+    expect(blockReasonOf(null, true)).toBeNull()
+  })
+  it('без кода: договор у AQNIET и доверенность есть — ждём AQNIET; доверенности нет — missing', () => {
+    expect(blockReasonOf(cc(), true)).toBe('awaitingAqniet')
+    expect(blockReasonOf(cc({ poaOk: false }), true)).toBe('missing')
+    expect(blockReasonOf(cc({ profileComplete: false }), true)).toBe('profile')
   })
 })

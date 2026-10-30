@@ -63,7 +63,7 @@ export const canAssign = (a: CaseAuth): boolean => hasPerm(a, 'import40.assign')
  */
 export const canAssignTeam = (a: CaseAuth): boolean => canAssign(a) || hasBiz(a, 'rop')
 
-/** Право именно на роль шага, без «руководитель может всё» (для «Взять в работу»). */
+/** Право именно на роль шага, без «руководитель может всё». */
 export const hasStepPermission = (a: CaseAuth, role: StepRole): boolean => hasBiz(a, role) || hasPerm(a, PERM_FOR[role])
 
 export const assignedIdOf = (c: Import40CaseDto, role: StepRole): string | null =>
@@ -71,9 +71,13 @@ export const assignedIdOf = (c: Import40CaseDto, role: StepRole): string | null 
 export const assignedNameOf = (c: Import40CaseDto, role: StepRole): string | null =>
   (role === 'kpp' ? c.assignedKppName : c.assignedDeclarantName) || null
 
-/** «Взять в работу»: не руководителю (у него назначение), есть право на роль шага, исполнитель не назначен. */
+/**
+ * «Взять в работу»: бизнес-роль шага и исполнитель не назначен — как сервер (S-12, 30.10.2026): право import40.kpp есть
+ * и у декларанта, но строка КПП — очередь Менеджера КПП. M-6 ревью: РОП с ролью декларанта (Ирина) берёт заявку сам —
+ * сервер это разрешает; «чистому» руководителю кнопка не нужна (у него назначение).
+ */
 export const claimVisible = (a: CaseAuth, c: Import40CaseDto, role: StepRole): boolean =>
-  !canAssign(a) && hasStepPermission(a, role) && !assignedIdOf(c, role)
+  hasBiz(a, role) && !assignedIdOf(c, role)
 
 /** Шаг ведёт другой сотрудник: имя (null — имени нет, «назначен»). Руководитель не блокируется. */
 export function stepBlockedBy(a: CaseAuth, c: Import40CaseDto, role: StepRole): { name: string | null } | null {
@@ -119,8 +123,13 @@ export function hintText(h: ActionHint, t: (k: string, p?: Record<string, unknow
 export const canProblem = (a: CaseAuth): boolean => can(a, 'kpp') || can(a, 'declarant') || hasPerm(a, 'import40.problem')
 /** Пункт «Запрос таможни / проблема» в меню: заявка не в проблеме и не завершена/отменена. */
 export const showProblemAction = (a: CaseAuth, c: Import40CaseDto): boolean => canProblem(a) && !c.isProblem && c.status < 8
-/** Шаг назад: статус 1..7, администратор или import40.assign. */
-export const canStepBack = (a: CaseAuth, c: Import40CaseDto): boolean => c.status > 0 && c.status < 8 && canAssign(a)
+/**
+ * Шаг назад: статус 1..8, администратор или import40.assign. S-27 (30.10.2026, решение владельца): и с «Выполнено» —
+ * руководитель возвращает выполненную заявку (если она выполнена оплатой счёта AQNIET, сервер попросит снять отметку оплаты).
+ */
+export const canStepBack = (a: CaseAuth, c: Import40CaseDto): boolean => c.status > 0 && c.status <= 8 && canAssign(a)
+/** Снять ошибочную отметку оплаты счёта AQNIET (S-27): руководитель (import40.assign) или администратор — как сервер. */
+export const canUnmarkPaid = (a: CaseAuth): boolean => canAssign(a)
 /** Отмена: незавершённая заявка, администратор или import40.assign. */
 export const canCancel = (a: CaseAuth, c: Import40CaseDto): boolean => c.status < 8 && canAssign(a)
 /** «Счета и акты»: finance.read или администратор. */
@@ -202,6 +211,8 @@ export interface CasePerms {
   canBorderScans: boolean
   showProblemAction: boolean
   canStepBack: boolean
+  /** Снять отметку оплаты счёта AQNIET (canUnmarkPaid). */
+  canUnmarkPaid: boolean
   canCancel: boolean
   canSeeBilling: boolean
   canIssueAqnietInvoice: boolean
@@ -239,6 +250,7 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     canBorderScans: canBorderScans(a, c),
     showProblemAction: showProblemAction(a, c),
     canStepBack: canStepBack(a, c),
+    canUnmarkPaid: canUnmarkPaid(a),
     canCancel: canCancel(a, c),
     canSeeBilling: canSeeBilling(a),
     canIssueAqnietInvoice: canIssueAqnietInvoice(a),

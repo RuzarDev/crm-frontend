@@ -8,11 +8,11 @@ import type { BrokerInvoice } from '@/api/billing'
 import type { ClientShipment } from '@/api/clientShipments'
 
 const api = vi.hoisted(() => ({ list: vi.fn(), invoices: vi.fn() }))
-const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown }))
+const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown, blockReason: null as unknown, busyCaseNumber: null as unknown }))
 vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.invoices } }))
 vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete }),
+  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
 }))
 
 import ClientHomeView from '../ClientHomeView.vue'
@@ -56,6 +56,8 @@ beforeEach(async () => {
   await router.isReady()
   homeAttention.value = null
   reg.loaded = ref(true)
+  reg.blockReason = ref(null)
+  reg.busyCaseNumber = ref(null)
   reg.complete = ref(true)
   const auth = useAuthStore()
   auth.role = 'Client'

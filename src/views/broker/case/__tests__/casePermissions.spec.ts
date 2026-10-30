@@ -43,6 +43,9 @@ describe('casePermissions: роли', () => {
     expect(canAssign(a)).toBe(false)
     expect(claimVisible(a, free, 'declarant')).toBe(true)
     expect(claimVisible(a, mine, 'declarant')).toBe(false)
+    // S-12 (30.10.2026): право import40.kpp у декларанта есть, но «Взять в работу» в строке КПП — только роли КПП.
+    expect(claimVisible(a, caseDto({ status: 1 }), 'kpp')).toBe(false)
+    expect(can(a, 'kpp')).toBe(true) // допуск к действию не изменился
     expect(stepBlockedBy(a, mine, 'declarant')).toBeNull()
     expect(stepBlockedBy(a, other, 'declarant')).toEqual({ name: 'Айгерим К.' })
     expect(actionDisabled(a, other, 'declarant')).toBe(true)
@@ -51,6 +54,8 @@ describe('casePermissions: роли', () => {
     expect(actionHint(a, mine, 'declarant')).toBeNull()
     expect(showProblemAction(a, free)).toBe(true)
     expect([canStepBack(a, free), canCancel(a, free), canSeeBilling(a), canIssueAqnietInvoice(a)]).toEqual([false, false, false, false])
+    expect(canStepBack(a, caseDto({ status: 8 }))).toBe(false)
+    expect(casePerms(a, free).canUnmarkPaid).toBe(false)
     expect(canManageDraft(a, caseDto({ status: 0 }))).toBe(true)
     expect(canManageDraft(a, caseDto({ status: 1 }))).toBe(false)
     expect(readinessAvailable(a)).toBe(true)
@@ -78,7 +83,15 @@ describe('casePermissions: роли', () => {
     expect(claimVisible(a, free, 'declarant')).toBe(false)
     expect(stepBlockedBy(a, other, 'kpp')).toBeNull()
     expect([canStepBack(a, free), canCancel(a, free)]).toEqual([true, true])
+    // S-27: выполненную — тоже (шаг назад), отменённую — нет; снять отметку оплаты — может.
+    expect(canStepBack(a, caseDto({ status: 8 }))).toBe(true)
+    expect(canStepBack(a, caseDto({ status: 9 }))).toBe(false)
+    expect(casePerms(a, free).canUnmarkPaid).toBe(true)
     expect(canCompleteWithoutInvoice(a)).toBe(false)
+    // M-6 ревью: РОП с ролью декларанта (Ирина) видит «Взять в работу» в строке декларанта, но не КПП.
+    const irina = { ...a, businessRoles: ['rop', 'declarant'] }
+    expect(claimVisible(irina, free, 'declarant')).toBe(true)
+    expect(claimVisible(irina, caseDto({ status: 1 }), 'kpp')).toBe(false)
     expect(canManageDraft(a, caseDto({ status: 0 }))).toBe(true)
   })
 
@@ -104,9 +117,10 @@ describe('casePermissions: роли', () => {
 })
 
 describe('casePermissions: статусы', () => {
-  it('шаг назад — 1..7; отмена — до выполнения', () => {
+  // S-27 (30.10.2026): шаг назад и с «Выполнено» (руководитель возвращает выполненную заявку).
+  it('шаг назад — 1..8; отмена — до выполнения', () => {
     const a = USERS.admin
-    expect([0, 1, 7, 8, 9].map((status) => canStepBack(a, caseDto({ status })))).toEqual([false, true, true, false, false])
+    expect([0, 1, 7, 8, 9].map((status) => canStepBack(a, caseDto({ status })))).toEqual([false, true, true, true, false])
     expect([0, 7, 8, 9].map((status) => canCancel(a, caseDto({ status })))).toEqual([true, true, false, false])
   })
 

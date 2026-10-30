@@ -12,6 +12,7 @@ import ClientShipmentRow from '@/components/client/ClientShipmentRow.vue'
 import { clientShipmentsApi, type ClientShipment } from '@/api/clientShipments'
 import { useAuthStore } from '@/stores/auth'
 import { useClientRegistration } from '@/composables/useClientRegistration'
+import { registrationBlock } from '@/shell/registrationBanner'
 import { tabCounts, tabOf, type ShipmentTab } from '@/views/client/shipment'
 import { useBlock } from '@/views/home/useBlock'
 import { cn } from '@/ui/cn'
@@ -52,6 +53,10 @@ void cases.load()
 
 // Пока регистрация не завершена, сервер заявку не примет — кнопка выключена, подсказка объясняет почему.
 const locked = computed(() => registration.loaded.value && !registration.complete.value)
+// C-9 (30.10.2026): подсказка — правдивая причина (ждём AQNIET / документ занят поставкой № … / нужен новый).
+const lockedHint = computed(() => (locked.value
+  ? t(registrationBlock(registration.blockReason.value).tooltip, { number: registration.busyCaseNumber.value ?? '' })
+  : ''))
 const newShipment = () => router.push('/import-40/new')
 
 // ---- Вкладка (?tab=, по умолчанию «В работе» — без параметра) ----
@@ -140,7 +145,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
         <template #icon><PhFileXls :size="16" aria-hidden="true" /></template>
         {{ t('shipmentCost.excelAll') }}
       </ZButton>
-      <ZTooltip :title="locked ? t('clientHome.newLocked') : ''">
+      <ZTooltip :title="lockedHint">
         <span :tabindex="locked ? 0 : undefined" :class="cn('inline-flex rounded-row outline-hidden focus-visible:shadow-focus max-sm:w-full', !hasCost && 'ml-auto')">
           <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
             <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
@@ -227,7 +232,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       <div v-else-if="!hasAny" class="rounded-panel border border-dashed border-line-strong" data-client-empty="none">
         <ZEmpty :title="t('clientHome.emptyTitle')" :hint="t('clientHome.emptyText')">
           <template #action>
-            <ZTooltip :title="locked ? t('clientHome.newLocked') : ''">
+            <ZTooltip :title="lockedHint">
               <span :tabindex="locked ? 0 : undefined" class="inline-flex rounded-row outline-hidden focus-visible:shadow-focus">
                 <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
                   <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>

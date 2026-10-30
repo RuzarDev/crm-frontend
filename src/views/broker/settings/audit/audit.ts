@@ -20,6 +20,8 @@ export const AUDIT_ACTIONS = [
   'user.password_reset', 'user.password_change',
   'client.block', 'document.revoke', 'declaration.delete',
   'user.create', 'user.delete', 'client.invite', 'client.unblock', 'document.sign.upload', 'invoice.remind', 'organization.update',
+  // S-27 (30.10.2026): отмена сделанного по заявке руководителем.
+  'invoice.cancel', 'invoice.unmark_paid', 'import40.reopen',
 ] as const
 
 /** Вид действия → тон точки: права/роли — фиолетовый, пароли — охра, отзыв/блокировка — красный, остальное — синий. */
@@ -27,6 +29,7 @@ const KIND: Record<string, ZTone> = {
   'role.permissions': 'submitted', 'role.reset': 'submitted', 'user.role': 'submitted', 'user.roles': 'submitted', 'user.poa': 'submitted',
   'user.password_reset': 'wait', 'user.password_change': 'wait',
   'client.block': 'danger', 'document.revoke': 'danger', 'declaration.delete': 'danger',
+  'invoice.cancel': 'danger', 'invoice.unmark_paid': 'wait', 'import40.reopen': 'wait',
 }
 export const auditTone = (action: string): ZTone => KIND[action.trim().toLowerCase()] ?? 'info'
 

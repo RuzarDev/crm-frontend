@@ -5,6 +5,9 @@ import { useI18n } from 'vue-i18n'
 import { PhArrowClockwise, PhDownloadSimple, PhPaperclip, PhPlus } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
+import ZField from '@/components/z/ZField.vue'
+import ZModal from '@/components/z/ZModal.vue'
+import ZTextarea from '@/components/z/ZTextarea.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
 import ZTable from '@/components/z/ZTable.vue'
 import ZTag from '@/components/z/ZTag.vue'
@@ -27,7 +30,7 @@ import { useConfirm } from '@/ui/confirm'
 import type { ZColumn } from '@/ui/table'
 import CreateBillingDocModal, { type BillingDocPreset } from './CreateBillingDocModal.vue'
 import {
-  KIND_FILTERS, STATUS_FILTERS, ST_CANCELLED, ST_DRAFT, billingExcelRows, billingStats, docTitle, dueDay, filterBilling,
+  KIND_FILTERS, STATUS_FILTERS, ST_CANCELLED, ST_DRAFT, ST_PAID, billingExcelRows, billingStats, docTitle, dueDay, filterBilling,
   menuActions, overdueDays, pdfFileName, primaryAction, statusCounts, statusLabelKey, statusTone,
   type BillingAction, type BillingKindFilter, type BillingStatusFilter,
 } from './billing'
@@ -268,11 +271,33 @@ const remove = async (r: BrokerInvoice) => {
     await board.load()
   })
 }
+// S-27 (30.10.2026): оплаченный счёт по заявке — с причиной: если заявка выполнена этой оплатой, сервер вернёт её на шаг
+// «Ждёт оплаты услуг AQNIET» (это может руководитель; бухгалтеру сервер ответит, кто может).
+const cancelPaid = ref<BrokerInvoice | null>(null)
+const cancelPaidOpen = ref(false)
+const cancelReason = ref('')
 const cancelDoc = async (r: BrokerInvoice) => {
   if (isBusy()) return
+  if (r.status === ST_PAID && r.caseId) {
+    cancelPaid.value = r
+    cancelReason.value = ''
+    cancelPaidOpen.value = true
+    return
+  }
   if (!(await ask(t('billing.cancelConfirm'), t('broker.billing.action.cancel'), true))) return
   await run(r, async () => {
     await billingApi.cancel(r.id)
+    message.success(t('broker.billing.cancelledOk'))
+    await board.load()
+  })
+}
+const submitCancelPaid = async () => {
+  const r = cancelPaid.value
+  const reason = cancelReason.value.trim()
+  if (!r || !reason) return
+  await run(r, async () => {
+    await billingApi.cancel(r.id, reason)
+    cancelPaidOpen.value = false
     message.success(t('broker.billing.cancelledOk'))
     await board.load()
   })
@@ -465,5 +490,23 @@ const exportExcel = async () => {
       @update:open="onCreateOpen"
       @created="board.load()"
     />
+
+    <ZModal
+      v-if="canWrite"
+      :open="cancelPaidOpen"
+      :title="t('billing.cancelPaidTitle')"
+      :ok-text="t('broker.billing.action.cancel')"
+      :cancel-text="t('common.cancel')"
+      :confirm-loading="!!cancelPaid && busy === cancelPaid.id"
+      :ok-button-props="{ disabled: !cancelReason.trim(), danger: true }"
+      data-billing-cancel-paid
+      @update:open="(v: boolean) => { if (!v && !busy) cancelPaidOpen = false }"
+      @ok="submitCancelPaid"
+    >
+      <p class="m-0 mb-3 text-sm text-ink-3">{{ t('billing.cancelPaidHint') }}</p>
+      <ZField :label="t('billing.reasonLabel')" required>
+        <ZTextarea v-model:value="cancelReason" :rows="3" :maxlength="500" :placeholder="t('billing.reasonPh')" data-billing-cancel-reason />
+      </ZField>
+    </ZModal>
   </div>
 </template>

@@ -28,6 +28,9 @@ import type { ZColumn } from '@/ui/table'
 const { t } = useI18n()
 const router = useRouter()
 const { statusLabel } = useImport40Status()
+// S-28 (30.10.2026): статус заявки Импорта 40 — из i18n по коду, как в фильтре и списке заявок (сервер подписывал по-своему:
+// фильтр «Новая», а колонка «Черновик»). Транзит — подпись сервера.
+const rowStatus = (r: RegistryRowDto) => (r.serviceType === 'import40' && r.statusCode != null ? statusLabel(r.statusCode) : r.statusLabel)
 
 type RegistryType = 'all' | 'import40' | 'transit'
 const PAGE_SIZE = 25
@@ -123,7 +126,7 @@ const exportExcel = async () => {
       [c('number')]: r.number ?? '',
       [c('title')]: r.title,
       [c('client')]: r.clientName,
-      [c('status')]: r.statusLabel,
+      [c('status')]: rowStatus(r),
       [c('created')]: created(r.createdAtUtc),
     })))
   } catch {
@@ -210,7 +213,7 @@ const resetFilters = () => {
         <span v-else-if="column.key === 'title'" class="block truncate text-sm text-ink-2" :title="record.title">{{ record.title }}</span>
         <ClientCell v-else-if="column.key === 'client'" :name="record.clientName" />
         <ZTag v-else-if="column.key === 'status'" :tone="record.isProblem ? 'danger' : 'neutral'">
-          <PhFlag v-if="record.isProblem" :size="12" weight="fill" class="mr-1" aria-hidden="true" />{{ record.statusLabel }}
+          <PhFlag v-if="record.isProblem" :size="12" weight="fill" class="mr-1" aria-hidden="true" />{{ rowStatus(record) }}
         </ZTag>
         <span v-else-if="column.key === 'created'" class="whitespace-nowrap text-sm tabular-nums text-ink-3">{{ created(record.createdAtUtc) }}</span>
       </template>

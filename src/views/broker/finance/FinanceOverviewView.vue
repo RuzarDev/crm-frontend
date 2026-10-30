@@ -23,7 +23,7 @@ import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import {
-  FINANCE_FILTERS, STATUS_PAID, filterCounts, filterFinance, financeExcelRows, hasInvoice, isAwaitingAqniet, paymentLabel,
+  FINANCE_FILTERS, STATUS_PAID, aqnietBillingHref, aqnietStageKey, filterCounts, filterFinance, financeExcelRows, hasInvoice, isAwaitingAqniet, paymentLabel,
   paymentState, paymentTone, stageTone, type FinanceFilter,
 } from './finance'
 
@@ -118,7 +118,7 @@ const customRow = (r: FinanceRow) => (canOpenCase.value
   }
   : {})
 
-const stageText = (r: FinanceRow) => (!r.isProblem && r.status === STATUS_PAID ? t('broker.finance.stage.aqniet') : statusLabel(r.status))
+const stageText = (r: FinanceRow) => (!r.isProblem && r.status === STATUS_PAID ? t(aqnietStageKey(r)) : statusLabel(r.status))
 const fileKind = (f: FinanceFile) => t(f.section === 'svh-invoice' ? 'broker.finance.fileInvoice' : 'broker.finance.fileCheck')
 
 const download = async (caseId: string, f: FinanceFile) => {
@@ -189,7 +189,7 @@ const exportExcel = async () => {
           <RouterLink
             v-for="r in shownOrders"
             :key="r.caseId"
-            :to="`/billing?caseId=${r.caseId}`"
+            :to="aqnietBillingHref(r)"
             class="inline-flex items-center rounded-field font-mono text-sm font-medium text-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11"
             :aria-label="t('broker.finance.openInBilling', { number: r.number })"
             data-finance-banner-link

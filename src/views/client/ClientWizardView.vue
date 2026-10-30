@@ -20,6 +20,7 @@ import { missingRequired } from '@/views/client/docKinds'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { useClientRegistration } from '@/composables/useClientRegistration'
+import { registrationBlock } from '@/shell/registrationBanner'
 import { buildCountryOptions, normalizeCountryCode } from '@/utils/countries'
 import { buildCustomsPostOptions } from '@/utils/customsPosts'
 import type { CustomsPostItem } from '@/types/api'
@@ -71,11 +72,28 @@ let unmounted = false
 
 const routeId = () => (typeof route.params.id === 'string' && route.params.id ? route.params.id : null)
 
-// ---- Регистрация: пока не завершена, вместо мастера — панель (раньше черновик открывался без проверки) ----
+// ---- Регистрация: пока не завершена, вместо НОВОЙ поставки — панель ----
+// C-1 (30.10.2026): проверка — только для /import-40/new без id. Свой черновик или возврат на доработку открываются
+// сразу: can-create отвечает про новую поставку и считает разовый документ, привязанный к этому же черновику, занятым
+// (или документы истекли после создания черновика) — раньше клиент не мог дописать свою же заявку.
 const gateTarget = computed(() =>
   registration.needNew.value ? `/import-40/company?step=${registration.needNew.value}` : '/import-40/company',
 )
+// C-9: правдивая причина — ждём AQNIET / документ занят поставкой № … / нужен новый документ.
+const block = computed(() => registrationBlock(registration.blockReason.value))
+const gateDescription = computed(() => {
+  if (!block.value.companyAction) return registration.reason.value || t(block.value.text)
+  return t(block.value.text, { number: registration.busyCaseNumber.value ?? '' })
+})
+const busyCaseLink = computed(() => {
+  const id = registration.busyCaseId.value
+  return registration.blockReason.value === 'busy' && id ? `/import-40/${id}` : null
+})
 const checkRegistration = async () => {
+  if (routeId()) {
+    await open(routeId())
+    return
+  }
   phase.value = 'checking'
   await registration.refresh()
   if (!registration.loaded.value) {
@@ -194,14 +212,18 @@ onMounted(() => { void checkRegistration() })
 
 // Смена адреса без пересоздания экрана: «Оформить поставку» из открытого черновика или переход на другой черновик.
 // Свой replace после создания (/new → /new/:id) — тот же черновик, ничего не делаем.
+// C-1: на черновик — сразу (даже с панели регистрации); на новую поставку — через проверку регистрации.
 watch(() => route.params.id, () => {
-  if (phase.value === 'checking' || phase.value === 'gate' || phase.value === 'regError') return
   const id = routeId()
-  if (id && id === caseId.value) return
+  if (phase.value === 'checking') return
+  const blocked = phase.value === 'gate' || phase.value === 'regError'
+  if (!id && blocked) return
+  if (id && id === caseId.value && !blocked) return
   if (!id && !caseId.value && phase.value === 'ready') return
   leaving = false
   departing = false
-  void open(id)
+  if (id) void open(id)
+  else void checkRegistration()
 })
 
 // ---- Автосохранение: каждое изменение — через 800 мс после последнего; смена шага — сразу ----
@@ -258,6 +280,8 @@ const nextLabel = computed(() => (step.value < LAST ? t(`client.wizard.next.${ST
 
 // ---- Отправка на оформление: сервер требует ≥ 1 файла; без обязательных по чек-листу — спрашиваем ----
 const submitting = ref(false)
+/** Сервер отказал в отправке: нет действующей доверенности (код poaRequired). */
+const poaRequired = ref(false)
 const submitBlock = computed(() => {
   if (step.value !== LAST) return ''
   if (docs.busy.value) return t('client.wizard.submitUploading')
@@ -312,8 +336,10 @@ const submit = async () => {
     // Переход сорвался (отменён другим переходом и т.п.) — мастер остаётся с закрытой отправкой и ссылкой
     // «Открыть поставку»; страж ухода не возвращаем: сохранять уже нечего.
     await router.push(`/import-40/${id}`)
-  } catch {
-    // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик.
+  } catch (e: unknown) {
+    // Текст ошибки (в т.ч. «приложите хотя бы один документ») уже показал общий перехватчик. Раунд 2 (30.10.2026):
+    // без действующей доверенности — ещё и пояснение со ссылкой на шаг доверенности (черновик при этом сохранён).
+    poaRequired.value = (e as { response?: { data?: { code?: string } } })?.response?.data?.code === 'poaRequired'
   } finally {
     submitting.value = false
   }
@@ -466,12 +492,18 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
     <div v-else-if="phase === 'gate'" class="flex max-w-[720px] flex-col gap-5" data-wz-gate>
       <h1 class="m-0 text-[23px] leading-8 font-semibold tracking-[-0.02em] text-ink sm:text-2xl">{{ t('client.wizard.title') }}</h1>
       <ZAskBanner
-        :title="t('client.wizard.gate.title')"
-        :description="registration.reason.value || t('client.wizard.gate.text')"
-        :action-text="t('client.wizard.gate.action')"
+        :title="t(block.title)"
+        :description="gateDescription"
+        :action-text="block.companyAction ? t('client.wizard.gate.openCompany') : t('client.wizard.gate.action')"
         data-wz-gate-banner
         @action="router.push(gateTarget)"
       />
+      <RouterLink
+        v-if="busyCaseLink"
+        :to="busyCaseLink"
+        class="-ml-2 inline-flex min-h-11 items-center gap-1 self-start rounded-field px-2 text-sm font-medium text-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus sm:min-h-9"
+        data-wz-gate-busy
+      >{{ t('client.wizard.gate.openCase', { number: registration.busyCaseNumber.value }) }}</RouterLink>
       <RouterLink
         to="/import-40"
         class="-ml-2 inline-flex min-h-11 items-center gap-1 self-start rounded-field px-2 text-sm text-ink-2 no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-9"
@@ -678,6 +710,19 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
               class="m-0 text-[12.5px] text-muted max-sm:text-center sm:text-right"
               data-wz-submit-why
             >{{ submitBlock }}</p>
+            <p
+              v-if="poaRequired && !submittedId"
+              role="alert"
+              class="m-0 text-[12.5px] text-ink-2 max-sm:text-center sm:text-right"
+              data-wz-poa-required
+            >
+              {{ t('client.wizard.poaRequired') }}
+              <RouterLink
+                to="/import-40/company?step=poa"
+                class="inline-flex min-h-11 items-center rounded-field px-1 font-semibold text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-8"
+                data-wz-poa-link
+              >{{ t('client.wizard.poaRequiredLink') }}</RouterLink>
+            </p>
             <p v-if="saveState === 'failed'" class="m-0 flex items-center justify-center gap-1.5 text-[12.5px] text-ink-2 sm:hidden" data-wz-phone-failed>
               <PhWarningCircle :size="14" weight="bold" class="text-danger" aria-hidden="true" />
               {{ t('client.wizard.status.failed') }} —
