@@ -4,6 +4,12 @@ import { i18n } from '@/i18n'
 import { heicErrorKey, heicErrorName } from '@/utils/heic'
 import { loginPath } from '@/router/safePath'
 
+// Коды отказа входа сервера → ключи i18n (ревью M-9, 30.10.2026).
+const LOGIN_ERROR_KEYS: Record<string, string> = {
+  'Auth.InviteNotAccepted': 'errors.inviteNotAccepted',
+  'Auth.Blocked': 'errors.accountBlocked',
+}
+
 // Флаг для отдельного запроса: перехватчик не покажет свой тост об ошибке —
 // экран сам рисует ошибку (свой Result/Alert, форма «ссылка недействительна» и т.п.).
 // Без этого пользователь видел одно и то же сообщение дважды (аудит 2026-09-28, п.1.1).
@@ -165,8 +171,10 @@ apiClient.interceptors.response.use(
       if (status === 401) {
         if (isLoginRequest) {
           // Путь клиента: «заблокирован» / «завершите приглашение» приходят с кодом ≠ InvalidCredentials.
+          // Известные коды — текстом на языке интерфейса (ревью M-9, 30.10.2026): detail сервера только по-русски.
           const code = error.response.data?.title
-          const custom = code && code !== 'Auth.InvalidCredentials' ? error.response.data?.detail : null
+          const known = code ? LOGIN_ERROR_KEYS[code] : undefined
+          const custom = known ? t(known) : code && code !== 'Auth.InvalidCredentials' ? error.response.data?.detail : null
           if (!silent) errorToast('auth-login', custom || t('errors.invalidCredentials'))
         } else if (!sessionExpiredHandled) {
           // первый 401 в пачке: чистим сессию, показываем ОДНУ плашку и один раз

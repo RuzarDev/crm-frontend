@@ -303,5 +303,8 @@ describe('InviteAcceptView', () => {
     await open(InviteAcceptView, '/invite/tok')
     expect(w.find('h2').text()).toBe('Ссылка недействительна')
     expect(w.get('a[href="/login"]').text()).toBe('На страницу входа')
+    // C-8 (30.10.2026): истёкшая ссылка — пароль можно задать через «Забыли пароль» (сброс завершает регистрацию).
+    expect(w.text()).toContain('Задайте пароль через «Забыли пароль»')
+    expect(w.get('[data-invite-forgot]').attributes('href')).toBe('/forgot-password')
   })
 })

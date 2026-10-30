@@ -19,7 +19,8 @@ export interface VerifyDocument {
   kind: 'contract' | 'poa'
   number: string
   generatedAtUtc: string
-  status: 'active' | 'awaiting' | 'expired' | 'revoked'
+  // consumed — разовый документ израсходован выполненной поставкой (C-20, 30.10.2026).
+  status: 'active' | 'awaiting' | 'expired' | 'revoked' | 'consumed'
   validUntilUtc: string | null
   revokedAtUtc: string | null
   clientName: string

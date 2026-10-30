@@ -122,6 +122,18 @@ describe('InviteClientModal: результат', () => {
     expect(w.text()).toContain('Приглашение создано')
     expect((w.get('[data-invite-url]').element as HTMLInputElement).value).toBe(`${window.location.origin}/invite/tok123`)
     expect(w.emitted('invited')).toEqual([[RESPONSE]])
+    expect(w.find('[data-invite-same-bin]').exists()).toBe(false)
+  })
+
+  // C-25 (раунд 1, 30.10.2026): БИН уже есть у другого клиента — приглашение создано, но окно предупреждает.
+  it('БИН уже зарегистрирован — предупреждение с названиями компаний', async () => {
+    api.invite.mockResolvedValue({ ...RESPONSE, sameBinCompanies: ['ТОО ТЕСТ', 'ТОО ТЕСТ 2'] })
+    await mountModal()
+    await fill('client@company.kz', '000000000000')
+    await w.get('[data-ok]').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Приглашение создано')
+    expect(w.get('[data-invite-same-bin]').text()).toContain('Этот БИН уже зарегистрирован: «ТОО ТЕСТ», «ТОО ТЕСТ 2»')
   })
 
   it('«Скопировать» кладёт ссылку в буфер и показывает тост; без буфера — просьба скопировать вручную', async () => {

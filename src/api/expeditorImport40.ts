@@ -1,15 +1,10 @@
 import apiClient from './client'
 
-// Импорт 40 глазами логиста (экспедитора), только чтение (17.10): свои клиенты с текущим договором и их поставки —
-// статус груза без денег и внутренних заметок. Скачивание договора — те же адреса, что у клиента (сервер пускает
-// экспедитора этого клиента на чтение).
-export interface ExpeditorContractFile {
-  id: string
-  /** client-signed | provider-signed */
-  section: string
-  fileName: string
-}
+// Импорт 40 глазами логиста (экспедитора), только чтение (17.10): свои клиенты со статусом договора и доверенности и их
+// поставки — статус груза без денег и внутренних заметок. Файлы и содержимое договора логисту не отдаются (раунд 1,
+// решение владельца 30.10.2026): сервер отвечает 403 на договор и файлы клиента.
 
+/** Текущий договор или доверенность клиента — только статус. */
 export interface ExpeditorContract {
   id: string
   number: string
@@ -20,7 +15,6 @@ export interface ExpeditorContract {
   providerSigned: boolean
   validUntilUtc: string | null
   generatedAtUtc: string
-  signedFiles: ExpeditorContractFile[]
 }
 
 export interface ExpeditorClient {
@@ -28,6 +22,8 @@ export interface ExpeditorClient {
   name: string
   innBin: string
   contract: ExpeditorContract | null
+  /** Текущая доверенность (раунд 1, 30.10.2026). */
+  poa?: ExpeditorContract | null
 }
 
 export interface ExpeditorShipment {
@@ -52,16 +48,8 @@ export interface ExpeditorImport40 {
   shipments: ExpeditorShipment[]
 }
 
-const company = (clientId: string) => `/import40/company/${encodeURIComponent(clientId)}`
-
 export const expeditorImport40Api = {
   // silent — экран показывает свою ошибку с «Повторить».
   overview: async (): Promise<ExpeditorImport40> =>
     (await apiClient.get<ExpeditorImport40>('/import40/expeditor/overview', { silent: true })).data,
-  /** Договор (DOCX, сформированный по текущим реквизитам). */
-  downloadContract: async (clientId: string): Promise<Blob> =>
-    (await apiClient.get(`${company(clientId)}/contract/download`, { responseType: 'blob' })).data as Blob,
-  /** Подписанный файл договора (как загрузили стороны). */
-  downloadSignedFile: async (clientId: string, fileId: string): Promise<Blob> =>
-    (await apiClient.get(`${company(clientId)}/contract/files/${encodeURIComponent(fileId)}/download`, { responseType: 'blob' })).data as Blob,
 }

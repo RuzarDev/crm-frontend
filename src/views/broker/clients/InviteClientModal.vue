@@ -149,6 +149,15 @@ const serviceOptions = computed(() => [
         :message="result.reissued ? t('admin.ssylkaPerevypuschena') : t('admin.priglashenieSozdano')"
         :description="t('admin.skopiruyteSsylkuIOtpravte')"
       />
+      <!-- C-25 (раунд 1, 30.10.2026): этот БИН уже есть у другого клиента — приглашение создано, но, возможно, это дубль компании. -->
+      <ZAlert
+        v-if="result.sameBinCompanies?.length"
+        type="warning"
+        show-icon
+        :message="t('broker.clients.inviteModal.sameBin', { names: result.sameBinCompanies.map((n) => `«${n}»`).join(', ') })"
+        :description="t('broker.clients.inviteModal.sameBinHint')"
+        data-invite-same-bin
+      />
       <div class="flex gap-2">
         <ZInput :value="url" readonly mono :aria-label="t('broker.clients.inviteModal.link')" class="min-w-0 flex-1 max-sm:h-11" data-invite-url />
         <ZButton variant="primary" class="shrink-0 max-sm:h-11" data-invite-copy @click="copy">

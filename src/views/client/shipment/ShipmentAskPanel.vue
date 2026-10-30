@@ -117,6 +117,10 @@ const sendReply = async () => {
   }
 }
 
+// Ревью I-1 (30.10.2026, C-13): возвращённую на доработку поставку клиент не отменяет — её уже вёл AQNIET, отменяет
+// менеджер (сервер отвечает 409). Признаки возврата — как на сервере (Import40Endpoints.IsReturnedDraft).
+const canCancelDraft = computed(() =>
+  ask.value !== 'returned' && !props.caseDto.returnReason?.trim() && !props.caseDto.reworkRequested)
 // ---- Отмена черновика: сервер требует причину ----
 const cancelOpen = ref(false)
 const cancelReason = ref('')
@@ -342,7 +346,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
           :class="cn(linkBtn, secondBtn, 'bg-surface text-ink hover:bg-sunken')"
           data-draft-continue
         >{{ t('client.card.draft.continue') }}</RouterLink>
-        <ZButton variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
+        <ZButton v-if="canCancelDraft" variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
           {{ t('client.card.draft.cancel') }}
         </ZButton>
       </div>
@@ -385,7 +389,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         :class="cn(linkBtn, reworkItems.length ? cn(secondBtn, 'bg-surface text-ink hover:bg-sunken') : cn(mainBtn, 'bg-navy text-white hover:bg-navy-hover'))"
         data-draft-continue
       >{{ t('client.card.draft.continue') }}</RouterLink>
-      <ZButton variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
+      <ZButton v-if="canCancelDraft" variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
         {{ t('client.card.draft.cancel') }}
       </ZButton>
     </div>

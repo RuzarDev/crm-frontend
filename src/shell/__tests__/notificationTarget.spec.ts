@@ -64,4 +64,10 @@ describe('notificationTarget', () => {
     expect(notificationTarget(n, false, () => false)).toBeNull()
     expect(notificationTarget(n, true)).toBeNull()
   })
+  it('счёт AQNIET (C-22): клиенту — сам счёт, даже без поставки; сотруднику — как раньше', () => {
+    const withCase = { caseId: 'c1', reestrEntryId: null, type: 'Import40Transition', brokerInvoiceId: 'i 1' }
+    expect(notificationTarget(withCase, false, () => false, true)).toBe('/billing?id=i%201')
+    expect(notificationTarget({ ...withCase, caseId: null }, false, () => false, true)).toBe('/billing?id=i%201')
+    expect(notificationTarget(withCase, false, () => true, false)).toBe('/import-40/c1')
+  })
 })

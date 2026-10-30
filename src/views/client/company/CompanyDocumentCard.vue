@@ -169,7 +169,7 @@ const generate = async () => {
     await import40ContractApi.generateDocument(props.clientId, {
       kind: props.kind,
       isSingleUse: isSingle.value,
-      validUntilUtc: validUntil.value ? endOfDayUtc(validUntil.value) : null,
+      validUntilUtc: pickUntil.value && validUntil.value ? endOfDayUtc(validUntil.value) : null,
     }, { silent: true })
     message.success(t(k('generated')))
     singleUse.value = false
@@ -182,12 +182,15 @@ const generate = async () => {
     generating.value = false
   }
 }
+// C-17 (30.10.2026): срок многоразового договора сервер ставит сам — до 31 декабря года подписания (дальше «Продлить»);
+// выбранная дата всё равно заменялась. Поле даты — только у разового договора и доверенности, у многоразового — пояснение.
+const pickUntil = computed(() => props.kind === 'poa' || isSingle.value)
 const minDate = todayYmd()
-// Что будет без даты — по правилам сервера: многоразовый договор — год, разовый — без срока (до использования
-// в поставке), доверенность — до конца года.
+// Что будет без даты — по правилам сервера: разовый договор — без срока (до использования в поставке), доверенность —
+// до конца года. Многоразовому договору дату не выбирают (pickUntil).
 const validUntilHelp = computed(() => t(props.kind === 'poa'
   ? 'client.company.doc.validUntilHelpPoa'
-  : isSingle.value ? 'client.company.doc.validUntilHelpContractSingle' : 'client.company.doc.validUntilHelpContract'))
+  : 'client.company.doc.validUntilHelpContractSingle'))
 // Календарь (Reka DatePicker, ~70 КБ) нужен редко — грузим, только когда клиент раскрыл параметры.
 const ZDate = defineAsyncComponent(() => import('@/components/z/ZDate.vue'))
 const optionsOpen = ref(false)
@@ -353,9 +356,10 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
           {{ t(k('singleUse')) }}
         </ZCheckbox>
         <p v-if="multiBlocked" class="m-0 text-[13px] text-ink-3">{{ t('client.company.doc.multiBlocked') }}</p>
-        <ZField :label="t('client.company.doc.validUntilLabel')" :help="validUntilHelp" class="max-w-[260px] max-sm:max-w-none">
+        <ZField v-if="pickUntil" :label="t('client.company.doc.validUntilLabel')" :help="validUntilHelp" class="max-w-[260px] max-sm:max-w-none">
           <ZDate v-if="optionsOpen" v-model:value="validUntil" :min="minDate" allow-clear class="max-sm:h-12" data-opt-until />
         </ZField>
+        <p v-else class="m-0 text-[13px] text-ink-3" data-opt-contract-term>{{ t('client.company.doc.contractTerm') }}</p>
         <ZButton
           v-if="current"
           :loading="generating"

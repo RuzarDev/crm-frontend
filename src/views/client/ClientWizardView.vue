@@ -373,6 +373,37 @@ const finishLater = async () => {
 }
 const close = () => (caseId.value ? finishLater() : router.push('/import-40'))
 
+// ---- Отменить черновик (C-13, 30.10.2026) ----
+// Раньше отмена была только в карточке поставки, а черновик из списка и с Главной открывается здесь — брошенный черновик
+// держал разовый договор/доверенность и слал напоминания «заявка не отправлена». Только для черновика, который ещё
+// не отправляли: возвращённую на доработку поставку AQNIET уже вёл — её отменяет менеджер. Сервер требует причину.
+const canDiscard = computed(() => !!caseId.value && !submittedId.value && !returnReason.value && !reworkRequested.value)
+const discarding = ref(false)
+const discard = async () => {
+  const id = caseId.value
+  if (!id || discarding.value || finishing.value) return
+  const ok = await confirm({
+    title: t('client.wizard.discard.title', { number: number.value }),
+    content: t('client.wizard.discard.text'),
+    okText: t('client.wizard.discard.ok'),
+    cancelText: t('client.wizard.discard.cancel'),
+    danger: true,
+  })
+  if (!ok) return
+  discarding.value = true
+  shipment.cancelScheduled()
+  try {
+    await import40Api.action(id, 'cancel', t('client.wizard.discard.reason'))
+    leaving = true
+    message.success(t('client.wizard.discard.done', { number: number.value }))
+    if (await router.push('/import-40')) leaving = false
+  } catch {
+    // Текст ошибки уже показал общий перехватчик (api/client.ts).
+  } finally {
+    discarding.value = false
+  }
+}
+
 // ---- Уход со страницы: черновик сохраняем без вопроса; спрашиваем, только если сохранить не вышло ----
 const isWizardRoute = (r: RouteLocationNormalized) => r.name === 'client-wizard' || r.name === 'client-wizard-draft'
 const askLeave = (content: string) => confirm({
@@ -682,6 +713,14 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 data-wz-later
                 @click="finishLater"
               >{{ t('client.wizard.later') }}</button>
+              <button
+                v-if="canDiscard"
+                type="button"
+                :aria-busy="discarding || undefined"
+                class="cursor-pointer rounded-field border-0 bg-transparent px-1 py-2 font-sans text-sm font-medium text-tone-danger-fg outline-hidden hover:underline focus-visible:shadow-focus aria-busy:cursor-progress max-sm:hidden"
+                data-wz-discard
+                @click="discard"
+              >{{ t('client.wizard.discard.action') }}</button>
               <ZButton
                 v-if="step < LAST"
                 variant="primary"
@@ -738,6 +777,15 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
               >{{ t('client.wizard.status.retry') }}</button>
             </p>
             <p v-else-if="!submitBlock && !submittedId" class="m-0 text-center text-[12.5px] text-muted sm:hidden">{{ t('client.wizard.autosaveHint') }}</p>
+            <p v-if="canDiscard" class="m-0 text-center sm:hidden">
+              <button
+                type="button"
+                :aria-busy="discarding || undefined"
+                class="inline-flex min-h-11 cursor-pointer items-center rounded-field border-0 bg-transparent px-2 font-sans text-[13px] font-medium text-tone-danger-fg outline-hidden focus-visible:shadow-focus"
+                data-wz-discard-phone
+                @click="discard"
+              >{{ t('client.wizard.discard.action') }}</button>
+            </p>
           </div>
         </div>
       </div>

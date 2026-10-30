@@ -219,11 +219,18 @@ describe('ClientShipmentView', () => {
     expect(msg.success).toHaveBeenCalledWith('Черновик отменён')
   })
 
-  it('возврат на доработку — причина в панели', async () => {
+  it('возврат на доработку — причина в панели; «Отменить черновик» нет (отменяет менеджер, ревью I-1)', async () => {
     await mountCard({ status: 0, returnReason: 'Нет инвойса' })
     const panel = w.get('[data-ask="returned"]')
     expect(panel.text()).toContain('Вернули на доработку')
     expect(panel.text()).toContain('Нет инвойса')
+    expect(w.find('[data-draft-cancel]').exists()).toBe(false)
+    expect(panel.find('[data-draft-continue]').exists()).toBe(true)
+  })
+
+  it('возвращённый черновик с вопросом AQNIET — «Отменить черновик» тоже нет (ревью I-1)', async () => {
+    await mountCard({ status: 0, returnReason: '', reworkRequested: true, isProblem: true, problemClientMessage: 'Добавьте инвойс' })
+    expect(w.find('[data-draft-cancel]').exists()).toBe(false)
   })
 
   describe('возврат на доработку по чек-листу', () => {

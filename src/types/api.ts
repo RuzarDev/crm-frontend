@@ -3,7 +3,7 @@ export interface LoginRequest {
   password: string
 }
 
-// Путь клиента (2026-09-21): саморегистрация по email + БИН, экспедитор необязателен.
+// Путь клиента (2026-09-21): саморегистрация по email + БИН. Экспедитора форма не выбирает (C-31, 30.10.2026).
 export interface RegisterClientRequest {
   email: string
   password: string
@@ -12,12 +12,6 @@ export interface RegisterClientRequest {
   companyName?: string | null
   legalAddress?: string | null
   directorName?: string | null
-  expeditorId?: string | null
-}
-
-export interface ExpeditorOption {
-  id: string
-  username: string
 }
 
 export interface LoginResponse {
@@ -759,6 +753,8 @@ export interface AppNotification {
   foreignContractId?: string | null
   /** Клиент (30.10.2026, аудит S-52): «Новый клиент зарегистрировался», договор/доверенность — клик открывает его карточку. */
   clientId?: string | null
+  /** Счёт или акт AQNIET (30.10.2026, аудит C-22) — клиенту клик открывает сам счёт /billing?id=…. */
+  brokerInvoiceId?: string | null
 }
 
 // ── TNVED extended types ──────────────────────────────────────────────────────

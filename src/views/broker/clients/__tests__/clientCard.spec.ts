@@ -3,7 +3,7 @@ import type { ClientCardCase, ClientCardDoc } from '@/api/clientCard'
 import type { BrokerInvoice } from '@/api/billing'
 import type { ReestrEntry } from '@/types/api'
 import {
-  availableTabs, awaitingAqniet, canRenewPoa, caseTone, contactRows, currentDocs, directorBasisOf, docTag, invoicesOf, matchesCase,
+  availableTabs, awaitingAqniet, canRenewPoa, caseTone, contactRows, currentDocs, directorBasisOf, docTag, hasNextPoa, invoicesOf, matchesCase, nextPoaOf,
   recentCases, resolveTab, transitQuery, unpaidOf,
 } from '../clientCard'
 
@@ -140,5 +140,16 @@ describe('контакт и транзит', () => {
     expect(transitQuery(e({ 'Контейнер': 'MRSU4885849', '№': '12' }))).toBe('MRSU4885849')
     expect(transitQuery(e({ '№': '12' }))).toBe('12')
     expect(transitQuery(e({ 'Контейнер': ' ' }))).toBeNull()
+  })
+
+  it('nextPoaOf (M-8): ближайшая следующая многоразовая доверенность — ждёт подписи или действует; разовая и отозванная — нет', () => {
+    const cur = doc({ id: 'p0', kind: 'poa', status: 2, validUntilUtc: '2026-12-31T23:59:59Z' })
+    const far = doc({ id: 'p2', kind: 'poa', status: 1, validUntilUtc: '2028-12-31T23:59:59Z' })
+    const near = doc({ id: 'p1', kind: 'poa', status: 2, validUntilUtc: '2027-12-31T23:59:59Z' })
+    const single = doc({ id: 'p3', kind: 'poa', status: 1, isSingleUse: true, validUntilUtc: '2027-06-30T23:59:59Z' })
+    const revoked = doc({ id: 'p4', kind: 'poa', status: 4, validUntilUtc: '2027-03-31T23:59:59Z' })
+    expect(nextPoaOf([cur, far, near, single, revoked], cur)?.id).toBe('p1')
+    expect(nextPoaOf([cur, single, revoked], cur)).toBeNull()
+    expect(hasNextPoa([cur, far], cur)).toBe(true)
   })
 })

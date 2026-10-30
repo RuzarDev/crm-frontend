@@ -11,7 +11,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { clientsOnboardingApi, type InviteInfo } from '@/api/clientsOnboarding'
 import { useAuthStore } from '@/stores/auth'
 import type { ZRule } from '@/ui/validation'
-import { authLabelClass as labelClass, authPrimaryLinkClass } from '@/components/auth/classes'
+import { authLabelClass as labelClass, authLinkClass, authPrimaryLinkClass } from '@/components/auth/classes'
 
 // Приглашение клиента сотрудником: проверка ссылки (скелетон) → форма пароля | ссылка недействительна.
 // После установки пароля — авто-вход и «Моя компания»; если авто-вход не удался — запасное «Пароль задан».
@@ -117,9 +117,17 @@ const submit = async () => {
       <ZSkeleton height="44px" />
     </div>
 
-    <RouterLink v-else-if="state === 'invalid'" v-slot="{ href, navigate }" to="/login" custom>
-      <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('invite.toLogin') }}</a>
-    </RouterLink>
+    <!-- C-8 (30.10.2026): ссылка истекла — пароль можно задать через «Забыли пароль» (сброс завершает регистрацию). -->
+    <div v-else-if="state === 'invalid'" class="flex flex-col items-center gap-3">
+      <RouterLink v-slot="{ href, navigate }" to="/login" custom>
+        <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('invite.toLogin') }}</a>
+      </RouterLink>
+      <RouterLink
+        to="/forgot-password"
+        :class="[authLinkClass, 'text-sm font-medium no-underline']"
+        data-invite-forgot
+      >{{ t('invite.setViaForgot') }}</RouterLink>
+    </div>
 
     <RouterLink v-else-if="state === 'done'" v-slot="{ href, navigate }" to="/login" custom>
       <a ref="actionLink" :href="href" :class="authPrimaryLinkClass" @click="navigate">{{ t('invite.login') }}</a>
