@@ -11,6 +11,8 @@ export default {
     reloadPage: 'Refresh',
     generic: 'Could not complete the request. Please try again.',
     invalidCredentials: 'Invalid username or password',
+    inviteNotAccepted: 'Finish registration via the link in your invitation. If the link has expired, press “Forgot password?” and set a password from the email.',
+    accountBlocked: 'Your account is blocked. Please contact your manager.',
     loginNoToken: 'Login error: no token in the response',
   },
   // Тексты набора компонентов Z (редизайн 2026-10).
