@@ -13,7 +13,6 @@ import ZUpload from '@/components/z/ZUpload.vue'
 import { import40Api, type Import40CaseDto, type Import40FileDto } from '@/api/import40'
 import { currentRound, openItems, reworkApi, reworkList, type ReworkResponse } from '@/api/import40Rework'
 import ShipmentReworkList from '@/views/client/shipment/ShipmentReworkList.vue'
-import { useConfirm } from '@/ui/confirm'
 import type { ClientShipment } from '@/api/clientShipments'
 import { askFor } from '@/views/client/shipment'
 import { dayMonthOf } from '@/views/client/shipment/util'
@@ -145,7 +144,7 @@ const confirmCancel = async () => {
   }
 }
 
-// ---- Возврат на доработку по чек-листу (17.10): «Нужно от вас: догрузить» и «Отправить снова» ----
+// ---- Возврат на доработку по чек-листу (17.10): «Нужно от вас: догрузить» ----
 // Пункты читаются, пока поставка «вернули на доработку»; после загрузки файла карточка перечитывает заявку
 // (updatedAtUtc меняется) — и список. Сбой — без пунктов, как раньше (причина и «Продолжить заполнение»).
 const rework = shallowRef<ReworkResponse | null>(null)
@@ -171,37 +170,9 @@ const returnedText = computed(() => {
   return open.length ? t('rework.client.rowText', { list: reworkList(t, open) }) : t('rework.client.rowAllDone')
 })
 
-const { confirm } = useConfirm()
-const resending = ref(false)
-const resend = async () => {
-  if (resending.value) return
-  // Как в мастере: отправка = подтверждение, что документы полные и достоверные; незагруженное — перечисляем.
-  const open = openItems(reworkItems.value)
-  const go = await confirm(open.length
-    ? {
-        title: t('rework.client.resendWarnTitle'),
-        content: t('rework.client.resendWarnText', { list: reworkList(t, open) }),
-        okText: t('rework.client.resendOk'),
-        cancelText: t('rework.client.resendCancel'),
-      }
-    : {
-        title: t('rework.client.resendTitle'),
-        content: t('rework.client.resendResp'),
-        okText: t('rework.client.resendOk'),
-        cancelText: t('common.cancel'),
-      })
-  if (!go) return
-  resending.value = true
-  try {
-    await import40Api.action(props.caseDto.id, 'submit-for-processing')
-    message.success(t('rework.client.resent'))
-    emit('changed')
-  } catch {
-    // Текст ошибки (например, «приложите хотя бы один документ») уже показал общий перехватчик.
-  } finally {
-    resending.value = false
-  }
-}
+// 01.11.2026 (правки 30.10 п.3): «Отправить снова» убрано — дублировало «Продолжить оформление» (отправка — из мастера,
+// с одним предупреждением о незагруженном). Пока есть незагруженные пункты, главные кнопки — «Загрузить» у пунктов.
+const hasOpenItems = computed(() => openItems(reworkItems.value).length > 0)
 
 // ---- Нейтральные плашки ----
 const notice = computed<'check' | 'paid' | 'cancelled' | null>(() => {
@@ -376,17 +347,10 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
       @changed="emit('changed')"
     />
     <div :class="cn('mt-1 flex flex-col gap-2.5 sm:mt-0 sm:flex-row-reverse sm:items-center', reworkItems.length && 'sm:col-span-2 sm:ml-[50px] sm:justify-end')">
-      <ZButton
-        v-if="reworkItems.length"
-        variant="primary"
-        :class="mainBtn"
-        :loading="resending"
-        data-rework-resend
-        @click="resend"
-      >{{ t('rework.client.resend') }}</ZButton>
       <RouterLink
         :to="`/import-40/new/${shipment.id}`"
-        :class="cn(linkBtn, reworkItems.length ? cn(secondBtn, 'bg-surface text-ink hover:bg-sunken') : cn(mainBtn, 'bg-navy text-white hover:bg-navy-hover'))"
+        :class="cn(linkBtn, hasOpenItems ? cn(secondBtn, 'bg-surface text-ink hover:bg-sunken') : cn(mainBtn, 'bg-navy text-white hover:bg-navy-hover'))"
+        :data-continue-main="hasOpenItems ? undefined : ''"
         data-draft-continue
       >{{ t('client.card.draft.continue') }}</RouterLink>
       <ZButton v-if="canCancelDraft" variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">

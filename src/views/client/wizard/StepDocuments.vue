@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { PhCheck, PhCircleNotch, PhWarningCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import type { Import40FileDto } from '@/api/import40'
-import { DOC_CHECKLIST } from '@/views/client/docKinds'
+import { DOC_CHECKLIST, isDocKind, type DocKind } from '@/views/client/docKinds'
+import type { ZOption, ZOptionValue } from '@/ui/options'
 import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
 import { HEIC_ACCEPT, isIOS } from '@/utils/heic'
@@ -19,7 +21,15 @@ import RegistryPickerModal from '@/views/clientRegistry/RegistryPickerModal.vue'
 // загрузка переживает уход на другой шаг. Отправку делает мастер (кнопка в его нижней панели).
 // Удалять свои файлы клиент может только в черновике — мастер открывается лишь для черновика.
 // caseId и clientId — для «Выбрать из реестра» (волна 17.10): документ реестра клиента копируется в заявку.
-const props = defineProps<{ docs: ShipmentFilesApi; caseId?: string | null; clientId?: string | null }>()
+// requested — виды из текущего возврата на доработку (01.11.2026, правки 30.10 п.4): эти строки — первыми; requestedOpen —
+// ещё не закрытые пункты: строка подсвечена «Просит декларант».
+const props = defineProps<{
+  docs: ShipmentFilesApi
+  caseId?: string | null
+  clientId?: string | null
+  requested?: string[]
+  requestedOpen?: string[]
+}>()
 const accepted = defineModel<boolean>('accepted', { default: false })
 
 const { t, te, locale } = useI18n()
@@ -27,11 +37,25 @@ const { confirm } = useConfirm()
 const uid = useId()
 const headingId = `wz-docs-${uid}`
 
-const { loadState, pending, errors, removing, attached, filesOf, load, upload, retry, canRetry, dismiss } = props.docs
+const { loadState, pending, errors, removing, attached, guessed, kindSaving, filesOf, otherList, load, upload, retry, canRetry, dismiss } = props.docs
 // Фото iPhone (HEIC) принимаем: в JPEG его переводит браузер (Safari) или сервер (useShipmentFiles). На iOS HEIC в accept
 // не пишем: без него Safari сам отдаёт JPEG, с ним — отдал бы исходник.
 const ACCEPT = (isIOS() ? DOC_ACCEPT : [...DOC_ACCEPT, ...HEIC_ACCEPT]).join(',')
-const otherFiles = computed(() => filesOf('other'))
+
+// Запрошенный при возврате документ — первым в чек-листе (порядок внутри групп — как в чек-листе).
+const checklist = computed(() => {
+  const asked = new Set(props.requested ?? [])
+  return [...DOC_CHECKLIST.filter((d) => asked.has(d.key)), ...DOC_CHECKLIST.filter((d) => !asked.has(d.key))]
+})
+const isAsked = (key: string) => (props.requestedOpen ?? []).includes(key)
+
+// «Что это за документ?» у файла из «Других документов» (01.11.2026): виды чек-листа и «Другой документ».
+const kindOptions = computed<ZOption[]>(() => [...DOC_CHECKLIST.map((d) => d.key), 'other' as const]
+  .map((k) => ({ value: k, label: t(`client.docKind.${k}.name`) })))
+const kindValue = (f: Import40FileDto) => (isDocKind(f.docKind) ? f.docKind : null)
+const onKind = (f: Import40FileDto, v: ZOptionValue | ZOptionValue[] | null) => {
+  if (typeof v === 'string' && isDocKind(v)) void props.docs.setKind(f, v as DocKind)
+}
 
 // Список с сервера — при каждом открытии шага (уже известные файлы видны сразу, без мигания).
 void load()
@@ -148,17 +172,19 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
       role="list"
       :aria-labelledby="headingId"
       :aria-busy="loadState === 'loading' || undefined"
-      class="m-0 list-none rounded-panel border border-solid border-line p-0"
+      class="m-0 list-none overflow-hidden rounded-panel border border-solid border-line p-0"
       data-docs-checklist
     >
       <li
-        v-for="(d, i) in DOC_CHECKLIST"
+        v-for="(d, i) in checklist"
         :key="d.key"
         :class="cn(
           'grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-3.5 px-4 py-3.5 sm:px-[18px]',
           i > 0 && 'border-0 border-t border-solid border-line',
+          isAsked(d.key) && 'bg-gold-soft',
         )"
         :data-doc-kind="d.key"
+        :data-doc-asked="isAsked(d.key) || undefined"
       >
         <span :class="cn(dot(filesOf(d.key).length > 0), 'mt-px')" aria-hidden="true" data-doc-dot>
           <PhCheck v-if="filesOf(d.key).length" :size="12" weight="bold" />
@@ -167,6 +193,11 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
         <div class="min-w-0">
           <p class="m-0 text-[15px] leading-6">
             <span class="font-semibold text-ink" data-doc-name>{{ t(`client.docKind.${d.key}.name`) }}</span>
+            <span
+              v-if="isAsked(d.key)"
+              class="ml-2 inline-flex items-center rounded-pill bg-gold px-2 py-px align-[1px] text-[11.5px] leading-[18px] font-semibold text-navy"
+              data-doc-asked-tag
+            >{{ t('client.wizard.docs.asked') }}</span>
             <span v-if="filesOf(d.key).length" class="sr-only" data-doc-done>{{ t('client.wizard.docs.done') }}</span>
             <span
               :class="cn('block text-[12.5px] leading-5', d.need === 'required' && !filesOf(d.key).length ? 'text-gold-ink' : 'text-muted')"
@@ -248,19 +279,39 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
         </span>
       </ZUpload>
 
-      <ul v-if="otherFiles.length" role="list" :aria-label="t('client.wizard.docs.other')" class="m-0 flex list-none flex-col p-0 px-1" data-other-files>
-        <li v-for="f in otherFiles" :key="f.id" class="flex min-w-0 items-center gap-1.5 text-[13.5px] text-ink-3" data-doc-file>
-          <PhCheck :size="13" weight="bold" class="shrink-0 text-tone-done-fg" aria-hidden="true" />
-          <span class="min-w-0 truncate text-ink-2" :title="f.originalFileName">{{ f.originalFileName }}</span>
-          <span class="shrink-0 tabular-nums">· {{ sizeText(f.sizeBytes) }}</span>
-          <button
-            type="button"
-            :class="cn(removeBtn, 'ml-auto sm:ml-1')"
-            :aria-label="t('client.wizard.docs.removeLabel', { name: f.originalFileName })"
-            :aria-busy="removing.includes(f.id) || undefined"
-            data-doc-remove
-            @click="remove(f)"
-          >{{ t('client.wizard.docs.remove') }}</button>
+      <ul v-if="otherList.length" role="list" :aria-label="t('client.wizard.docs.other')" class="m-0 flex list-none flex-col gap-2.5 p-0 px-1" data-other-files>
+        <li v-for="f in otherList" :key="f.id" class="flex min-w-0 flex-col gap-1.5" data-doc-file :data-other-file="f.id">
+          <span class="flex min-w-0 items-center gap-1.5 text-[13.5px] text-ink-3">
+            <PhCheck :size="13" weight="bold" class="shrink-0 text-tone-done-fg" aria-hidden="true" />
+            <span class="min-w-0 truncate text-ink-2" :title="f.originalFileName">{{ f.originalFileName }}</span>
+            <span class="shrink-0 tabular-nums">· {{ sizeText(f.sizeBytes) }}</span>
+            <button
+              type="button"
+              :class="cn(removeBtn, 'ml-auto sm:ml-1')"
+              :aria-label="t('client.wizard.docs.removeLabel', { name: f.originalFileName })"
+              :aria-busy="removing.includes(f.id) || undefined"
+              data-doc-remove
+              @click="remove(f)"
+            >{{ t('client.wizard.docs.remove') }}</button>
+          </span>
+          <!-- Вид файла (01.11.2026, правки 30.10 п.4): файл засчитывается в строку чек-листа и в пункт доработки. -->
+          <span class="flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-[19px]">
+            <label :for="`${uid}-kind-${f.id}`" class="text-[13px] text-ink-2">{{ t('client.wizard.docs.kindLabel') }}</label>
+            <ZSelect
+              :id="`${uid}-kind-${f.id}`"
+              :value="kindValue(f)"
+              :options="kindOptions"
+              :placeholder="t('client.wizard.docs.kindPh')"
+              :loading="kindSaving.includes(f.id)"
+              :disabled="kindSaving.includes(f.id)"
+              size="sm"
+              :popup-width="320"
+              class="w-[min(280px,100%)] max-sm:w-full"
+              data-doc-kind-select
+              @change="(v) => onKind(f, v)"
+            />
+            <span v-if="guessed.includes(f.id)" class="text-[12.5px] text-muted" data-doc-kind-guessed>{{ t('client.wizard.docs.kindGuessed') }}</span>
+          </span>
         </li>
       </ul>
       <p v-if="pending.other?.length" class="m-0 flex items-center gap-1.5 px-1 text-[13px] text-ink-3" data-doc-uploading>

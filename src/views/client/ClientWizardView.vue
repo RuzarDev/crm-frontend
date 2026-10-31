@@ -11,12 +11,13 @@ import StepCargo from '@/views/client/wizard/StepCargo.vue'
 import StepTransport from '@/views/client/wizard/StepTransport.vue'
 import StepParties from '@/views/client/wizard/StepParties.vue'
 import StepDocuments from '@/views/client/wizard/StepDocuments.vue'
+import SubmitWarnModal from '@/views/client/wizard/SubmitWarnModal.vue'
 import { isBinOk, isCargoOk, useShipmentDraft } from '@/views/client/wizard/useShipmentDraft'
-import { useShipmentFiles } from '@/views/client/wizard/useShipmentFiles'
+import { useShipmentFiles, type RowKind } from '@/views/client/wizard/useShipmentFiles'
 import { import40ContractApi, type ClientCompanyProfileDto } from '@/api/import40Contract'
 import { import40Api } from '@/api/import40'
-import { currentRound, openItems, reworkApi, reworkList } from '@/api/import40Rework'
-import { missingRequired } from '@/views/client/docKinds'
+import { currentRound, openItems, reworkApi, reworkList, reworkTitle, type ReworkItemDto } from '@/api/import40Rework'
+import { DOC_CHECKLIST, missingRequired } from '@/views/client/docKinds'
 import { referencesApi } from '@/api/references'
 import { useAuthStore } from '@/stores/auth'
 import { useClientRegistration } from '@/composables/useClientRegistration'
@@ -43,10 +44,38 @@ const uid = useId()
 
 const shipment = useShipmentDraft()
 const { draft, caseId, number, saving, savedAt, saveError, returnReason, reworkRequested, reworkOpen } = shipment
+
+// ---- Пункты доработки (01.11.2026, правки 30.10 п.4) ----
+// Текущий возврат перечитываем при открытии и после каждой загрузки / смены вида файла: файл нужного вида закрывает
+// пункт, где бы его ни загрузили, — баннер и подсветка в чек-листе это сразу показывают. Пока не прочитали (или сбой) —
+// открытые пункты из заявки, как раньше.
+const reworkRound = shallowRef<ReworkItemDto[] | null>(null)
+let reworkSeq = 0
+const loadRework = async () => {
+  const my = ++reworkSeq
+  const id = caseId.value
+  if (!id || !(returnReason.value || reworkRequested.value)) {
+    reworkRound.value = null
+    return
+  }
+  try {
+    const r = await reworkApi.list(id, { silent: true })
+    if (my === reworkSeq) reworkRound.value = currentRound(r.items)
+  } catch {
+    // Сбой — остаются пункты из заявки.
+  }
+}
+const openRework = computed(() => (reworkRound.value ? openItems(reworkRound.value) : reworkOpen.value))
+const CHECKLIST_KEYS: string[] = DOC_CHECKLIST.map((d) => d.key)
+/** Виды текущего возврата (строки чек-листа — первыми) и ещё не закрытые (подсвечены). */
+const requestedKinds = computed(() => [...new Set((reworkRound.value ?? reworkOpen.value).map((x) => x.kind))]
+  .filter((k) => CHECKLIST_KEYS.includes(k)))
+const requestedOpenKinds = computed(() => [...new Set(openRework.value.map((x) => x.kind))].filter((k) => CHECKLIST_KEYS.includes(k)))
+
 // Баннер возврата: комментарий сотрудника; без него — пункты доработки на языке клиента (17.10).
 const returnedText = computed(() => {
   if (returnReason.value || !reworkRequested.value) return returnReason.value
-  return reworkOpen.value.length ? t('rework.client.rowText', { list: reworkList(t, reworkOpen.value) }) : t('rework.client.rowAllDone')
+  return openRework.value.length ? t('rework.client.rowText', { list: reworkList(t, openRework.value) }) : t('rework.client.rowAllDone')
 })
 
 const STEPS = ['cargo', 'transport', 'parties', 'docs'] as const
@@ -176,6 +205,8 @@ const open = async (id: string | null) => {
   docs.reset()
   docsAccepted.value = false
   submittedId.value = null
+  reworkSeq++
+  reworkRound.value = null
   void loadPosts()
   void loadProfile()
   if (!id) {
@@ -211,6 +242,7 @@ const open = async (id: string | null) => {
   reached.value = step.value
   phase.value = 'ready'
   prefillReceiver()
+  void loadRework()
 }
 
 onMounted(() => { void checkRegistration() })
@@ -235,6 +267,11 @@ watch(() => route.params.id, () => {
 watch(draft, () => {
   if (phase.value === 'ready' && !submittedId.value) shipment.scheduleSave()
 }, { deep: true })
+
+// Загрузка, удаление, смена вида файла — пункты доработки могли закрыться или снова открыться.
+watch(() => docs.files.value.map((f) => `${f.id}:${f.docKind ?? ''}`).join(','), () => {
+  if (phase.value === 'ready' && !submittedId.value) void loadRework()
+})
 
 // ---- Шаги ----
 const stepOk = (i: number) => (i === 0 ? isCargoOk(draft.cargo) : i === 2 ? isBinOk(draft.receiverBin) : true)
@@ -298,30 +335,26 @@ const canSubmit = computed(() => !!caseId.value && !submitBlock.value && !submit
 const submit = async () => {
   const id = caseId.value
   if (!id || !canSubmit.value || submitting.value) return
-  // Возврат на доработку по чек-листу (17.10): незагруженные пункты не блокируют отправку, но спрашиваем.
+  // Одно предупреждение (01.11.2026, правки 30.10 п.4а): что просил декларант (незакрытые пункты возврата) и каких
+  // обязательных документов чек-листа нет. Обязательный, который уже просит декларант, второй раз не показываем.
+  let asked: ReworkItemDto[] = []
   if (returnReason.value || reworkRequested.value) {
-    const open = await reworkApi.list(id, { silent: true }).then((r) => openItems(currentRound(r.items))).catch(() => [])
-    if (open.length) {
-      const go = await confirm({
-        title: t('rework.client.resendWarnTitle'),
-        content: t('rework.client.resendWarnText', { list: reworkList(t, open) }),
-        okText: t('rework.client.resendOk'),
-        cancelText: t('rework.client.resendCancel'),
-      })
-      if (!go) return
-    }
+    asked = await reworkApi.list(id, { silent: true }).then((r) => {
+      reworkRound.value = currentRound(r.items)
+      return openItems(reworkRound.value)
+    }).catch(() => [])
   }
-  const missing = missingRequired(docs.files.value.map((f) => f.docKind))
-  if (missing.length) {
-    const go = await confirm({
-      title: t('client.wizard.docs.missingTitle', { list: missing.map((d) => t(`client.docKind.${d.key}.name`)).join(', ') }),
-      content: t('client.wizard.docs.missingText'),
-      okText: t('client.wizard.docs.missingOk'),
-      cancelText: t('client.wizard.docs.missingCancel'),
-    })
+  const askedKinds = new Set(asked.map((x) => x.kind))
+  const missing = missingRequired(docs.files.value.map((f) => f.docKind)).filter((d) => !askedKinds.has(d.key))
+  if (asked.length || missing.length) {
+    const go = await askWarn(
+      [...new Set(asked.map((x) => reworkTitle(t, x)))],
+      missing.map((d) => t(`client.docKind.${d.key}.name`)),
+    )
     if (!go) {
-      // «Приложить» — к первой недостающей строке чек-листа.
-      void stepDocs.value?.focusKind(missing[0].key)
+      // «Сначала загрузить» — к первой строке чек-листа, которую просят или которой не хватает.
+      const first = asked.map((x) => x.kind).find((k) => CHECKLIST_KEYS.includes(k)) ?? missing[0]?.key
+      if (first) void stepDocs.value?.focusKind(first as RowKind)
       return
     }
   }
@@ -348,6 +381,24 @@ const submit = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+// Окно предупреждения: ответ — промисом, как у confirm. Закрыто без «Отправить» (крестик, Escape) — не отправляем.
+const warnOpen = ref(false)
+const warnAsked = ref<string[]>([])
+const warnRequired = ref<string[]>([])
+let warnDone: ((go: boolean) => void) | null = null
+const askWarn = (askedList: string[], requiredList: string[]) => new Promise<boolean>((done) => {
+  warnDone?.(false)
+  warnAsked.value = askedList
+  warnRequired.value = requiredList
+  warnDone = done
+  warnOpen.value = true
+})
+const answerWarn = (go: boolean) => {
+  const done = warnDone
+  warnDone = null
+  done?.(go)
 }
 
 // ---- Дозаполнить позже / закрыть ----
@@ -695,6 +746,8 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
               :docs="docs"
               :case-id="caseId"
               :client-id="authStore.userId"
+              :requested="requestedKinds"
+              :requested-open="requestedOpenKinds"
             />
           </div>
 
@@ -790,5 +843,12 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
         </div>
       </div>
     </template>
+    <SubmitWarnModal
+      v-model:open="warnOpen"
+      :asked="warnAsked"
+      :required="warnRequired"
+      @send="answerWarn(true)"
+      @upload="answerWarn(false)"
+    />
   </div>
 </template>

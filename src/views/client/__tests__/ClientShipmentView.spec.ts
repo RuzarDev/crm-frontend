@@ -279,40 +279,31 @@ describe('ClientShipmentView', () => {
       expect(api.get).toHaveBeenCalled()
     })
 
-    it('«Отправить снова» с незагруженным — предупреждение; согласие отправляет', async () => {
+    // 01.11.2026 (правки 30.10 п.3): «Отправить снова» дублировало «Продолжить оформление» — убрано; отправка — из мастера.
+    it('«Отправить снова» нет; «Загрузить» — основная кнопка пункта, «Продолжить оформление» — второстепенная', async () => {
       rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri(), ri({ id: 'r2', kind: 'packing' })] })
       await mountCard(returned)
-      await w.get('[data-rework-resend]').trigger('click')
-      await flushPromises()
-      expect(confirmState.open).toBe(true)
-      expect(confirmState.content).toBe('Ещё не загружено: Инвойс (коммерческий счёт), Упаковочный лист. Отправить заявку всё равно? Отправляя, вы подтверждаете, что документы полные и достоверные.')
+      const panel = w.get('[data-ask="returned"]')
+      expect(panel.find('[data-rework-resend]').exists()).toBe(false)
+      expect(panel.text()).not.toContain('Отправить снова')
+      const uploads = panel.findAll('[data-rework-row] button').filter((b) => b.text().includes('Загрузить'))
+      expect(uploads).toHaveLength(2)
+      for (const b of uploads) expect(b.classes()).toContain('bg-navy')
+      const cont = panel.get('[data-draft-continue]')
+      expect(cont.attributes('href')).toBe('/import-40/new/c1')
+      expect(cont.attributes('data-continue-main')).toBeUndefined()
       expect(api.action).not.toHaveBeenCalled()
-      confirmState.resolve(true)
-      await flushPromises()
-      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
-      expect(msg.success).toHaveBeenCalledWith('Заявка отправлена снова')
     })
 
-    it('всё загружено — подтверждение достоверности документов (как в мастере); отказ ничего не шлёт', async () => {
+    it('всё загружено — «Продолжить оформление» главной кнопкой, без «Отправить снова»', async () => {
       rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri({ resolvedAtUtc: '2026-10-17T06:00:00Z', resolvedFileName: 'inv.pdf' })] })
       await mountCard(returned)
-      await w.get('[data-rework-resend]').trigger('click')
-      await flushPromises()
-      expect(confirmState.title).toBe('Отправить заявку снова?')
-      expect(confirmState.content).toBe('Отправляя, вы подтверждаете, что документы полные и достоверные.')
-      confirmState.resolve(true)
-      await flushPromises()
-      expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
-
-      api.action.mockClear()
-      rework.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [ri()] })
-      w.unmount()
-      await mountCard(returned)
-      await w.get('[data-rework-resend]').trigger('click')
-      await flushPromises()
-      confirmState.resolve(false)
-      await flushPromises()
-      expect(api.action).not.toHaveBeenCalled()
+      const panel = w.get('[data-ask="returned"]')
+      expect(panel.find('[data-rework-resend]').exists()).toBe(false)
+      expect(panel.find('[data-rework-upload]').exists()).toBe(false)
+      const cont = panel.get('[data-draft-continue]')
+      expect(cont.attributes('data-continue-main')).toBe('')
+      expect(cont.classes()).toContain('bg-navy')
     })
 
     it('пункты не загрузились — перечень из заявки на языке клиента', async () => {

@@ -9,7 +9,7 @@ import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 
-const api = vi.hoisted(() => ({ listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn() }))
+const api = vi.hoisted(() => ({ listFiles: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn(), setFileKind: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const heic = vi.hoisted(() => ({ forUpload: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
@@ -17,14 +17,15 @@ vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/utils/heic', async (orig) => ({ ...(await orig<object>()), heicForUpload: heic.forUpload }))
 
 import StepDocuments from '../StepDocuments.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
 import { useShipmentFiles, type ShipmentFilesApi } from '../useShipmentFiles'
 
 let w: VueWrapper
 let docs: ShipmentFilesApi
-const mountStep = async (files: Import40FileDto[] = []) => {
+const mountStep = async (files: Import40FileDto[] = [], extra: Record<string, unknown> = {}) => {
   api.listFiles.mockResolvedValue(files)
   docs = useShipmentFiles(ref('c1'))
-  w = mountWithI18n(StepDocuments, { props: { docs }, attachTo: document.body })
+  w = mountWithI18n(StepDocuments, { props: { docs, ...extra }, attachTo: document.body })
   await flushPromises()
 }
 const row = (kind: string) => w.get(`[data-doc-kind="${kind}"]`)
@@ -45,6 +46,10 @@ beforeEach(() => {
   api.uploadFile.mockImplementation(async (_id: string, _s: string, f: File, kind: string) =>
     fileDto({ id: `up-${f.name}`, originalFileName: f.name, sizeBytes: 312_000, docKind: kind }))
   api.deleteFile.mockResolvedValue(undefined)
+  api.setFileKind.mockImplementation(async (_id: string, fileId: string, kind: string) => {
+    const f = docs.files.value.find((x) => x.id === fileId)
+    return { ...f, docKind: kind }
+  })
 })
 afterEach(() => {
   w?.unmount()
@@ -181,6 +186,85 @@ describe('StepDocuments', () => {
     await flushPromises()
     expect(api.uploadFile).toHaveBeenCalledWith('c1', 'documents', f, 'other', { silent: true })
     expect(w.get('[data-other-files]').text()).toContain('extra.pdf')
+  })
+
+  // 01.11.2026 (правки 30.10 п.4): контракт, брошенный в «Другие документы», засчитывается в строку чек-листа.
+  describe('вид файла в «Других документах»', () => {
+    const dropOther = async (f: File) => {
+      const input = w.get('[data-docs-other] input[type="file"]')
+      Object.defineProperty(input.element, 'files', { value: [f], configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+    }
+    const kindSelect = (fileId: string) => w.get(`[data-other-file="${fileId}"]`).getComponent(ZSelect)
+
+    it('вид угадан по имени — загрузка с этим видом; файл в строке чек-листа и в зоне с выбором вида', async () => {
+      await mountStep()
+      const f = pdf('Контракт+от+29.07.2026г (1).pdf')
+      await dropOther(f)
+      expect(api.uploadFile).toHaveBeenCalledWith('c1', 'documents', f, 'contract', { silent: true })
+      expect(row('contract').find('[data-doc-dot] svg').exists()).toBe(true)
+      expect(row('contract').text()).toContain('Контракт+от+29.07.2026г (1).pdf')
+      const item = w.get('[data-other-file="up-Контракт+от+29.07.2026г (1).pdf"]')
+      expect(item.text()).toContain('Что это за документ?')
+      expect(kindSelect('up-Контракт+от+29.07.2026г (1).pdf').props('value')).toBe('contract')
+      expect(item.get('[data-doc-kind-guessed]').text()).toBe('по названию файла — проверьте')
+    })
+
+    it('клиент меняет вид — PUT kind; файл переходит в другую строку, подпись «по названию» снята', async () => {
+      await mountStep()
+      await dropOther(pdf('Invoice 15.pdf'))
+      const id = 'up-Invoice 15.pdf'
+      expect(row('invoice').text()).toContain('Invoice 15.pdf')
+      kindSelect(id).vm.$emit('change', 'packing')
+      await flushPromises()
+      expect(api.setFileKind).toHaveBeenCalledWith('c1', id, 'packing')
+      expect(row('invoice').text()).not.toContain('Invoice 15.pdf')
+      expect(row('packing').text()).toContain('Invoice 15.pdf')
+      expect(kindSelect(id).props('value')).toBe('packing')
+      expect(w.get(`[data-other-file="${id}"]`).find('[data-doc-kind-guessed]').exists()).toBe(false)
+    })
+
+    it('без подсказки — «Другой документ»; старый файл без вида — пустой выбор, после выбора — в строке чек-листа', async () => {
+      await mountStep([fileDto({ id: 'old1', docKind: null, originalFileName: '3826576_261028_131924.pdf' })])
+      expect(kindSelect('old1').props('value')).toBeNull()
+      expect(kindSelect('old1').props('placeholder')).toBe('Выберите вид')
+      const f = pdf('scan_001.pdf')
+      await dropOther(f)
+      expect(api.uploadFile).toHaveBeenCalledWith('c1', 'documents', f, 'other', { silent: true })
+      expect(kindSelect('up-scan_001.pdf').props('value')).toBe('other')
+
+      kindSelect('old1').vm.$emit('change', 'invoice')
+      await flushPromises()
+      expect(api.setFileKind).toHaveBeenCalledWith('c1', 'old1', 'invoice')
+      expect(row('invoice').text()).toContain('3826576_261028_131924.pdf')
+      // Старый файл брошен не сейчас — из зоны он уходит в строку.
+      expect(w.find('[data-other-file="old1"]').exists()).toBe(false)
+    })
+
+    it('пока вид сохраняется — busy (отправка ждёт)', async () => {
+      await mountStep([fileDto({ id: 'old1', docKind: null, originalFileName: 'a.pdf' })])
+      let done!: (v: unknown) => void
+      api.setFileKind.mockImplementationOnce(() => new Promise((r) => { done = r }))
+      kindSelect('old1').vm.$emit('change', 'invoice')
+      await flushPromises()
+      expect(docs.busy.value).toBe(true)
+      done(fileDto({ id: 'old1', docKind: 'invoice', originalFileName: 'a.pdf' }))
+      await flushPromises()
+      expect(docs.busy.value).toBe(false)
+    })
+  })
+
+  // 01.11.2026 (правки 30.10 п.4): в мастере, открытом из доработки, запрошенный документ — первым и подсвечен.
+  it('запрошенные виды — первыми; незакрытые подсвечены «Просит декларант»', async () => {
+    await mountStep([], { requested: ['contract', 'permit'], requestedOpen: ['contract'] })
+    expect(w.findAll('[data-doc-kind]').map((r) => r.attributes('data-doc-kind'))).toEqual(
+      ['contract', 'permit', 'invoice', 'transport', 'packing', 'origin', 'conformity', 'certificate'])
+    expect(row('contract').attributes('data-doc-asked')).toBe('true')
+    expect(row('contract').classes()).toContain('bg-gold-soft')
+    expect(row('contract').get('[data-doc-asked-tag]').text()).toBe('Просит декларант')
+    expect(row('permit').attributes('data-doc-asked')).toBeUndefined()
+    expect(row('permit').find('[data-doc-asked-tag]').exists()).toBe(false)
   })
 
   it('пока файл грузится или удаляется — busy', async () => {

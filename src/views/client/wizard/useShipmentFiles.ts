@@ -1,7 +1,7 @@
 import { computed, reactive, ref, type Ref } from 'vue'
 import { import40Api, type Import40FileDto } from '@/api/import40'
 import { heicErrorName, heicForUpload, heicRetryable, isHeic } from '@/utils/heic'
-import { isDocKind, type DocKindDef } from '@/views/client/docKinds'
+import { guessDocKind, isDocKind, type DocKind, type DocKindDef } from '@/views/client/docKinds'
 
 // Документы черновика в мастере (шаг «Документы»): список файлов раздела documents, загрузки и удаления в пути,
 // ошибки по строкам чек-листа. Живёт в мастере, а не в шаге: загрузка, начатая на шаге 4, может закончиться,
@@ -62,9 +62,21 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
   const removing = ref<string[]>([])
   /** Имена последней удачной загрузки — для объявления скринридеру. */
   const attached = ref<string[]>([])
+  /**
+   * Файлы, брошенные в «Другие документы» в этом открытии мастера (01.11.2026, правки 30.10 п.4): остаются в списке
+   * зоны со строкой «Что это за документ?», даже когда вид угадан по имени и файл засчитан в строку чек-листа.
+   */
+  const dropped = ref<string[]>([])
+  /** Вид угадан по имени файла и клиент его не менял — подпись «по названию файла». */
+  const guessed = ref<string[]>([])
+  /** id файлов, у которых сейчас сохраняется вид. */
+  const kindSaving = ref<string[]>([])
 
-  const busy = computed(() => removing.value.length > 0 || Object.values(pending).some((l) => !!l?.length))
+  const busy = computed(() => removing.value.length > 0 || kindSaving.value.length > 0
+    || Object.values(pending).some((l) => !!l?.length))
   const filesOf = (kind: RowKind) => files.value.filter((f) => rowOf(f) === kind)
+  /** Список зоны «Другие документы»: файлы без вида (и старые, загруженные до выбора вида) и брошенные сюда сейчас. */
+  const otherList = computed(() => files.value.filter((f) => rowOf(f) === 'other' || dropped.value.includes(f.id)))
 
   // Поколение: после reset (другой черновик) результаты прежних запросов отбрасываем.
   let gen = 0
@@ -143,10 +155,14 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
     const done: string[] = []
     await Promise.all(ok.map(async (f) => {
       try {
-        const dto = await import40Api.uploadFile(id, 'documents', f, kind, { silent: true })
+        // «Другие документы»: вид — по имени файла (контракт, инвойс…), иначе «другое»; клиент может поменять.
+        const guess = kind === 'other' ? guessDocKind(f.name) : null
+        const dto = await import40Api.uploadFile(id, 'documents', f, guess ?? kind, { silent: true })
         if (my !== gen) return
         // Список с сервера мог успеть принести этот файл раньше ответа на загрузку — без дубля.
         if (!files.value.some((x) => x.id === dto.id)) files.value = [...files.value, dto]
+        if (kind === 'other') dropped.value = [...dropped.value, dto.id]
+        if (guess) guessed.value = [...guessed.value, dto.id]
         clearErrorsFor(kind, f.name)
         done.push(dto.originalFileName || f.name)
       } catch (e) {
@@ -196,6 +212,29 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
     }
   }
 
+  /**
+   * «Что это за документ?» (01.11.2026): вид у загруженного файла. Сервер засчитывает файл в пункт доработки этого вида.
+   * true — сохранено; ошибку показал общий перехватчик.
+   */
+  const setKind = async (f: Import40FileDto, kind: DocKind): Promise<boolean> => {
+    const id = caseId.value
+    if (!id || kindSaving.value.includes(f.id)) return false
+    if ((f.docKind || 'other') === kind) return true
+    const my = gen
+    kindSaving.value = [...kindSaving.value, f.id]
+    try {
+      const dto = await import40Api.setFileKind(id, f.id, kind)
+      if (my !== gen) return false
+      files.value = files.value.map((x) => (x.id === f.id ? { ...x, ...dto } : x))
+      guessed.value = guessed.value.filter((x) => x !== f.id)
+      return true
+    } catch {
+      return false
+    } finally {
+      if (my === gen) kindSaving.value = kindSaving.value.filter((x) => x !== f.id)
+    }
+  }
+
   /** Другой черновик (или новый): всё с нуля, ответы прежних запросов не применяются. */
   const reset = () => {
     gen++
@@ -205,9 +244,15 @@ export function useShipmentFiles(caseId: Ref<string | null>) {
     for (const k of Object.keys(errors) as RowKind[]) delete errors[k]
     removing.value = []
     attached.value = []
+    dropped.value = []
+    guessed.value = []
+    kindSaving.value = []
   }
 
-  return { files, loadState, pending, errors, removing, attached, busy, filesOf, load, upload, retry, canRetry, dismiss, remove, reset }
+  return {
+    files, loadState, pending, errors, removing, attached, dropped, guessed, kindSaving, busy, filesOf, otherList,
+    load, upload, retry, canRetry, dismiss, remove, setKind, reset,
+  }
 }
 
 export type ShipmentFilesApi = ReturnType<typeof useShipmentFiles>

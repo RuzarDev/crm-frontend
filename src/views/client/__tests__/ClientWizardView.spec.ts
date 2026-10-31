@@ -99,6 +99,8 @@ beforeEach(() => {
   api.update.mockImplementation(async () => server)
   api.listFiles.mockResolvedValue([])
   api.action.mockImplementation(async () => ({ ...server, status: 1 }))
+  // Пункты доработки мастер перечитывает при открытии и после загрузок — по умолчанию пусто (01.11.2026).
+  reworkApiMock.list.mockImplementation(async () => ({ comment: null, items: [] }))
   refs.listCountries.mockResolvedValue([
     { id: 'r1', code: '398', name: 'Казахстан', alpha2: 'KZ', isActive: true },
     { id: 'r2', code: '156', name: 'Китай', alpha2: 'CN', isActive: true },
@@ -420,10 +422,9 @@ describe('ClientWizardView', () => {
   })
 
   it('возврат по чек-листу без комментария — в баннере пункты на языке клиента, не русская «причина»', async () => {
-    server = caseDto({
-      id: 'c1', status: 0, cargo: 'Станки', returnReason: '', reworkRequested: true,
-      openReworkItems: [{ id: 'r1', kind: 'certificate', title: '', docKey: 'vet', note: '', tnvedCode: null, actRef: null, createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
-    })
+    const item = { id: 'r1', kind: 'certificate', title: '', docKey: 'vet', note: '', tnvedCode: null, actRef: null, createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }
+    server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: '', reworkRequested: true, openReworkItems: [item] })
+    reworkApiMock.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [item] } as never)
     await mountAt('/import-40/new/c1')
     expect(w.get('[data-wz-returned]').text()).toContain('Догрузите: Ветеринарный сертификат')
   })
@@ -491,6 +492,15 @@ describe('ClientWizardView', () => {
       clientSenderName: 'Lenovo', clientReceiverName: 'ТОО «Ромашка»',
     })
     const submitBtn = () => w.get('[data-wz-submit]')
+    const warnDialog = () => {
+      const d = document.querySelector('[role="dialog"][data-wz-warn]') as HTMLElement | null
+      expect(d).not.toBeNull()
+      return d as HTMLElement
+    }
+    const warnButton = (text: string) =>
+      [...warnDialog().querySelectorAll('button')].find((b) => b.textContent?.trim() === text) as HTMLButtonElement
+    const listOf = (dialog: HTMLElement, which: 'asked' | 'required') =>
+      [...dialog.querySelectorAll(`[data-wz-warn-${which}] li`)].map((li) => li.textContent?.trim())
     const vmDraft = () => (w.vm as unknown as { draft: { cargo: string } }).draft
     const pickInvoice = async (name: string) => {
       const input = w.get('[data-doc-kind="invoice"] [data-doc-input]')
@@ -527,7 +537,7 @@ describe('ClientWizardView', () => {
       expect(api.action).not.toHaveBeenCalled()
     })
 
-    it('не хватает обязательных — вопрос со списком; «Приложить» — к строке, «Отправить» — отправка и карточка', async () => {
+    it('не хватает обязательных — одно окно со списком; «Сначала загрузить» — к строке, «Отправить» — отправка и карточка', async () => {
       server = fullDraft()
       api.listFiles.mockResolvedValue([fileDto({ id: 'f1', docKind: 'invoice', originalFileName: 'inv.pdf' })])
       await mountAt('/import-40/new/c1')
@@ -535,19 +545,20 @@ describe('ClientWizardView', () => {
 
       await submitBtn().trigger('click')
       await flushPromises()
-      expect(confirmState.open).toBe(true)
-      expect(confirmState.title).toBe('Не приложены: Транспортный документ, Упаковочный лист, Внешнеторговый контракт')
-      expect(confirmState.content).toBe('Отправить без них? Декларант запросит недостающее.')
-      expect(confirmState.okText).toBe('Отправить')
-      expect(confirmState.cancelText).toBe('Приложить')
-      confirmState.resolve(false)
+      expect(confirmState.open).toBe(false)
+      let dialog = warnDialog()
+      expect(dialog.textContent).toContain('Не всё загружено')
+      expect(dialog.querySelector('[data-wz-warn-asked]')).toBeNull()
+      expect(listOf(dialog, 'required')).toEqual(['Транспортный документ', 'Упаковочный лист', 'Внешнеторговый контракт'])
+      warnButton('Сначала загрузить').click()
       await flushPromises()
       expect(api.action).not.toHaveBeenCalled()
       expect(document.activeElement).toBe(w.get('[data-doc-kind="transport"] [data-doc-attach]').element)
 
       await submitBtn().trigger('click')
       await flushPromises()
-      confirmState.resolve(true)
+      dialog = warnDialog()
+      warnButton('Отправить').click()
       await flushPromises()
       expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
       expect(msg.success).toHaveBeenCalledWith('Поставка отправлена на оформление')
@@ -580,7 +591,7 @@ describe('ClientWizardView', () => {
       server = { ...fullDraft(), returnReason: '', reworkRequested: true }
       api.listFiles.mockResolvedValue(['invoice', 'transport', 'packing', 'contract'].map((k, i) =>
         fileDto({ id: `f${i}`, docKind: k, originalFileName: `${k}.pdf` })))
-      reworkApiMock.list.mockResolvedValueOnce({
+      reworkApiMock.list.mockResolvedValue({
         comment: null,
         reworkRequested: true,
         items: [{ id: 'r1', kind: 'permit', title: '', docKey: 'importPermit', tnvedCode: null, actRef: null, note: '', createdAtUtc: '2026-10-17T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
@@ -590,11 +601,68 @@ describe('ClientWizardView', () => {
       await submitBtn().trigger('click')
       await flushPromises()
       expect(reworkApiMock.list).toHaveBeenCalledWith('c1', { silent: true })
-      expect(confirmState.open).toBe(true)
-      expect(confirmState.content).toBe('Ещё не загружено: Разрешение на ввоз. Отправить заявку всё равно? Отправляя, вы подтверждаете, что документы полные и достоверные.')
-      confirmState.resolve(true)
+      expect(confirmState.open).toBe(false)
+      const dialog = warnDialog()
+      expect(listOf(dialog, 'asked')).toEqual(['Разрешение на ввоз'])
+      expect(dialog.querySelector('[data-wz-warn-required]')).toBeNull()
+      warnButton('Отправить').click()
       await flushPromises()
       expect(api.action).toHaveBeenCalledWith('c1', 'submit-for-processing')
+    })
+
+    // 01.11.2026 (правки 30.10 п.4а, видео ИМ-2026-0039): раньше — два окна подряд, контракт в обоих.
+    it('возврат + нет обязательных — одно окно, два списка; контракт, который просит декларант, — только в первом', async () => {
+      server = { ...fullDraft(), returnReason: '', reworkRequested: true }
+      api.listFiles.mockResolvedValue([fileDto({ id: 'f1', docKind: 'other', originalFileName: '3826576_261028_131924.pdf' })])
+      reworkApiMock.list.mockResolvedValue({
+        comment: null,
+        reworkRequested: true,
+        items: [{ id: 'r1', kind: 'contract', title: '', docKey: null, tnvedCode: null, actRef: null, note: '', createdAtUtc: '2026-10-30T05:00:00Z', createdByName: null, resolvedAtUtc: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }],
+      } as never)
+      await mountAt('/import-40/new/c1')
+      await w.get('[data-docs-resp]').trigger('click')
+      await submitBtn().trigger('click')
+      await flushPromises()
+      const dialogs = document.querySelectorAll('[role="dialog"]')
+      expect(dialogs).toHaveLength(1)
+      const dialog = warnDialog()
+      expect(listOf(dialog, 'asked')).toEqual(['Внешнеторговый контракт'])
+      expect(listOf(dialog, 'required')).toEqual(['Инвойс (коммерческий счёт)', 'Транспортный документ', 'Упаковочный лист'])
+      expect(confirmState.open).toBe(false)
+      // «Сначала загрузить» — к строке, которую просит декларант.
+      warnButton('Сначала загрузить').click()
+      await flushPromises()
+      expect(api.action).not.toHaveBeenCalled()
+      expect(document.activeElement).toBe(w.get('[data-doc-kind="contract"] [data-doc-attach]').element)
+    })
+
+    // 01.11.2026 (правки 30.10 п.4): запрошенный документ — первым и подсвечен; файл нужного вида закрывает пункт.
+    it('возврат: запрошенная строка первой и подсвечена; после загрузки пункт перечитан — подсветки и строки в баннере нет', async () => {
+      server = { ...fullDraft(), returnReason: '', reworkRequested: true }
+      api.listFiles.mockResolvedValue([])
+      const item = { id: 'r1', kind: 'contract', title: '', docKey: null, tnvedCode: null, actRef: null, note: '', createdAtUtc: '2026-10-30T05:00:00Z', createdByName: null, resolvedFileId: null, resolvedFileName: null, resolvedByName: null }
+      reworkApiMock.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [{ ...item, resolvedAtUtc: null }] } as never)
+      await mountAt('/import-40/new/c1')
+      const rows = w.findAll('[data-doc-kind]')
+      expect(rows[0].attributes('data-doc-kind')).toBe('contract')
+      expect(rows[0].attributes('data-doc-asked')).toBe('true')
+      expect(rows[0].classes()).toContain('bg-gold-soft')
+      expect(rows[0].get('[data-doc-asked-tag]').text()).toBe('Просит декларант')
+      expect(w.findAll('[data-doc-asked]')).toHaveLength(1)
+      expect(w.get('[data-wz-returned]').text()).toContain('Догрузите: Внешнеторговый контракт')
+
+      // Контракт брошен в «Другие документы» — вид угадан по имени, сервер закрыл пункт.
+      reworkApiMock.list.mockResolvedValue({ comment: null, reworkRequested: true, items: [{ ...item, resolvedAtUtc: '2026-10-30T06:00:00Z' }] } as never)
+      api.uploadFile.mockImplementation(async (_id: string, _s: string, f: File, kind: string) => fileDto({ id: 'up1', docKind: kind, originalFileName: f.name }))
+      const input = w.get('[data-docs-other] input[type="file"]')
+      const f = new File(['%PDF'], 'Контракт+от+29.07.2026г (1).pdf', { type: 'application/pdf' })
+      Object.defineProperty(input.element, 'files', { value: [f], configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+      expect(api.uploadFile).toHaveBeenCalledWith('c1', 'documents', f, 'contract', { silent: true })
+      expect(w.findAll('[data-doc-kind]')[0].attributes('data-doc-kind')).toBe('contract')
+      expect(w.find('[data-doc-asked]').exists()).toBe(false)
+      expect(w.get('[data-wz-returned]').text()).toContain('Документы загружены')
     })
 
     it('все обязательные приложены — без вопроса; несохранённое уходит до отправки, не сохранилось — не отправляем', async () => {

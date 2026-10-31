@@ -1387,6 +1387,17 @@ export const import40Api = {
     )
   },
 
+  // Вид документа у загруженного файла (01.11.2026, правки 30.10 п.4): «Что это за документ?» у «Других документов».
+  // Файл клиента нового вида закрывает пункт доработки этого вида — как загрузка через «Приложить».
+  setFileKind: async (id: string, fileId: string, kind: string, opts?: { silent?: boolean }): Promise<Import40FileDto> => {
+    const response = await apiClient.put<Import40FileDto>(
+      `/import40/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}/kind`,
+      { kind },
+      opts?.silent ? { silent: true } : undefined,
+    )
+    return response.data
+  },
+
   calculateCustomsValue: async (
     payload: Import40CalculateCustomsValueRequest,
   ): Promise<Import40CalculateCustomsValueResult> => {

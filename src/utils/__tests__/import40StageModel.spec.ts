@@ -237,7 +237,7 @@ describe('подэтапы шага 3', () => {
     const kase = caseDto({ status: 3, declarations: [declaration({ corridor: 'yellow' })] })
     const client = declaringSubstages({ audience: 'client', kase, stages: null, invoices: [], customs: [custReq()] }, t, te)
     expect(client.map((s) => s.state)).toEqual(['done', 'done', 'current', 'todo'])
-    expect(client.map((s) => s.label)).toEqual(['Заполнение', 'Подача в КЕДЕН', 'Проверка таможней', 'Выпуск'])
+    expect(client.map((s) => s.label)).toEqual(['Заполнение', 'Подача в КЕДЕН', 'Проверка со стороны таможенных органов', 'Выпуск'])
     expect(client[2]).toMatchObject({ tone: 'ask', caption: 'жёлтый коридор · ждём ваш документ' })
     const staff = declaringSubstages({ audience: 'staff', kase, stages: null, invoices: [], customs: [custReq()] }, t, te)
     expect(staff[2]).toMatchObject({ label: 'Коридор', tone: 'problem', caption: 'жёлтый коридор · запрос документов' })

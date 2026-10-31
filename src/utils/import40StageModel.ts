@@ -310,7 +310,7 @@ const capitalize = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s)
 export type SubKey = 'fill' | 'submit' | 'check' | 'release'
 export interface SubStage { key: SubKey; label: string; state: 'done' | 'current' | 'todo'; tone: StageTone; caption: string }
 
-/** Заполнение → Подача → Проверка таможней / коридор → Выпуск — по статусу, событиям шага 3 и ручному коридору. */
+/** Заполнение → Подача → Проверка со стороны таможенных органов / коридор → Выпуск — по статусу, событиям шага 3 и ручному коридору. */
 export function declaringSubstages(input: StageInput, t: T, te: Te): SubStage[] {
   const { audience, kase, stages } = input
   const client = audience === 'client'

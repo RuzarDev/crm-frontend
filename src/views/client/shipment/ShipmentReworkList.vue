@@ -37,7 +37,8 @@ const titleOf = (x: ReworkItemDto) => reworkTitle(t, x)
 const doneText = (x: ReworkItemDto) =>
   x.resolvedFileName ? t('rework.client.uploadedFile', { file: x.resolvedFileName }) : t('rework.client.closed')
 
-const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:bg-surface [&>button]:px-3.5 [&>button]:text-sm max-sm:[&>button]:h-12 max-sm:[&>button]:w-full max-sm:[&>button]:rounded-[12px] max-sm:[&>button]:text-[15px]'
+// 01.11.2026 (правки 30.10 п.4): «Загрузить» — основная кнопка пункта (клиент на видео её не заметил рядом с текстом).
+const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:px-3.5 [&>button]:text-sm max-sm:[&>button]:h-12 max-sm:[&>button]:w-full max-sm:[&>button]:rounded-[12px] max-sm:[&>button]:text-[15px]'
 </script>
 
 <template>
@@ -66,7 +67,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:bg-surfa
         :max-size-mb="MAX_MB"
         :loading="uploading === x.id"
         :disabled="!!uploading && uploading !== x.id"
-        button-variant="secondary"
+        button-variant="primary"
         :class="uploadBtn"
         :aria-label="t('rework.client.uploadAria', { title: titleOf(x) })"
         :custom-request="({ file }) => upload(x, file)"
