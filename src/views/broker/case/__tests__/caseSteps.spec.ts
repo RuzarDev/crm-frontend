@@ -87,6 +87,9 @@ describe('caseFormat', () => {
   it('транспорт с прицепом и без', () => {
     expect(transportSummary(caseDto(), t)).toBe('Авто · 777 KTA 02 / прицеп 12 KZ 3456')
     expect(transportSummary(caseDto({ transportMode: 0, vehicleNumber: '', trailerNumber: '', wagonNumber: '52147896' }), t)).toBe('ЖД · 52147896')
+    // Несколько вагонов (01.11.2026) — все через запятую.
+    expect(transportSummary(caseDto({ transportMode: 0, vehicleNumber: '', trailerNumber: '', wagonNumber: '52147896', wagonNumbers: ['52147896', '52147897'] }), t))
+      .toBe('ЖД · 52147896, 52147897')
     expect(transportSummary(caseDto({ vehicleNumber: '', trailerNumber: '' }), t)).toBe('Авто')
   })
   it('файлы по разделам; неизвестный раздел — «Прочее»', () => {

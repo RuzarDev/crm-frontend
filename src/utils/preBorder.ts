@@ -1,4 +1,4 @@
-import type { PreBorder, PreBorderFields, PreBorderMissingKey, SerialKindMode, SerialReason } from '@/api/preBorder'
+import { wagonsOf, type PreBorder, type PreBorderFields, type PreBorderMissingKey, type SerialKindMode, type SerialReason } from '@/api/preBorder'
 import type { StageTone } from '@/utils/import40StageModel'
 import { loadXlsx } from '@/utils/xlsx'
 
@@ -11,7 +11,7 @@ type T = (k: string, p?: Record<string, unknown>) => string
 
 export const emptyPreBorderFields = (): PreBorderFields => ({
   supplierPaymentDeferred: false, paymentIds: [], loadingDate: null, loadingCity: '', loadingWarehouse: '', sealNumbers: '',
-  carrierId: null, vehicleNumber: '', trailerNumber: '', containerNumber: '', wagonNumber: '', expectedBorderDate: null,
+  carrierId: null, vehicleNumber: '', trailerNumber: '', containerNumber: '', wagonNumbers: [''], expectedBorderDate: null,
 })
 
 export const preBorderFieldsOf = (p: PreBorder): PreBorderFields => ({
@@ -25,7 +25,7 @@ export const preBorderFieldsOf = (p: PreBorder): PreBorderFields => ({
   vehicleNumber: p.vehicleNumber ?? '',
   trailerNumber: p.trailerNumber ?? '',
   containerNumber: p.containerNumber ?? '',
-  wagonNumber: p.wagonNumber ?? '',
+  wagonNumbers: wagonsOf(p).length ? [...wagonsOf(p)] : [''],
   expectedBorderDate: p.expectedBorderDate,
 })
 

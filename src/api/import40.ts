@@ -684,6 +684,13 @@ export interface Import40CaseDto {
   borderControls?: Import40BorderControlDto[]
   /** Факт СВХ против ДТ и простой (21.10.2026); null — не вносили. */
   svhFact?: Import40SvhFact | null
+  /** Все вагоны поставки по порядку (01.11.2026); wagonNumber — первый. Старый сервер поля не отдаёт. */
+  wagonNumbers?: string[]
+  /** ДХТ — документ хранения товаров, шаг «Размещение в ЗТК» (01.11.2026): номер и дата (yyyy-MM-dd); видит и клиент. */
+  dhtNumber?: string | null
+  dhtDate?: string | null
+  /** Код вида ДХТ в гр.44 по транспорту заявки: 09025 (авто, ЖД, море) или 09026 (авиа). */
+  dhtDocCode?: string
   status: number
   isProblem: boolean
   // Внутренняя заметка — сервер отдаёт клиенту пустую строку (аудит 2.9).
@@ -809,7 +816,10 @@ export interface Import40UpdateRequest {
   assignedKppId?: string | null
   assignedDeclarantId?: string | null
   transportMode?: number
+  /** Один вагон — старые экраны: сервер меняет только первый вагон списка. */
   wagonNumber?: string
+  /** Все вагоны (01.11.2026): список заменяется целиком. */
+  wagonNumbers?: string[]
   station?: string
   trailerNumber?: string
   flightNumber?: string
@@ -1092,6 +1102,10 @@ export const import40Api = {
     )
     return response.data
   },
+
+  /** ДХТ заявки (01.11.2026): пустой номер очищает; попадает в гр.44 ещё не поданных ДТ. */
+  updateDht: async (id: string, data: { number: string; date: string | null }): Promise<Import40CaseDto> =>
+    (await apiClient.put<Import40CaseDto>(`/import40/${encodeURIComponent(id)}/dht`, data)).data,
 
   /** Факт СВХ (21.10.2026): всё целиком, пустое поле очищает. */
   updateSvhFact: async (id: string, data: Import40SvhFactRequest): Promise<Import40CaseDto> =>

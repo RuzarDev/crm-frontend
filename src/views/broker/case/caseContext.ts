@@ -32,6 +32,8 @@ export interface CaseStepInfo {
   state: StepState
   /** Название (enum.step.sN). */
   title: string
+  /** Полное название, если короткое сокращено (enum.stepFull.sN) — подсказка; нет — undefined. */
+  fullTitle?: string
   executor: StepExecutor
   /** Подпись исполнителя (enum.role.*). */
   executorLabel: string

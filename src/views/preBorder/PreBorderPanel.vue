@@ -11,7 +11,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { extractServerText } from '@/api/client'
 import { import40Api } from '@/api/import40'
-import { preBorderApi, type PreBorder, type SerialNumber } from '@/api/preBorder'
+import { preBorderApi, wagonsOf, type PreBorder, type SerialNumber } from '@/api/preBorder'
 import { fieldErrors as serverFieldErrors } from '@/api/nationalLists'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
@@ -57,7 +57,9 @@ const transportLine = computed(() => {
   const x = d.value
   if (!x) return ''
   const vehicle = x.vehicleNumber ? (x.trailerNumber ? `${x.vehicleNumber} / ${x.trailerNumber}` : x.vehicleNumber) : ''
-  return [vehicle, x.wagonNumber ? t('preBorder.wagonShort', { n: x.wagonNumber }) : '', x.containerNumber ? t('preBorder.containerShort', { n: x.containerNumber }) : '']
+  // Вагоны (01.11.2026) — все, через запятую.
+  const wagons = wagonsOf(x).join(', ')
+  return [vehicle, wagons ? t('preBorder.wagonShort', { n: wagons }) : '', x.containerNumber ? t('preBorder.containerShort', { n: x.containerNumber }) : '']
     .filter(Boolean).join(' · ')
 })
 const loadingLine = computed(() => {

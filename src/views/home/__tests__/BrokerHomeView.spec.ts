@@ -117,7 +117,7 @@ describe('BrokerHomeView', () => {
     expect(tasks.findAll('[data-home-task]')).toHaveLength(2)
     expect(tasks.find('[data-home-task]').attributes('href')).toBe('/import-40/c1')
 
-    expect(panel('Заявки по этапам')!.text()).toContain('Граница')
+    expect(panel('Заявки по этапам')!.text()).toContain('Размещение в ЗТК')
     const manage = panel('Распределение')!
     expect(manage.text()).toContain('Черновики у клиентов')
     expect(manage.text()).toContain('5')

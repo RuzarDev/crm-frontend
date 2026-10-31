@@ -6,7 +6,7 @@ import type { CaseAuth } from '../casePermissions'
 import { USERS, caseDto, fileDto } from './caseFixture'
 import { mountStep } from './stepHarness'
 
-const api = vi.hoisted(() => ({ action: vi.fn() }))
+const api = vi.hoisted(() => ({ action: vi.fn(), updateDht: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
@@ -205,16 +205,58 @@ describe('StepBorder', () => {
     expect(api.action).toHaveBeenCalledWith('c1', 'border-control-remove', 'bc1', undefined)
   })
 
-  it('декларант (право import40.kpp) при назначенном КПП не отмечает прибытие и не грузит сканы; КПП без назначения — грузит', () => {
+  it('декларант при назначенном КПП не отмечает прибытие, но грузит сканы и вносит ДХТ (01.11.2026); чужой декларант — нет; КПП без назначения — грузит', () => {
     mount(USERS.declarant, { assignedKppId: 'k9', assignedKppName: 'Ерлан Б.' })
     expect(w.get('[data-border-arrived]').attributes('disabled')).toBeDefined()
     expect(w.find('[data-control-mark]').exists()).toBe(false)
+    expect(w.get('[data-docs-slot="border-scans"]').find('[data-slot-upload]').exists()).toBe(true)
+    expect(w.find('[data-dht-number]').exists()).toBe(true)
+    w.unmount()
+    mount(USERS.declarant, { assignedKppId: 'k9', assignedDeclarantId: 'd7', assignedDeclarantName: 'Ирина' })
     expect(w.get('[data-docs-slot="border-scans"]').find('[data-slot-upload]').exists()).toBe(false)
+    expect(w.find('[data-dht-number]').exists()).toBe(false)
     w.unmount()
     mount(USERS.kpp)
     expect(w.get('[data-border-arrived]').attributes('disabled')).toBeUndefined()
     expect(w.get('[data-docs-slot="border-scans"]').find('[data-slot-upload]').exists()).toBe(true)
     expect(w.get('[data-docs-slot="border-scans"] [data-slot-file-kind]').text()).toBe('CMR с отметками')
+  })
+
+  it('ДХТ (01.11.2026): КПП вносит номер и дату — PUT dht, ответ заменяет заявку; подсказка с кодом гр.44 по транспорту', async () => {
+    const { state } = mount(USERS.kpp)
+    expect(w.get('[data-dht-hint]').text()).toContain('код 09025')
+    expect(w.get('[data-dht-save]').attributes('disabled')).toBeDefined()
+    api.updateDht.mockResolvedValue(caseDto({ status: 1, dhtNumber: '55301/011126/0012345', dhtDate: '2026-11-01', dhtDocCode: '09025' }))
+    await w.get('[data-dht-number]').setValue(' 55301/011126/0012345 ')
+    await w.get('[data-dht-save]').trigger('click')
+    await flushPromises()
+    expect(api.updateDht).toHaveBeenCalledWith('c1', { number: '55301/011126/0012345', date: null })
+    expect(state.kase.dhtNumber).toBe('55301/011126/0012345')
+    expect(msg.success).toHaveBeenCalledWith('ДХТ сохранён')
+    // Пустой номер не уходит — подсказка под полем.
+    api.updateDht.mockClear()
+    await w.get('[data-dht-number]').setValue('')
+    await w.get('[data-dht-save]').trigger('click')
+    expect(api.updateDht).not.toHaveBeenCalled()
+    expect(w.get('[data-dht]').text()).toContain('Укажите номер ДХТ')
+  })
+
+  it('ДХТ: авиа — код 09026; бухгалтер видит только строку; пройденный шаг — строка с датой', () => {
+    mount(USERS.kpp, { transportMode: 2, dhtDocCode: '09026' })
+    expect(w.get('[data-dht-hint]').text()).toContain('код 09026')
+    w.unmount()
+    mount(USERS.accountant, { dhtNumber: 'ДХТ-7', dhtDate: '2026-11-01' })
+    expect(w.find('[data-dht-number]').exists()).toBe(false)
+    expect(w.get('[data-dht-line]').text()).toBe('ДХТ № ДХТ-7 от 01.11.2026')
+    w.unmount()
+    mount(USERS.kpp, { status: 2, dhtNumber: 'ДХТ-7', dhtDate: '2026-11-01' }, 'done', [])
+    expect(w.get('[data-border-done] [data-dht-line]').text()).toBe('ДХТ № ДХТ-7 от 01.11.2026')
+    expect(w.find('[data-dht-number]').exists()).toBe(false)
+  })
+
+  it('скан вида «ДХТ» — в списке видов сканов шага', () => {
+    mount(USERS.kpp, {}, 'current', [fileDto({ id: 's2', section: 'border-scans', originalFileName: 'dht.pdf', docKind: 'dht', uploadedByBusinessRole: 'kpp' })])
+    expect(w.get('[data-docs-slot="border-scans"] [data-slot-file-kind]').text()).toBe('ДХТ (документ хранения товаров)')
   })
 
   it('КПП назначен другой: «Машина прибыла» выключена у прочих КПП, руководителю доступна', () => {

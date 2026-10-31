@@ -31,7 +31,8 @@ export interface ShipmentDraft {
   vehicleNumber: string
   trailerNumber: string
   driverPhone: string
-  wagonNumber: string
+  /** Вагоны ЖД строками (01.11.2026): одна строка есть всегда, пустые на сервер не уходят. */
+  wagonNumbers: string[]
   station: string
   flightNumber: string
   airWaybill: string
@@ -66,7 +67,7 @@ export const emptyDraft = (): ShipmentDraft => ({
   vehicleNumber: '',
   trailerNumber: '',
   driverPhone: '',
-  wagonNumber: '',
+  wagonNumbers: [''],
   station: '',
   flightNumber: '',
   airWaybill: '',
@@ -90,7 +91,7 @@ export const draftPayload = (d: ShipmentDraft): Import40UpdateRequest => ({
   vehicleNumber: d.vehicleNumber.trim(),
   trailerNumber: d.trailerNumber.trim(),
   driverPhone: d.driverPhone.trim(),
-  wagonNumber: d.wagonNumber.trim(),
+  wagonNumbers: d.wagonNumbers.map((w) => w.trim()).filter(Boolean),
   station: d.station.trim(),
   flightNumber: d.flightNumber.trim(),
   airWaybill: d.airWaybill.trim(),
@@ -330,7 +331,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
       vehicleNumber: c.vehicleNumber || '',
       trailerNumber: c.trailerNumber || '',
       driverPhone: c.driverPhone || '',
-      wagonNumber: c.wagonNumber || '',
+      // Старый сервер списка не отдаёт — один вагон из wagonNumber.
+      wagonNumbers: c.wagonNumbers?.length ? [...c.wagonNumbers] : [c.wagonNumber || ''],
       station: c.station || '',
       flightNumber: c.flightNumber || '',
       airWaybill: c.airWaybill || '',

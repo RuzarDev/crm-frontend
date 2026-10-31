@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
@@ -7,6 +7,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZPhone from '@/components/z/ZPhone.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
+import WagonList from '@/components/transport/WagonList.vue'
 import { import40Api, type Import40UpdateRequest } from '@/api/import40'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
@@ -14,6 +15,7 @@ import type { ZOptionValue } from '@/ui/options'
 import CaseDocsSlot from '../CaseDocsSlot.vue'
 import CaseStepPanel from '../CaseStepPanel.vue'
 import type { CaseStepProps } from '../caseContext'
+import { caseWagons } from '../caseFormat'
 import { DRAFT_FIELDS, TRANSPORT_FIELDS, decideCommit, draftValueOf, type DraftField } from '../draftFields'
 import DraftClientData from './DraftClientData.vue'
 import DraftContainers from './DraftContainers.vue'
@@ -82,6 +84,29 @@ const commit = async (field: DraftField) => {
   if (!ok) form[field] = draftValueOf(kase.value, field) // ошибку показал перехватчик; поле — к серверному значению
 }
 const onInput = (field: DraftField) => { if (emptyError[field]) emptyError[field] = false }
+
+// ---- Вагоны (01.11.2026, пункт 1 правок 30.10): список строками, сохраняется целиком по blur/Enter/удалению строки ----
+const wagonsKey = (list: string[]) => list.map((w) => w.trim()).filter(Boolean).join('\n')
+const wagons = ref<string[]>([''])
+let syncedWagons = ''
+watch(kase, (c) => {
+  const v = caseWagons(c)
+  if (wagonsKey(wagons.value) === syncedWagons) wagons.value = v.length ? [...v] : ['']
+  syncedWagons = wagonsKey(v)
+}, { immediate: true })
+const commitWagons = async () => {
+  if (!canEdit.value) return
+  // Дать blur-у дописать значение строки (update:value приходит раньше blur, но удаление строки — синхронно).
+  await nextTick()
+  if (!(await waitIdle())) return
+  const next = wagons.value.map((w) => w.trim()).filter(Boolean)
+  if (wagonsKey(next) === wagonsKey(caseWagons(kase.value))) return
+  const ok = await save('wagonNumbers', { wagonNumbers: next })
+  if (!ok) {
+    const v = caseWagons(kase.value)
+    wagons.value = v.length ? [...v] : ['']
+  }
+}
 
 // ---- Вид транспорта ----
 const modes = computed(() => [
@@ -160,7 +185,21 @@ const phoneField = 'max-sm:h-12 max-sm:text-base'
       </ZField>
 
       <div class="grid gap-4 sm:grid-cols-2 sm:gap-x-3" data-draft-mode-fields>
-        <ZField v-for="f in modeFields" :key="f" :label="t(`broker.case.draft.${FIELD_META[f].label}`)" :error="emptyError[f] ? t('broker.case.draft.cannotBeEmpty') : undefined">
+        <WagonList
+          v-for="f in modeFields.filter((x) => x === 'wagonNumber')"
+          :key="f"
+          v-model:value="wagons"
+          :label="t('broker.case.draft.wagon')"
+          :input-class="phoneField"
+          data-draft-field="wagonNumber"
+          @commit="commitWagons"
+        />
+        <ZField
+          v-for="f in modeFields.filter((x) => x !== 'wagonNumber')"
+          :key="f"
+          :label="t(`broker.case.draft.${FIELD_META[f].label}`)"
+          :error="emptyError[f] ? t('broker.case.draft.cannotBeEmpty') : undefined"
+        >
           <ZPhone
             v-if="f === 'driverPhone'"
             v-model:value="form.driverPhone"

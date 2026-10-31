@@ -6,6 +6,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZPhone from '@/components/z/ZPhone.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
+import WagonList from '@/components/transport/WagonList.vue'
 import { useConfirm } from '@/ui/confirm'
 import type { ZOptionValue } from '@/ui/options'
 import type { ShipmentDraft } from './useShipmentDraft'
@@ -103,9 +104,8 @@ const iconButton =
         </ZField>
       </template>
       <template v-else-if="draft.transportMode === 0">
-        <ZField :label="t('client.wizard.transport.wagon')">
-          <ZInput v-model:value="draft.wagonNumber" mono inputmode="numeric" autocomplete="off" :class="phoneField" data-wz-wagon />
-        </ZField>
+        <!-- Несколько вагонов в поставке (01.11.2026, пункт 1 правок 30.10): «+ Вагон», как «+ Контейнер». -->
+        <WagonList v-model:value="draft.wagonNumbers" :label="t('client.wizard.transport.wagon')" :input-class="phoneField" data-wz-wagon />
         <ZField :label="t('client.wizard.transport.station')">
           <ZInput v-model:value="draft.station" :class="phoneField" data-wz-station />
         </ZField>

@@ -197,8 +197,10 @@ export default {
     reestrStatus: { InProgress: 'In progress', Submitted: 'Submitted', Released: 'Released', ConditionallyReleased: 'Conditionally released', Problematic: 'Problem', Rejected: 'Rejected', Withdrawn: 'Withdrawn', Archived: 'Archive' },
     import40Status: { Draft: 'New', AtBorder: 'At border', Declaring: 'Declaring', Submitted: 'DT submitted', Released: 'DT released', SvhClosing: 'Warehouse closing', Invoiced: 'Warehouse invoice issued', Paid: 'Awaiting AQNIET service payment', Cancelled: 'Cancelled', Done: 'Done', unknown: 'Unknown' },
     transportMode: { rail: 'Rail', road: 'Road', air: 'Air', sea: 'Sea' },
-    step: { s1: 'Request and documents', s2: 'Border', s3: 'Declaration and release', s4: 'TWH closing', s5: 'Warehouse (TWH) payment', s6: 'AQNIET invoice' },
-    stepClient: { s1: 'Documents', s2: 'Crossing the border', s3: 'Declaration and release', s4: 'Warehouse closing', s5: 'Warehouse (TWH) payment', s6: 'Broker service payment' },
+    step: { s1: 'Request and documents', s2: 'Customs zone placement', s3: 'Declaration and release', s4: 'TWH closing', s5: 'Warehouse (TWH) payment', s6: 'AQNIET invoice' },
+    stepClient: { s1: 'Documents', s2: 'Placement in the customs control zone', s3: 'Declaration and release', s4: 'Warehouse closing', s5: 'Warehouse (TWH) payment', s6: 'Broker service payment' },
+    // Full step names — tooltip for the short staff name (01.11.2026).
+    stepFull: { s2: 'Placement in the customs control zone' },
     role: { client: 'client', kpp: 'checkpoint officer', declarant: 'declarant', accountant: 'accountant', clientKpp: 'client and checkpoint officer', you: 'you', us: 'AQNIET', youAndUs: 'you and AQNIET' },
   },
   import40Case: {
@@ -3988,10 +3990,11 @@ export default {
           other: 'Other',
         },
         scans: 'Border scans',
-        scansHint: 'Stamped CMR, transit declaration, inspection report, photos',
+        scansHint: 'DHT, stamped CMR, transit declaration, inspection report, photos',
         scansEmpty: 'No scans yet — the declarant needs them to fill in the declaration',
         scanKind: {
           cmr: 'Stamped CMR',
+          dht: 'DHT (goods storage document)',
           transit: 'Transit declaration',
           inspection: 'Inspection report',
           photo: 'Photo',
@@ -7350,7 +7353,7 @@ export default {
     post: 'checkpoint {post}',
     passed: 'crossed {when}',
     border: {
-      title: 'Border',
+      title: 'Customs zone placement',
       scansToClient: 'Show border scans to clients',
       scansToClientHint: 'Stamped CMR, reports and photos uploaded by the checkpoint manager. Turn off and clients will not see them in the request or in "Documents".',
       saved: 'Setting saved',
@@ -8460,6 +8463,29 @@ export default {
       selectedAny: 'Any suggested option chosen',
       tokens: 'Tokens',
       tokensSplit: 'input {input}, output {output}',
+    },
+  },
+  // Package B (01.11.2026): the "Placement in the customs control zone" step — DHT and wagons.
+  placement: {
+    wagons: {
+      add: 'Wagon',
+      numberN: 'Wagon number {n}',
+      remove: 'Remove wagon {number}',
+      removeRow: 'Remove wagon row {n}',
+    },
+    dht: {
+      title: 'DHT — goods storage document',
+      number: 'DHT number',
+      date: 'DHT date',
+      save: 'Save DHT',
+      clear: 'Clear',
+      saved: 'DHT saved',
+      cleared: 'DHT removed',
+      empty: 'No DHT yet',
+      hint: 'The number and date go to box 44 of declarations not yet filed in KEDEN (code {code}). Upload the DHT scan under "Border scans", type "DHT".',
+      numberRequired: 'Enter the DHT number',
+      line: 'DHT No. {number}',
+      lineDate: 'DHT No. {number} of {date}',
     },
   },
 }

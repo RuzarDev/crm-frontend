@@ -72,6 +72,17 @@ const pad = (n: number) => String(n).padStart(2, '0')
 /** 'YYYY-MM-DD' → «14.10». */
 const isoDayMonth = (iso: string) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(iso); return m ? `${m[2]}.${m[1]}` : '' }
 
+/**
+ * ДХТ заявки строкой (01.11.2026, шаг «Размещение в ЗТК»): «ДХТ № 55301/011126/0012345 от 01.11.2026»; пусто — ДХТ нет.
+ * Видят и сотрудник, и клиент.
+ */
+export function dhtText(kase: Pick<Import40CaseDto, 'dhtNumber' | 'dhtDate'>, t: T): string {
+  const number = (kase.dhtNumber ?? '').trim()
+  if (!number) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(kase.dhtDate ?? '')
+  return m ? t('placement.dht.lineDate', { number, date: `${m[3]}.${m[2]}.${m[1]}` }) : t('placement.dht.line', { number })
+}
+
 /** «2 ч 15 мин», «45 мин», «3 д 4 ч». */
 export function durationText(minutes: number, t: T): string {
   const m = Math.max(0, Math.round(minutes))
@@ -189,6 +200,9 @@ export function buildStageCards(input: StageInput, t: T, te: Te): StageCard[] {
           result = arrival ? k('s2Arrived', 's2ArrivedClient') : k('s2Current', 's2CurrentClient')
           detail = arrival || (input.borderEta ? t('preBorder.sub.eta', { date: isoDayMonth(input.borderEta) }) : '')
         }
+        // ДХТ (01.11.2026): номер и дату видят и клиент, и сотрудник — под шагом размещения.
+        const dht = state === 'future' ? '' : dhtText(kase, t)
+        if (dht) detail = [detail, dht].filter(Boolean).join(' · ')
         break
       }
       case 3: {
