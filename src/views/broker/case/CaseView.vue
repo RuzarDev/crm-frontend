@@ -41,7 +41,7 @@ import type { PreBorder } from '@/api/preBorder'
 // Карточка заявки сотрудника /import-40/:id (редизайн, волна 4а; доски Case и CaseSvh).
 // Шапка, полоса шагов, плашки; слева — текущий шаг и «Пройденные шаги», справа — команда, заявка, файлы, история.
 // Панели шагов — по контракту caseContext.ts.
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const route = useRoute()
 const auth = useAuthStore()
 
@@ -96,6 +96,8 @@ const steps = computed<CaseStepInfo[]>(() => {
     n,
     state: stepStateOf(c.status, n),
     title: t(`enum.step.s${n}`),
+    // Полное название — подсказкой к короткому (01.11.2026: «Размещение в ЗТК» — «… в Зоне Таможенного Контроля»).
+    fullTitle: te(`enum.stepFull.s${n}`) ? t(`enum.stepFull.s${n}`) : undefined,
     executor: STEP_EXECUTOR[n],
     executorLabel: t(`enum.role.${STEP_EXECUTOR[n]}`),
     summary: stepSummary(n, c, files.value, t, locale.value, invoices.value),
@@ -232,7 +234,7 @@ const panel = 'rounded-panel border border-line bg-surface'
                     <PhCheck :size="12" weight="bold" />
                   </span>
                   <span class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                    <span class="text-sm font-medium text-ink">{{ p.step.title }}</span>
+                    <span class="text-sm font-medium text-ink" :title="p.step.fullTitle">{{ p.step.title }}</span>
                     <span class="min-w-0 text-[13px] text-muted [overflow-wrap:anywhere]">{{ p.step.summary }}</span>
                   </span>
                   <PhCaretDown

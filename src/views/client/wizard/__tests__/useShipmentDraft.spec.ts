@@ -75,6 +75,29 @@ describe('useShipmentDraft', () => {
     scope.stop()
   })
 
+  it('вагоны (01.11.2026): строки списком, пустые не уходят; продолжение черновика — вагоны с сервера', async () => {
+    const { d, scope } = setup()
+    d.draft.cargo = 'Уголь'
+    d.draft.transportMode = 0
+    d.draft.wagonNumbers = [' 52147896 ', '', '52147897']
+    await d.ensureCreated()
+    expect(await d.save()).toBe(true)
+    expect(api.update.mock.calls[0]![1]).toMatchObject({ transportMode: 0, wagonNumbers: ['52147896', '52147897'] })
+    expect(api.update.mock.calls[0]![1]).not.toHaveProperty('wagonNumber')
+
+    server = { ...server, transportMode: 0, wagonNumber: '1', wagonNumbers: ['1', '2', '3'] }
+    await d.load('c1')
+    expect(d.draft.wagonNumbers).toEqual(['1', '2', '3'])
+    // Старый сервер без списка — один вагон из wagonNumber; без вагона — одна пустая строка.
+    server = { ...server, wagonNumber: '9', wagonNumbers: undefined }
+    await d.load('c1')
+    expect(d.draft.wagonNumbers).toEqual(['9'])
+    server = { ...server, wagonNumber: '', wagonNumbers: [] }
+    await d.load('c1')
+    expect(d.draft.wagonNumbers).toEqual([''])
+    scope.stop()
+  })
+
   it('save: PUT с полями шагов 1–3', async () => {
     const { d, scope } = setup()
     Object.assign(d.draft, {
@@ -87,7 +110,7 @@ describe('useShipmentDraft', () => {
     expect(api.update).toHaveBeenCalledTimes(1)
     expect(api.update).toHaveBeenCalledWith('c1', {
       cargo: 'Ноутбуки', post: 'Хоргос — ЦТО', transportMode: 1, vehicleNumber: '123ABC01', trailerNumber: '456DEF01',
-      driverPhone: '+7 700 000 00 00', wagonNumber: '', station: '', flightNumber: '', airWaybill: '', vesselName: '',
+      driverPhone: '+7 700 000 00 00', wagonNumbers: [], station: '', flightNumber: '', airWaybill: '', vesselName: '',
       billOfLading: '', clientSenderName: 'Lenovo', clientSenderCountryCode: '156', clientReceiverName: 'ТОО «Ромашка»',
       clientReceiverBin: '123456789012', clientReceiverCountryCode: '398', clientCurrencyCode: 'USD', clientEstimatedValue: 25000,
     }, { silent: true })

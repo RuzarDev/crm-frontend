@@ -7,6 +7,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
 import { useConfirm } from '@/ui/confirm'
 import CaseDocsSlot from '../CaseDocsSlot.vue'
+import DhtCard from './DhtCard.vue'
 import CaseStepPanel from '../CaseStepPanel.vue'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
@@ -155,11 +156,16 @@ const release = async () => {
       </section>
       <p v-else class="m-0 text-[13px] text-muted" data-declaring-submitted>{{ t('import40Case.status3Note') }}</p>
 
+      <!-- ДХТ и сканы шага размещения декларант вносит и здесь (01.11.2026, пункт 9 правок 30.10): документы иногда присылает СВХ. -->
+      <DhtCard class="mt-3.5" :ctx="ctx" />
       <CaseDocsSlot
         class="mt-3.5"
         :ctx="ctx"
         section="border-scans"
         :label="t('broker.case.border.scans')"
+        :can-upload="ctx.perms.canBorderScans"
+        :can-remove="ctx.perms.canBorderScans"
+        multiple
         with-kind
         :kinds="scanKinds"
         :empty-text="t('broker.case.declaring.scansEmpty')"

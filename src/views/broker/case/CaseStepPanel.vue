@@ -23,7 +23,7 @@ const titleId = `case-step-${props.step.n}-title`
   >
     <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-[18px] pt-4 pb-3">
       <span class="size-2 shrink-0 rounded-pill bg-zircon" aria-hidden="true" />
-      <h2 :id="titleId" class="m-0 text-[15px] leading-6 font-semibold text-ink">{{ step.title }}</h2>
+      <h2 :id="titleId" :title="step.fullTitle" class="m-0 text-[15px] leading-6 font-semibold text-ink">{{ step.title }}</h2>
       <span class="text-xs text-muted tabular-nums">
         {{ t('broker.case.step.of', { n: step.n, total: TOTAL_STEPS }) }}<template v-if="meta || $slots.meta"> · <slot name="meta">{{ meta }}</slot></template>
       </span>

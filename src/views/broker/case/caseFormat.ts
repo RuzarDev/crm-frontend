@@ -10,6 +10,10 @@ type T = (k: string, p?: Record<string, unknown>) => string
 const TRANSPORT_KEYS: Record<number, string> = { 0: 'rail', 1: 'road', 2: 'air', 3: 'sea' }
 export const transportKey = (mode: number): string | null => TRANSPORT_KEYS[mode] ?? null
 
+/** Вагоны заявки по порядку (01.11.2026): список, у старого сервера — один wagonNumber. */
+export const caseWagons = (c: Pick<Import40CaseDto, 'wagonNumber' | 'wagonNumbers'>): string[] =>
+  c.wagonNumbers?.length ? c.wagonNumbers : c.wagonNumber ? [c.wagonNumber] : []
+
 /**
  * Транспорт одной строкой: «Авто · 777 KTA 02 / прицеп 12 KZ 3456», «ЖД · 52147896».
  * Номера — как раньше (вагон, машина, рейс, судно — все заполненные), прицеп — сразу за машиной.
@@ -20,7 +24,9 @@ export function transportSummary(c: Import40CaseDto, t: T): string {
   const vehicle = c.vehicleNumber
     ? (c.trailerNumber ? `${c.vehicleNumber} / ${t('broker.case.header.trailer', { number: c.trailerNumber })}` : c.vehicleNumber)
     : ''
-  const detail = [c.wagonNumber, vehicle, c.flightNumber, c.vesselName].filter(Boolean).join(', ')
+  // Вагоны — все (01.11.2026); старый сервер отдаёт только wagonNumber.
+  const wagons = caseWagons(c).join(', ')
+  const detail = [wagons, vehicle, c.flightNumber, c.vesselName].filter(Boolean).join(', ')
   return detail ? `${kind} · ${detail}` : kind
 }
 

@@ -97,8 +97,19 @@ export function canBorderWork(a: CaseAuth, c: Import40CaseDto): boolean {
   const id = assignedIdOf(c, 'kpp')
   return id ? id === a.userId : hasBiz(a, 'kpp') || hasPerm(a, 'import40.kpp')
 }
-/** Сканы с границы грузят и удаляют те же, кто работает на границе (canBorderWork), пока заявка в работе — как сервер. */
-export const canBorderScans = (a: CaseAuth, c: Import40CaseDto): boolean => c.status >= 1 && c.status < 8 && canBorderWork(a, c)
+/**
+ * Документы шага «Размещение в ЗТК» — сканы шага и ДХТ (01.11.2026, пункт 9 правок 30.10), как сервер (CanPlacementDocs):
+ * те, кто работает на границе (canBorderWork), и декларант всегда, независимо от КПП — назначенный на заявку или любой, если
+ * декларант не назначен. Пока заявка в работе.
+ */
+export function canPlacementDocs(a: CaseAuth, c: Import40CaseDto): boolean {
+  if (canBorderWork(a, c)) return true
+  const declarant = hasBiz(a, 'declarant') || hasPerm(a, 'import40.declarant')
+  const id = assignedIdOf(c, 'declarant')
+  return declarant && (!id || id === a.userId)
+}
+/** Сканы шага и ДХТ грузят и правят по canPlacementDocs, пока заявка в работе — как сервер. */
+export const canBorderScans = (a: CaseAuth, c: Import40CaseDto): boolean => c.status >= 1 && c.status < 8 && canPlacementDocs(a, c)
 
 /** Кнопка действия шага выключена: нет права на роль или шаг ведёт коллега. */
 export const actionDisabled = (a: CaseAuth, c: Import40CaseDto, role: StepRole): boolean =>
@@ -211,7 +222,7 @@ export interface CasePerms {
   canProblem: boolean
   /** «Машина прибыла», отметки контроля (canBorderWork). */
   canBorderWork: boolean
-  /** Загрузка сканов с границы (canBorderScans). */
+  /** Сканы шага размещения и ДХТ (canBorderScans: canPlacementDocs, пока заявка в работе). */
   canBorderScans: boolean
   showProblemAction: boolean
   canStepBack: boolean

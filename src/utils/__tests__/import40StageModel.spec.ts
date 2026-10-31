@@ -312,6 +312,19 @@ describe('buildStageCards — шаг 2 «Граница» (КПП, 18.10)', () =
     expect(same.detail).toBe('18.10 в 16:05 · Хоргос')
   })
 
+  it('ДХТ (01.11.2026): номер и дата — под шагом и клиенту, и сотруднику; шаг впереди — без ДХТ', () => {
+    for (const audience of ['staff', 'client'] as const) {
+      const card = buildStageCards(base(audience, 1, step(2, { state: 'current', history: [ev('atBorder', arrived, 2)] }),
+        { dhtNumber: '55301/011126/0012345', dhtDate: '2026-11-01' }), t, te)[1]!
+      expect(card.detail).toBe('Прибыла 18.10 в 14:20 · пост Нур Жолы · ДХТ № 55301/011126/0012345 от 01.11.2026')
+    }
+    const done = buildStageCards(base('client', 3, step(2, { state: 'done', history: [ev('atBorder', passed, 2), ev('borderPassed', passed, 2)] }),
+      { borderArrivedAtUtc: passed, borderArrivalPost: 'Хоргос', dhtNumber: 'ДХТ-7', dhtDate: null }), t, te)[1]!
+    expect(done.detail).toBe('18.10 в 16:05 · Хоргос · ДХТ № ДХТ-7')
+    const future = buildStageCards(base('client', 0, step(2), { borderArrivedAtUtc: null, dhtNumber: 'ДХТ-7' }), t, te)[1]!
+    expect(future.detail).toBe('')
+  })
+
   it('контроль в истории: клиенту — «Пройден контроль» с видом', () => {
     const e = ev('borderControl', arrived, 2, { note: 'фитосанитарный контроль' })
     expect(eventLabel(e, 'client', t, te)).toBe('Пройден контроль')

@@ -187,7 +187,7 @@ const prefillReceiver = () => {
 const stepFilled = (i: number) => {
   if (i === 0) return isCargoOk(draft.cargo)
   if (i === 1) {
-    const byMode = [draft.vehicleNumber, draft.trailerNumber, draft.driverPhone, draft.wagonNumber, draft.station,
+    const byMode = [draft.vehicleNumber, draft.trailerNumber, draft.driverPhone, ...draft.wagonNumbers, draft.station,
       draft.flightNumber, draft.airWaybill, draft.vesselName, draft.billOfLading]
     return byMode.some((v) => v.trim()) || draft.containers.some((c) => c.number.trim())
   }

@@ -8,6 +8,7 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
+import WagonList from '@/components/transport/WagonList.vue'
 import type { ZOption } from '@/ui/options'
 import { carriersApi, type Carrier } from '@/api/carriers'
 import { preBorderApi, type PreBorder, type PreBorderFields, type PreBorderPayment } from '@/api/preBorder'
@@ -161,9 +162,11 @@ const h3 = 'm-0 text-[13px] font-semibold text-ink-2 sm:col-span-2'
           <ZInput v-model:value="fields.trailerNumber" mono :maxlength="50" class="max-sm:h-11" data-pb-trailer />
         </ZField>
       </template>
-      <ZField v-if="mode === 0" :label="t('preBorder.wagon')" :error="err('wagonNumber')">
-        <ZInput v-model:value="fields.wagonNumber" mono :maxlength="50" class="max-sm:h-11" data-pb-wagon />
-      </ZField>
+      <!-- Несколько вагонов (01.11.2026): «+ Вагон»; ошибка — с сервера (wagonNumbers). -->
+      <div v-if="mode === 0" class="flex flex-col gap-1">
+        <WagonList v-model:value="fields.wagonNumbers" :label="t('preBorder.wagon')" input-class="max-sm:h-11" data-pb-wagon />
+        <p v-if="err('wagonNumbers')" class="m-0 text-xs text-tone-danger-fg">{{ err('wagonNumbers') }}</p>
+      </div>
       <ZField :label="t('preBorder.container')" :error="err('containerNumber')">
         <ZInput v-model:value="fields.containerNumber" mono :maxlength="50" class="max-sm:h-11" data-pb-container />
       </ZField>

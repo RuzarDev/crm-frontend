@@ -192,15 +192,19 @@ describe('StepDeclaring: «Сканы с границы» (18.10)', () => {
     fileDto({ id: 's2', section: 'border-scans', originalFileName: 'photo.heic', docKind: 'photo', uploadedByBusinessRole: 'kpp' }),
   ]
 
-  it('блок со ссылками на сканы и их видами; загрузки у декларанта нет', () => {
+  it('блок со ссылками на сканы и их видами; декларант грузит и удаляет сканы (01.11.2026), бухгалтер — нет', () => {
     mount(USERS.declarant, { files: [...docs(1), ...scans] })
     const block = w.get('[data-docs-slot="border-scans"]')
     expect(block.text()).toContain('Сканы с границы')
     expect(block.findAll('[data-slot-file]')).toHaveLength(2)
     expect(block.findAll('[data-slot-file-kind]').map((k) => k.text())).toEqual(['CMR с отметками', 'Фото'])
     expect(block.findAll('[data-slot-download]')).toHaveLength(2)
-    expect(block.find('[data-slot-upload]').exists()).toBe(false)
-    expect(block.find('[data-slot-remove]').exists()).toBe(false)
+    expect(block.find('[data-slot-upload]').exists()).toBe(true)
+    expect(block.findAll('[data-slot-remove]')).toHaveLength(2)
+    w.unmount()
+    mount(USERS.accountant, { files: [...docs(1), ...scans] })
+    expect(w.get('[data-docs-slot="border-scans"]').find('[data-slot-upload]').exists()).toBe(false)
+    expect(w.find('[data-dht-number]').exists()).toBe(false)
   })
 
   it('сканов нет — подсказка, что их загрузит КПП; кнопки «из сканов» нет', () => {

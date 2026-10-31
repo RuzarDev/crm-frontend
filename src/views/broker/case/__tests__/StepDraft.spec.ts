@@ -122,6 +122,28 @@ describe('StepDraft — сохранение полей', () => {
     expect(w.findAll('[data-draft-mode-fields] [data-draft-field]').map((e) => e.attributes('data-draft-field'))).toEqual(['wagonNumber', 'station'])
   })
 
+  it('вагоны (01.11.2026): список строками, «+ Вагон», сохранение всего списка по blur; удаление строки сохраняет сразу', async () => {
+    mount(USERS.declarant, { transportMode: 0, wagonNumber: '52147896', wagonNumbers: ['52147896'] })
+    const inputs = () => w.findAll('[data-draft-field="wagonNumber"] [data-wagon-input]')
+    expect(inputs()).toHaveLength(1)
+    expect((inputs()[0]!.element as HTMLInputElement).value).toBe('52147896')
+    await w.get('[data-wagon-add]').trigger('click')
+    await flushPromises()
+    api.update.mockClear()
+    await inputs()[1]!.setValue(' 52147897 ')
+    await inputs()[1]!.trigger('blur')
+    await flushPromises()
+    expect(api.update).toHaveBeenCalledWith('c1', { wagonNumbers: ['52147896', '52147897'] })
+    // Повторный blur без правок — без запроса.
+    api.update.mockClear()
+    await inputs()[0]!.trigger('blur')
+    await flushPromises()
+    expect(api.update).not.toHaveBeenCalled()
+    await w.findAll('[data-wagon-remove]')[0]!.trigger('click')
+    await flushPromises()
+    expect(api.update).toHaveBeenCalledWith('c1', { wagonNumbers: ['52147897'] })
+  })
+
   it('сохранение по blur во время другого действия не теряется: ждёт замок и доходит до PUT', async () => {
     mount(USERS.declarant, { cargo: 'Ноутбуки' })
     let release!: () => void

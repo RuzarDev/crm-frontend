@@ -60,6 +60,8 @@ export interface PreBorder {
   trailerNumber: string
   containerNumber: string | null
   wagonNumber: string
+  /** Все вагоны (01.11.2026); wagonNumber — первый. Старый сервер поля не отдаёт. */
+  wagonNumbers?: string[]
   expectedBorderDate: string | null
   marks: TransitMark[]
   borderArrivedAtUtc: string | null
@@ -79,7 +81,8 @@ export interface PreBorderFields {
   vehicleNumber: string
   trailerNumber: string
   containerNumber: string
-  wagonNumber: string
+  /** Вагоны строками (01.11.2026): одна строка есть всегда. */
+  wagonNumbers: string[]
   expectedBorderDate: string | null
 }
 
@@ -111,6 +114,17 @@ export interface FileTranslation { fileId: string; fileName: string; sourceLangu
 const url = (caseId: string) => `/import40/${encodeURIComponent(caseId)}/pre-border`
 const formOpt = { silentStatuses: [400] }
 
+/** Вагоны для PUT (01.11.2026): список изменён — весь список без пустых, не изменён — null (сервер вагоны не трогает). */
+export const changedWagons = (value: string[], original: string[] | null | undefined): string[] | null => {
+  const next = value.map((w) => w.trim()).filter(Boolean)
+  const was = (original ?? []).map((w) => w.trim()).filter(Boolean)
+  return next.length === was.length && next.every((w, i) => w === was[i]) ? null : next
+}
+
+/** Вагоны поставки: список, у старого сервера — один wagonNumber. */
+export const wagonsOf = (p: Pick<PreBorder, 'wagonNumber' | 'wagonNumbers'> | null | undefined): string[] =>
+  p?.wagonNumbers?.length ? p.wagonNumbers : p?.wagonNumber ? [p.wagonNumber] : []
+
 /** Номер транспорта для PUT: изменён — новое значение (пустая строка очищает), не изменён — null. */
 export const changedNumber = (value: string, original: string | null | undefined, upper: boolean): string | null => {
   const norm = (v: string) => (upper ? v.trim().toUpperCase() : v.trim())
@@ -125,7 +139,11 @@ export const preBorderApi = {
    * original — что было в окне при открытии: номера тягача/прицепа/вагона (поля заявки) уходят, только если их изменили,
    * иначе null — сервер их не трогает (устаревшее окно не перезапишет правку декларанта).
    */
-  save: async (caseId: string, f: PreBorderFields, original?: Pick<PreBorder, 'vehicleNumber' | 'trailerNumber' | 'wagonNumber'> | null): Promise<PreBorder> =>
+  save: async (
+    caseId: string,
+    f: PreBorderFields,
+    original?: Pick<PreBorder, 'vehicleNumber' | 'trailerNumber' | 'wagonNumber' | 'wagonNumbers'> | null,
+  ): Promise<PreBorder> =>
     (await apiClient.put<PreBorder>(url(caseId), {
       supplierPaymentDeferred: f.supplierPaymentDeferred,
       paymentIds: f.paymentIds,
@@ -137,7 +155,7 @@ export const preBorderApi = {
       vehicleNumber: changedNumber(f.vehicleNumber, original?.vehicleNumber, true),
       trailerNumber: changedNumber(f.trailerNumber, original?.trailerNumber, true),
       containerNumber: f.containerNumber.trim() || null,
-      wagonNumber: changedNumber(f.wagonNumber, original?.wagonNumber, false),
+      wagonNumbers: changedWagons(f.wagonNumbers, wagonsOf(original)),
       expectedBorderDate: f.expectedBorderDate || null,
     }, formOpt)).data,
   /** Одно фото за запрос: несколько снимков с телефона одним запросом упираются в предел размера запроса сервера. */

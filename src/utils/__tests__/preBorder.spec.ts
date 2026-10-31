@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { changedNumber, type PreBorder } from '@/api/preBorder'
+import { changedNumber, changedWagons, wagonsOf, type PreBorder } from '@/api/preBorder'
 import {
   checkSerial, checkSerialList, luhnValid, missingText, preBorderErrors, preBorderSubstages, serialsFromSheet, serialsFromText, showPreBorder,
-  emptyPreBorderFields,
+  emptyPreBorderFields, preBorderFieldsOf,
 } from '@/utils/preBorder'
 import { askFor, shipmentTag, tabOf } from '@/views/client/shipment'
 import type { ClientShipment } from '@/api/clientShipments'
@@ -117,5 +117,15 @@ describe('номера транспорта в PUT', () => {
     expect(changedNumber('111BBB02', '777AAA02', true)).toBe('111BBB02')
     expect(changedNumber('', '777AAA02', true)).toBe('')
     expect(changedNumber('', null, false)).toBeNull()
+  })
+
+  it('вагоны (01.11.2026): список целиком, только если изменился; пустые строки не уходят', () => {
+    expect(changedWagons([' 1 ', ''], ['1'])).toBeNull()
+    expect(changedWagons(['1', '2'], ['1'])).toEqual(['1', '2'])
+    expect(changedWagons([''], ['1'])).toEqual([])
+    expect(wagonsOf(pb({ wagonNumber: '9' }))).toEqual(['9'])
+    expect(wagonsOf(pb({ wagonNumber: '1', wagonNumbers: ['1', '2'] }))).toEqual(['1', '2'])
+    expect(preBorderFieldsOf(pb({ wagonNumber: '', wagonNumbers: [] })).wagonNumbers).toEqual([''])
+    expect(emptyPreBorderFields().wagonNumbers).toEqual([''])
   })
 })

@@ -15,10 +15,12 @@ import { hintText } from '../casePermissions'
 import { transportSummary } from '../caseFormat'
 import BorderArrivalModal from './BorderArrivalModal.vue'
 import BorderControlModal from './BorderControlModal.vue'
+import DhtCard from './DhtCard.vue'
 import DraftContainers from './DraftContainers.vue'
 
-// Шаг 2 «Граница» (статус 1, КПП): сводка транспорта, «Машина прибыла» (время, пост, комментарий; отметку можно отменить),
-// чек-лист контролей (каждый — со временем), «Сканы с границы» (грузят КПП и руководитель) и кнопки «Граница пройдена»
+// Шаг 2 «Размещение в ЗТК» (статус 1, КПП; до 01.11.2026 — «Граница»): сводка транспорта, ДХТ (номер и дата — в гр.44 ДТ;
+// правят КПП, декларант, РОП, админ), «Машина прибыла» (время, пост, комментарий; отметку можно отменить),
+// чек-лист контролей (каждый — со временем), «Сканы с границы» (грузят КПП, руководитель и декларант — 01.11.2026) и кнопки «Граница пройдена»
 // (без сканов — мягкое предупреждение; без отметки прибытия сервер отмечает её тем же действием) и «Вернуть клиенту».
 // «Взять в работу» — в правой колонке (CaseTeam). Пройденный шаг (mode done) — то же в режиме чтения.
 const props = defineProps<CaseStepProps>()
@@ -209,6 +211,8 @@ const iconBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify
         </ul>
       </section>
 
+      <DhtCard :ctx="ctx" />
+
       <CaseDocsSlot
         :ctx="ctx"
         section="border-scans"
@@ -243,6 +247,8 @@ const iconBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify
       </template>
     </dl>
     <DraftContainers v-if="ctx.kase.containers.length" :ctx="ctx" />
+    <!-- Пройденный шаг — ДХТ только строкой; внести или поправить его декларант может в шаге декларирования (StepDeclaring). -->
+    <DhtCard v-if="ctx.kase.dhtNumber" :ctx="ctx" readonly />
     <CaseDocsSlot
       v-if="scans.length"
       :ctx="ctx"
