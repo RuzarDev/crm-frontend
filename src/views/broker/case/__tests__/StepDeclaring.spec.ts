@@ -14,6 +14,9 @@ const api = vi.hoisted(() => ({
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
+// Сверка документов перед подачей (01.11.2026): по умолчанию разборов нет.
+const checksApi = vi.hoisted(() => ({ list: vi.fn(), link: vi.fn() }))
+vi.mock('@/api/documentChecks', () => ({ documentChecksApi: checksApi }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 
 import StepDeclaring from '../steps/StepDeclaring.vue'
@@ -22,7 +25,7 @@ const DropdownStub = {
   props: ['items'], emits: ['select'],
   template: '<div data-dropdown><slot /><button v-for="it in items" :key="it.key" type="button" :data-menu-item="it.key" @click="$emit(\'select\', it.key)">{{ it.label }}</button></div>',
 }
-const ModalStub = { props: ['open'], template: '<div v-if="open" data-modal><slot /></div>' }
+const ModalStub = { props: ['open'], template: '<div v-if="open" data-modal><slot name="description" /><slot /><slot name="footer" /></div>' }
 
 let w: VueWrapper
 let router: Router
@@ -46,6 +49,7 @@ beforeEach(async () => {
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:id', component: stub }, { path: '/import-40/:id/dt/:dtId', component: stub }] })
   await router.push('/import-40/c1')
   api.action.mockResolvedValue(caseDto({ status: 3 }))
+  checksApi.list.mockResolvedValue([])
 })
 afterEach(() => {
   w?.unmount()
@@ -96,6 +100,7 @@ describe('StepDeclaring: «Что осталось до подачи»', () => {
     const btn = w.get('[data-declaring-submit]')
     expect(btn.attributes('disabled')).toBeUndefined()
     await btn.trigger('click')
+    await flushPromises()   // перед подтверждением читается сверка документов (01.11.2026)
     expect(confirmState.title).toBe('Подать ДТ в КЕДЕН?')
     expect(api.action).not.toHaveBeenCalled()
     confirmState.resolve(true)
@@ -107,6 +112,8 @@ describe('StepDeclaring: «Что осталось до подачи»', () => {
   it('отказ в подтверждении — действия нет', async () => {
     mount(USERS.declarant, { kase: { declarations: dts } })
     await w.get('[data-declaring-submit]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(true)
     confirmState.resolve(false)
     await flushPromises()
     expect(api.action).not.toHaveBeenCalled()
@@ -229,5 +236,83 @@ describe('StepDeclaring: «Сканы с границы» (18.10)', () => {
   it('КПП (без права декларанта на шаг) кнопку «из сканов» не видит', () => {
     mount(USERS.kpp, { files: scans })
     expect(w.find('[data-scans-parse]').exists()).toBe(false)
+  })
+})
+
+// D5 (01.11.2026): окно при «Подать ДТ» — одно, вместо обычного подтверждения, только при «Исправить» или файле другой поставки.
+describe('StepDeclaring: сверка документов при подаче', () => {
+  const dts = [declaration({ id: 'd1' })]
+  const fixRow = (field: string, dt: string, doc: string) => ({
+    field, fieldLabel: field, box: '44', valueKind: 'text' as const, key: true, result: 'mismatch' as const, section: 'fix' as const,
+    documents: [{ value: doc, fileName: 'invoice.xlsx', kind: 'invoice' }], declarationValue: dt, declarationNote: null, documentsNote: null, mark: null,
+  })
+  const check = (p: Record<string, unknown> = {}) => ({
+    id: 'k1', declarationId: 'd1', declarationNumber: '', createdAtUtc: '2026-11-01T09:00:00Z', sourceFileNames: [], sourceDocumentTypes: [],
+    contractNumber: null, invoiceNumber: null, transportDocument: null, transportPlates: [], discrepancies: [],
+    rows: [], itemConflicts: [], caseDiscrepancies: [], manualCount: 0, shipment: null, ...p,
+  })
+
+  it('расхождения есть — одно окно со списком, без обычного подтверждения; «Подать всё равно» подаёт', async () => {
+    checksApi.list.mockResolvedValue([check({
+      rows: Array.from({ length: 6 }, (_, i) => fixRow(i === 0 ? 'invoiceNumber' : `f${i}`, '11111', `UR091${i}`)),
+      manualCount: 3,
+      shipment: { main: { invoice: 'A', value: 1, currency: 'CNY', sourceKeys: [], fileNames: [] },
+        foreign: [{ invoice: 'B', value: 2, currency: 'CNY', sourceKeys: ['k'], fileNames: ['179随车.pdf · p3'] }] },
+    })])
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await w.get('[data-declaring-submit]').trigger('click')
+    await flushPromises()
+    expect(checksApi.list).toHaveBeenCalledWith('c1')
+    expect(confirmState.open).toBe(false)
+    const modal = w.get('[data-modal]')
+    const fix = modal.findAll('[data-doccheck-submit-fix] li').map((li) => li.text())
+    expect(fix).toHaveLength(6)
+    expect(fix[0]).toBe('Номер инвойса: в ДТ 11111 → в документе UR0910')
+    expect(fix[5]).toBe('и ещё 1')
+    expect(modal.get('[data-doccheck-submit-foreign]').text()).toBe('Похоже, от другой поставки: 179随车.pdf · p3')
+    expect(modal.get('[data-doccheck-submit-manual]').text()).toBe('Не проверено вручную: 3')
+    expect(api.action).not.toHaveBeenCalled()
+
+    await modal.get('[data-doccheck-submit-anyway]').trigger('click')
+    await flushPromises()
+    expect(api.action).toHaveBeenCalledTimes(1)
+    expect(api.action).toHaveBeenCalledWith('c1', 'submit-declaration', undefined, undefined)
+    expect(confirmState.open).toBe(false)
+    expect(w.find('[data-modal]').exists()).toBe(false)
+  })
+
+  it('«Вернуться к сверке» — окно закрыто, подачи нет', async () => {
+    checksApi.list.mockResolvedValue([check({ rows: [fixRow('gross', '900', '1000')] })])
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await w.get('[data-declaring-submit]').trigger('click')
+    await flushPromises()
+    await w.get('[data-doccheck-submit-back]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-modal]').exists()).toBe(false)
+    expect(api.action).not.toHaveBeenCalled()
+  })
+
+  it('расхождений нет, только «Проверить вручную» или всё принято — обычное подтверждение, окна сверки нет', async () => {
+    checksApi.list.mockResolvedValue([check({
+      manualCount: 5,
+      rows: [{ ...fixRow('gross', '900', '1000'), mark: { kind: 'accept', byName: 'А', atUtc: '2026-11-01T10:00:00Z' } }],
+    })])
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await w.get('[data-declaring-submit]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-modal]').exists()).toBe(false)
+    expect(confirmState.open).toBe(true)
+    expect(confirmState.title).toBe('Подать ДТ в КЕДЕН?')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.action).toHaveBeenCalledTimes(1)
+  })
+
+  it('сверка не читается — подача как раньше', async () => {
+    checksApi.list.mockRejectedValue(new Error('403'))
+    mount(USERS.declarant, { kase: { declarations: dts } })
+    await w.get('[data-declaring-submit]').trigger('click')
+    await flushPromises()
+    expect(confirmState.title).toBe('Подать ДТ в КЕДЕН?')
   })
 })

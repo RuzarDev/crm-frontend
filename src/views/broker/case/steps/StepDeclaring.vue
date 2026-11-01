@@ -15,6 +15,9 @@ import { countText, whatsLeft, type WhatsLeftItem } from '../caseSteps'
 import { splitSourcesWithParts } from '../declarations'
 import DeclarationsList from './DeclarationsList.vue'
 import SvhFactCard from './SvhFactCard.vue'
+import DocCheckSubmitModal from './DocCheckSubmitModal.vue'
+import { documentChecksApi } from '@/api/documentChecks'
+import { submitSummary, type SubmitSummary } from '../docCheckModel'
 
 // Шаг 3 «Декларирование и выпуск» (статусы 2 и 3, декларант; доска Case).
 // Статус 2: плашка «Что осталось до подачи» (caseSteps.whatsLeft — подсказка, «Подать ДТ» ею не блокируется),
@@ -72,13 +75,41 @@ const splitPending = computed(() => splitSourcesWithParts(kase.value.declaration
 const submitDisabled = computed(() => props.ctx.perms.actionDisabled('declarant') || noDt.value || splitPending.value || otherBusy(SUBMIT))
 const submitHint = computed(() => declHint.value
   || (noDt.value ? t('broker.case.declaring.needDt') : splitPending.value ? t('broker.case.declaring.splitChoice') : ''))
+// Сверка документов перед подачей (01.11.2026, D5): нерешённое «Исправить» или файл другой поставки — окно со списком
+// вместо обычного подтверждения (одно окно, не два); подать можно. Сверку читает только тот, кто работает с ДТ; сбой
+// чтения подачу не задерживает — обычное подтверждение.
+const checking = ref(false)
+const docCheck = ref<SubmitSummary | null>(null)
+const loadSummary = async (): Promise<SubmitSummary | null> => {
+  if (!props.ctx.perms.can('declarant')) return null
+  try {
+    return submitSummary(await documentChecksApi.list(kase.value.id), kase.value.declarations)
+  } catch {
+    return null
+  }
+}
 const submit = async () => {
+  if (checking.value) return
+  checking.value = true
+  const summary = await loadSummary().finally(() => { checking.value = false })
+  if (summary?.show) {
+    docCheck.value = summary
+    return
+  }
   const ok = await confirm({
     title: t('broker.case.declaring.confirmSubmit'),
     okText: t('broker.case.declaring.confirmSubmitOk'),
     cancelText: t('common.cancel'),
   })
   if (ok) await props.ctx.actions.run(SUBMIT)
+}
+const submitAnyway = async () => {
+  docCheck.value = null
+  await props.ctx.actions.run(SUBMIT)
+}
+const backToCheck = () => {
+  docCheck.value = null
+  document.querySelector('[data-case-doccheck]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 // «Вернуть клиенту» — только на статусе 2 (с «ДТ подана» сервер возврат не принимает).
@@ -114,7 +145,7 @@ const release = async () => {
             <ZButton
               variant="primary"
               :disabled="submitDisabled"
-              :loading="ctx.actions.isPending(SUBMIT)"
+              :loading="ctx.actions.isPending(SUBMIT) || checking"
               class="max-sm:w-full"
               data-declaring-submit
               @click="submit"
@@ -190,6 +221,7 @@ const release = async () => {
 
     <DeclarationsList ref="listRef" :ctx="ctx" mode="current" />
     <SvhFactCard :ctx="ctx" class="mt-4" />
+    <DocCheckSubmitModal :open="!!docCheck" :summary="docCheck" @back="backToCheck" @submit="submitAnyway" @cancel="docCheck = null" />
   </CaseStepPanel>
 
   <DeclarationsList v-else :ctx="ctx" mode="done" />
