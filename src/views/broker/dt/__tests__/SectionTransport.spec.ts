@@ -425,10 +425,11 @@ describe('SectionTransport — гр. 25 / 26 по составу гр. 18 (пр�
     expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['31', '20'])
     expect(w.find('[data-mode-mismatch]').exists()).toBe(false)
 
-    // гр. 26 убрали — гр. 18 теперь по гр. 25 (автомобильная): правило снова сверяет
+    // гр. 26 убрали — гр. 18 теперь по гр. 25 (автомобильная), но номер — вагон (одни цифры, 01.11.2026): не сверяем
     form.inlandTransportModeCode = null
     await nextTick()
-    expect(w.get('[data-mode-mismatch="25"]').text()).toBe('По гр. 18 нужен код 30: только голова, без прицепа.')
+    expect(w.find('[data-mode-mismatch]').exists()).toBe(false)
+    expect(form.borderTransportModeCode).toBe('31')
   })
 
   it('ЖД (20) не трогается и не предупреждает', async () => {
@@ -447,6 +448,24 @@ describe('SectionTransport — гр. 25 / 26 по составу гр. 18 (пр�
     form.arrivalTransportNumbers.push(veh('T1', { isTrailer: true, headNumber: 'H1' }))
     await nextTick()
     expect(codes()).toEqual(['31', '31', '31'])
+  })
+
+  // 01.11.2026 (правки Несибели 30.10 п.2): вагон ЖДН, прочитанный «38265/6», — не «31 — состав ТС».
+  it('заявка ЖД: пустые гр. 25 / 26 по составу гр. 18 не заполняются', async () => {
+    await mount({ borderTransportModeCode: '', inlandTransportModeCode: null, arrivalTransportNumbers: [veh('')] }, { caseRail: true })
+    await rows('18')[0].get('input[data-transport-number]').setValue('H1')
+    form.arrivalTransportNumbers.push(veh('T1', { isTrailer: true, headNumber: 'H1' }))
+    await nextTick()
+    expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['', null])
+    expect(w.find('[data-mode-mismatch]').exists()).toBe(false)
+  })
+
+  it('номера из одних цифр (вагоны) — пустой код не становится 31', async () => {
+    await mount({ borderTransportModeCode: '', inlandTransportModeCode: null, arrivalTransportNumbers: [veh('')] })
+    await rows('18')[0].get('input[data-transport-number]').setValue('38265')
+    form.arrivalTransportNumbers.push(veh('6', { isTrailer: true, headNumber: '38265' }))
+    await nextTick()
+    expect([form.borderTransportModeCode, form.inlandTransportModeCode]).toEqual(['', null])
   })
 
   it('только чтение: код не меняется, предупреждение видно, кнопки нет', async () => {

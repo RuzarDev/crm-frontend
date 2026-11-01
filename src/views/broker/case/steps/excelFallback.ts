@@ -484,7 +484,9 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   // Тягач и прицеп из подписи «АВТО:» Excel — если разбор их не нашёл (№8 при импорте; роли — как у сервера).
   let arrival = preview.arrivalTransportNumbers
   let border = preview.borderTransportNumbers
-  if (!arrival?.length) {
+  // ЖД (01.11.2026, правки 30.10 п.2): «АВТО:» из Excel — не вагоны, в гр. 18 не берём (вагоны — из СМГС или заявки).
+  const rail = !!extras?.rail || ctx.transportMode === 0
+  if (!arrival?.length && !rail) {
     const plates = docs.map((d) => (d.rows ? vehiclePlatesFrom(d.rows) : null)).find(Boolean)
     if (plates) {
       const head: Import40TransportMeans = { number: plates.tractor, typeCode: null, isTrailer: false, headNumber: null }
@@ -497,7 +499,8 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   // дедупликацией (doc44FromAiDocuments); перечня нет (старый Zircon AI) — как раньше.
   const aiDocs = extras?.documents?.length ? extras.documents : null
   const fromHeaders = headerDocs({
-    headers, extras, transportMode: ctx.transportMode, road: !!arrival?.length || !!ctx.road, cmrInBatch: !!ctx.road,
+    // ЖД: вагоны в гр. 18 — не «номера машины», транспортный документ — ЖД накладная 02013 (если в наборе нет самого CMR).
+    headers, extras, transportMode: rail && !ctx.road ? 0 : ctx.transportMode, road: !!ctx.road || (!rail && !!arrival?.length), cmrInBatch: !!ctx.road,
     hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames, packingWithoutNumber: aiDocs ? 'bn' : 'invoice',
   })
   let doc44Items = fromHeaders

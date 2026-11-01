@@ -558,6 +558,21 @@ export interface Import40ExtractionExtras {
    * строки гр. 44 (views/broker/dt/goods/aiDoc44.ts). Нет или пусто (старый Zircon AI / старый сервер) — гр. 44 по-старому.
    */
   documents?: Import40ExtractionDocument[] | null
+  /**
+   * Отправитель по каждому документу (01.11.2026, правки Несибели 30.10 п.3): первым — выбранный разбором (обычно продавец из
+   * инвойса), дальше — другие отправители с видом записи (transport — CMR/СМГС). Старый сервер — поля нет.
+   */
+  senderSources?: Import40ExtractionPartySource[] | null
+  /** Перевозка ЖД (01.11.2026): СМГС в пакете или заявка ЖД — номера из документов уже вагонами (сервер). */
+  rail?: boolean
+}
+
+/** Сторона по одному документу пакета: docType — вид записи Zircon AI (transport — CMR, СМГС, авианакладная). */
+export interface Import40ExtractionPartySource {
+  name: string
+  address?: string | null
+  docType?: string | null
+  fileName?: string | null
 }
 
 /**

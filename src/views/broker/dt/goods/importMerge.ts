@@ -12,6 +12,7 @@
 //   умолчанию, В18), «Заменить значениями из файла» (пустое в файле ничего не стирает), «Добавить как новые товары».
 //   Несопоставленные строки — новыми товарами в любом режиме.
 import type { Import40GoodsCharacteristic, Import40GoodsItemInput } from '@/types/api'
+import { chineseOnly, hasRussianPart } from '@/utils/importText'
 import { blankCharacteristic, isBlankCharacteristic } from './editor/characteristics'
 import type { ImportDoc, ImportRow } from './importRows'
 import type { DtGoodsModel } from './useDtGoods'
@@ -191,6 +192,10 @@ export function mergeImportDocs(docs: readonly ImportDoc[], opts: MergeOptions =
         }
         (m as unknown as Record<string, unknown>)[f] = r[f]
       }
+      // Описание базы только на китайском («贴面板» из инвойса), а у этого же товара в другом документе есть русское
+      // («贴面板 Подвесная панель» упаковочного листа) — берём его (01.11.2026, правки Несибели 30.10 п.1). Русскую часть
+      // для гр. 31 потом выделяет russianPart. Нигде нет русского — как было (замечание «на китайском»).
+      if (chineseOnly(m.description) && hasRussianPart(r.description)) m.description = r.description
       m.ntins = [...new Set([...m.ntins, ...r.ntins])]
       for (const d of r.docs) {
         if (!m.docs.some((x) => x.typeCode === d.typeCode && keyText(x.number) === keyText(d.number))) m.docs.push({ ...d })

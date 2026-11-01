@@ -49,8 +49,30 @@ export function maxTrailersPerHead(means: readonly Import40TransportMeans[]): nu
   return Math.max(...counts)
 }
 
-/** Код гр. 25 / 26 по составу гр. 18; null — правило не применяется. */
-export const compositionMode = (means: readonly Import40TransportMeans[]): RoadMode | null => modeByTrailers(maxTrailersPerHead(means))
+/**
+ * Номера гр. 18 — вагоны (01.11.2026, правки Несибели 30.10 п.2): у всех ТС с номером номер только из цифр. Номер машины и
+ * прицепа всегда с буквами (KZ 184AFR19, RU А123ВС, CN 新A12345), номер вагона — 8 цифр. Так вагон из ЖДН, прочитанный как
+ * «38265/6» (тягач 38265, прицеп 6), не ставит «31 — состав ТС». То же на сервере — TransportComposition.LooksLikeWagons.
+ */
+export function looksLikeWagons(means: readonly Import40TransportMeans[]): boolean {
+  const numbers = means.map((m) => norm(m.number)).filter(Boolean)
+  return numbers.length > 0 && numbers.every((n) => /^[\d -]+$/.test(n))
+}
+
+/** Код гр. 25 / 26 по составу гр. 18; null — правило не применяется (нет головы или в гр. 18 вагоны). */
+export const compositionMode = (means: readonly Import40TransportMeans[]): RoadMode | null =>
+  (looksLikeWagons(means) ? null : modeByTrailers(maxTrailersPerHead(means)))
+
+/**
+ * Заявка ЖД для правила состава (01.11.2026): вид «ЖД» или «Авто» по умолчанию без машины и прицепа, но с вагонами — как на
+ * сервере Import40TransportModeMap.ForDeclaration. Тогда пустые гр. 25 / 26 не получают 30/31/32 по составу гр. 18.
+ */
+export function caseIsRail(c: { transportMode?: number | null; vehicleNumber?: string | null; trailerNumber?: string | null; wagonNumber?: string | null; wagonNumbers?: readonly string[] | null } | null | undefined): boolean {
+  if (!c) return false
+  if (c.transportMode === 0) return true
+  const wagons = (c.wagonNumbers?.length ? c.wagonNumbers : [c.wagonNumber ?? '']).some((w) => w.trim())
+  return c.transportMode === 1 && !(c.vehicleNumber ?? '').trim() && !(c.trailerNumber ?? '').trim() && wagons
+}
 
 /**
  * Код графы после смены состава гр. 18 (before → after). Код, выбранный вручную (не совпадал с правилом для прежнего

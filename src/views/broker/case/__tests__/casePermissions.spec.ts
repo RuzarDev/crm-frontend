@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   actionDisabled, actionHint, assignedTag, can, canAssign, canAssignTeam, canCancel, canCompleteWithoutInvoice, canConfirmSvhWithoutCheck, canDeleteCaseDt, canEditCaseDt, dtDeleteBlockedByRelease, dtEditHint,
   canIssueAqnietInvoice, canManageDraft, canOpenClient, canProblem, canSeeBilling, canStepBack, casePerms, claimVisible, hintText,
-  readinessAvailable, roleModeOf, showProblemAction, stepBlockedBy, stepRoleOf,
+  readinessAvailable, roleModeOf, showProblemAction, stepBlockedBy, stepRoleOf, canSetDocKind,
 } from '../casePermissions'
 import { USERS, caseDto } from './caseFixture'
 
@@ -210,5 +210,20 @@ describe('canDeleteCaseDt — с выпуска ДТ удаляет только
       expect(dtDeleteBlockedByRelease(USERS.rop, caseDto({ status }))).toBe(true)
       expect(dtDeleteBlockedByRelease(USERS.kpp, caseDto({ status }))).toBe(false) // править тоже нельзя — пункта нет
     }
+  })
+})
+
+describe('canSetDocKind — вид документа клиента (01.11.2026, правки 30.10 п.4)', () => {
+  it('декларант и РОП — до выпуска, КПП — нет, админ — всегда', () => {
+    for (const status of [0, 1, 2, 3]) {
+      expect(canSetDocKind(USERS.declarant, caseDto({ status }))).toBe(true)
+      expect(canSetDocKind(USERS.rop, caseDto({ status }))).toBe(true)
+      expect(canSetDocKind(USERS.kpp, caseDto({ status }))).toBe(false)
+    }
+    for (const status of [4, 8, 9]) {
+      expect(canSetDocKind(USERS.declarant, caseDto({ status }))).toBe(false)
+      expect(canSetDocKind(USERS.admin, caseDto({ status }))).toBe(true)
+    }
+    expect(canSetDocKind(USERS.accountant, caseDto({ status: 2 }))).toBe(false)
   })
 })

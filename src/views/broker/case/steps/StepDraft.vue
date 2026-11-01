@@ -240,6 +240,7 @@ const phoneField = 'max-sm:h-12 max-sm:text-base'
         :can-remove="ctx.perms.isAdmin"
         multiple
         with-kind
+        :can-set-kind="ctx.perms.canSetDocKind"
         :empty-text="t('broker.case.draft.docsEmpty')"
       />
     </div>

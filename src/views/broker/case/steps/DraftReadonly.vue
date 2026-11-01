@@ -45,6 +45,7 @@ const rows = computed(() => {
       section="documents"
       :label="t('broker.case.draft.documents')"
       with-kind
+      :can-set-kind="ctx.perms.canSetDocKind"
       :empty-text="t('broker.case.draft.docsEmptyRead')"
     />
   </div>

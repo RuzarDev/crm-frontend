@@ -75,6 +75,7 @@ import { originForGoods, specialCountryKey } from './originCountry'
 import { useDtPayments } from './useDtPayments'
 import { useDtRates } from './useDtRates'
 import { useDtReadiness, type DtReadinessItem } from './useDtReadiness'
+import { caseIsRail } from '@/utils/transportMode'
 
 // Страница ДТ Импорт 40 (редизайн, волна 6а, Task 3; доски DtGeneral, DtReadonly): закреплённая шапка, слева
 // разделы с графами и отметками готовности сервера, справа «До подачи» (< 1280 — выезжающая из шапки), плашки
@@ -1095,6 +1096,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 v-else-if="active === 'transport'"
                 :form="form"
                 :readonly="!editable"
+                :case-rail="caseIsRail(kase)"
               />
               <SectionFinance
                 v-else-if="active === 'finance'"
