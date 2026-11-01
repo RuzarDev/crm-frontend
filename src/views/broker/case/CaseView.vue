@@ -192,7 +192,7 @@ const panel = 'rounded-panel border border-line bg-surface'
         :svh-check-missing="!files.some((f) => f.section === 'payment-check')"
         @changed="onCustomsChanged"
       />
-      <!-- Сверка документов (17.10; по полям — с 21.10, №13): что в каждом документе, что в ДТ и итог; «Сверить заново». -->
+      <!-- Сверка документов (17.10; новый вид — 01.11.2026): одна поставка, «Исправить», «Проверить вручную», «Совпадает». Только тем, кто работает с ДТ. -->
       <CaseDocumentCheck
         :case-id="kase.id"
         :stamp="kase.updatedAtUtc"
