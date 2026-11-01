@@ -16,8 +16,8 @@ import { saveBlob } from '@/ui/download'
 import { cn } from '@/ui/cn'
 import DocCheckLegacyView from './DocCheckLegacyView.vue'
 import {
-  conflictsOf, dtSectionOf, groupDocValues, pageOf, pickShown, rootDeclarations, rowsOf, sourceByDisplayName,
-  type DocCheckDtRef,
+  conflictsOf, conflictValueKind, dtSectionOf, groupConflictValues, groupDocValues, pageOf, partLabel, pickShown, rootDeclarations,
+  rowsOf, sourceByDisplayName, type DocCheckDtRef,
 } from './docCheckModel'
 import { useDocCheckFormat } from './useDocCheckFormat'
 
@@ -66,13 +66,22 @@ const replace = (updated: DocumentCheck) => { checks.value = checks.value.map((x
 // ── Какие сверки показывать (D4) ──
 const picked = computed(() => pickShown(checks.value, props.declarations))
 const shown = computed(() => [...picked.value.perDt, ...(picked.value.noDt ? [picked.value.noDt] : [])])
-const total = (k: 'fixCount' | 'manualCount' | 'matchCount') => shown.value.reduce((n, c) => n + (c[k] ?? 0), 0)
-const counters = computed(() => [
-  { key: 'fix', n: total('fixCount'), tone: 'danger' as const },
-  { key: 'manual', n: total('manualCount'), tone: 'wait' as const },
-  { key: 'match', n: total('matchCount'), tone: 'neutral' as const },
-])
+// Счётчики — у каждой сверки свои (01.11.2026, доработка: сумма по нескольким ДТ в шапке путала — у каждой ДТ своя сверка).
+// Одна сверка — в шапке блока, как раньше; несколько — в шапке блока каждой ДТ.
+const countersOf = (c: DocumentCheck) => [
+  { key: 'fix', n: c.fixCount ?? 0, tone: 'danger' as const },
+  { key: 'manual', n: c.manualCount ?? 0, tone: 'wait' as const },
+  { key: 'match', n: c.matchCount ?? 0, tone: 'neutral' as const },
+]
 const unresolved = computed(() => shown.value.some((c) => c.unresolved))
+/**
+ * Хоть одно поле сравнено (совпало или разошлось) — тогда не «Не удалось сверить», а мягкая пометка о нераспознанном
+ * (01.11.2026, доработка: на проде вверху «не распознаны», а ниже «Совпадает — 4»). Прежний сервер ставил unrecognized и так.
+ */
+const anyCompared = (c: DocumentCheck) =>
+  (c.rows ?? []).some((r) => ['match', 'mismatch', 'docsDiffer', 'checkName'].includes(r.result)) || conflictsOf(c).length > 0
+const unrecognizedHard = (c: DocumentCheck) => c.verdict === 'unrecognized' && !anyCompared(c)
+const unrecognizedSoft = (c: DocumentCheck) => !unrecognizedHard(c) && (c.unrecognized || c.verdict === 'unrecognized')
 const showDtLabel = computed(() => shown.value.length > 1 || !!picked.value.noDt)
 
 // ── Выбор ДТ: живые ДТ заявки, разделённая (исходная с частями) — одной позицией ──
@@ -206,6 +215,15 @@ const firstDocFile = (c: DocumentCheck, r: DocumentCheckRow) => {
   return null
 }
 const isConflict = (x: DocumentCheckRow | DocumentDiscrepancy): x is DocumentDiscrepancy => 'scope' in x
+// Значения «документы между собой / с заявкой» — по правилам строк (01.11.2026, доработка): одно значение — один раз,
+// источники без повторов и «файл · часть», числа — с разрядами. Значение строки товара без источника — из основного документа
+// с таблицей товаров (Zircon AI не пишет ему source_doc; сервер называет файл, если такой документ один).
+const conflictSource = (d: DocumentDiscrepancy, v: DocumentDiscrepancy['values'][number]) =>
+  v.sourceKind !== 'document' ? f.sourceName(v)
+    : v.source ? partLabel(v.source)
+      : t(d.itemIndex != null ? 'docCheck.source.goodsTable' : 'docCheck.source.document')
+const conflictGroups = (d: DocumentDiscrepancy) => groupConflictValues(d, (v) => conflictSource(d, v))
+const conflictValue = (d: DocumentDiscrepancy, v: string) => f.fmt(v, { valueKind: conflictValueKind(d), currency: null })
 const conflictTitle = (d: DocumentDiscrepancy) =>
   `${f.fieldName(d)}${d.itemIndex ? ` · ${t('docCheck.item', { n: d.itemIndex })}${d.itemDescription ? ` «${d.itemDescription}»` : ''}` : ''}`
 const dtLink = (c: DocumentCheck, field: string) => (c.openDeclarationId
@@ -274,8 +292,8 @@ const linkBtn = 'inline-flex h-7 items-center gap-1.5 rounded-field px-2.5 text-
         <PhCheck v-else :size="18" weight="bold" class="shrink-0 text-tone-done-fg" aria-hidden="true" />
         <span class="[overflow-wrap:anywhere]">{{ t('docCheck.block.title') }}</span>
       </h2>
-      <ul role="list" class="m-0 flex list-none flex-wrap gap-1.5 p-0" data-doccheck-counters>
-        <li v-for="k in counters" :key="k.key"><ZTag :tone="k.n > 0 ? k.tone : 'neutral'" size="sm" :data-doccheck-counter="k.key">{{ t(`docCheck.block.count.${k.key}`, { n: k.n }) }}</ZTag></li>
+      <ul v-if="shown.length === 1" role="list" class="m-0 flex list-none flex-wrap gap-1.5 p-0" data-doccheck-counters>
+        <li v-for="k in countersOf(shown[0])" :key="k.key"><ZTag :tone="k.n > 0 ? k.tone : 'neutral'" size="sm" :data-doccheck-counter="k.key">{{ t(`docCheck.block.count.${k.key}`, { n: k.n }) }}</ZTag></li>
       </ul>
     </div>
 
@@ -286,6 +304,9 @@ const linkBtn = 'inline-flex h-7 items-center gap-1.5 rounded-field px-2.5 text-
           <template v-if="showDtLabel"><span class="font-medium text-ink" data-doccheck-dt>{{ f.checkTitle(c) }}</span> · </template>
           {{ t('docCheck.parsedAt', { time: f.when(c.parsedAtUtc ?? c.createdAtUtc) }) }}
         </p>
+        <ul v-if="shown.length > 1" role="list" class="m-0 flex list-none flex-wrap gap-1.5 p-0" data-doccheck-counters>
+          <li v-for="k in countersOf(c)" :key="k.key"><ZTag :tone="k.n > 0 ? k.tone : 'neutral'" size="sm" :data-doccheck-counter="k.key">{{ t(`docCheck.block.count.${k.key}`, { n: k.n }) }}</ZTag></li>
+        </ul>
         <ZButton
           size="sm"
           :loading="!!pending[c.id]"
@@ -313,7 +334,8 @@ const linkBtn = 'inline-flex h-7 items-center gap-1.5 rounded-field px-2.5 text-
         />
       </div>
 
-      <ZAlert v-if="c.verdict === 'unrecognized'" type="warning" show-icon class="mt-2" :description="t('docCheck.unrecognizedLead')" data-doccheck-unrecognized />
+      <ZAlert v-if="unrecognizedHard(c)" type="warning" show-icon class="mt-2" :description="t('docCheck.unrecognizedLead')" data-doccheck-unrecognized />
+      <p v-else-if="unrecognizedSoft(c)" :class="cn(quiet, 'm-0 mt-2')" data-doccheck-unrecognized-part>{{ t('docCheck.unrecognizedPartLead') }}</p>
       <ZAlert
         v-else-if="c.verdict === 'noDt'"
         type="info"
@@ -453,8 +475,8 @@ const linkBtn = 'inline-flex h-7 items-center gap-1.5 rounded-field px-2.5 text-
           >
             <span class="min-w-0 text-sm font-medium text-ink [overflow-wrap:anywhere]">{{ conflictTitle(d) }}</span>
             <ul role="list" class="m-0 flex list-none flex-col gap-0.5 p-0 text-[13px]">
-              <li v-for="(v, j) in d.values" :key="j" class="[overflow-wrap:anywhere]" data-doccheck-value>
-                <span class="text-ink-3">{{ f.sourceName(v) }} →</span> <span class="font-medium text-ink">{{ v.value ?? '—' }}</span>
+              <li v-for="(g, j) in conflictGroups(d)" :key="j" class="[overflow-wrap:anywhere]" data-doccheck-value>
+                <span class="text-ink-3">{{ g.files.join(', ') }} →</span> <span class="font-medium text-ink">{{ conflictValue(d, g.value) }}</span>
               </li>
             </ul>
             <p v-if="d.scope === 'documents'" :class="cn(quiet, 'm-0')">{{ t('docCheck.block.docsDifferHint') }}</p>

@@ -7775,7 +7775,7 @@ export default {
     transport: 'Көлік {n}',
     item: '{n}-жол',
     scope: { documents: 'Құжаттар өзара', case: 'Құжаттар мен өтінім', declaration: 'Құжаттар мен ДТ' },
-    source: { case: 'Өтінім', dt: 'ДТ {n}', documents: 'Құжаттар', document: 'Құжат' },
+    source: { case: 'Өтінім', dt: 'ДТ {n}', documents: 'Құжаттар', document: 'Құжат', goodsTable: 'негізгі құжат (тауарлар кестесі)' },
     field: {
       contract: 'Келісімшарт нөмірі', invoice: 'Инвойс нөмірі', invoiceDate: 'Инвойс күні', transport: 'Көлік',
       transportDoc: 'Көлік құжаты', tractor: 'Тартқыш нөмірі', trailer: 'Тіркеме нөмірі', sender: 'Жіберуші',

@@ -203,6 +203,61 @@ describe('CaseDocumentCheck (новый вид)', () => {
     expect(api.link).toHaveBeenCalledWith('c1', 'free', 'd2')
   })
 
+  // ── Доработка 01.11.2026 (что видно на проде) ──
+
+  it('расхождение строки товара между документами: источники без повторов, «файл · часть», числа с разрядами', async () => {
+    api.list.mockResolvedValue([check({
+      itemConflicts: [{
+        scope: 'documents', field: 'value', fieldLabel: 'Стоимость', itemIndex: 1, itemDescription: 'Труба',
+        markKey: 'documents:value:1', fingerprint: 'fp-v', mark: null,
+        values: [
+          { value: '454129.168', sourceKind: 'document', source: null },
+          { value: '475870.83', sourceKind: 'document', source: '179随车.pdf#p3' },
+          { value: '475870.83', sourceKind: 'document', source: '179随车.pdf · p4-5' },
+          { value: '475870.830', sourceKind: 'document', source: '179随车.pdf#p3' },
+        ],
+      }],
+      caseDiscrepancies: [{
+        scope: 'case', field: 'tractor', fieldLabel: 'Номер тягача', itemIndex: null, itemDescription: null,
+        markKey: 'case:tractor:', fingerprint: 'fp-t', mark: null,
+        values: [{ value: '777ABC02', sourceKind: 'documents', source: null }, { value: '555ZZZ05', sourceKind: 'case', source: null }],
+      }],
+    })])
+    await mountIt()
+    const text = (sel: string) => w.findAll(sel).map((x) => x.text().replace(/[  ]/g, ' '))
+    expect(text('[data-doccheck-fix="documents:value"] [data-doccheck-value]')).toEqual([
+      'основной документ (таблица товаров) → 454 129,168',
+      '179随车.pdf · p3, 179随车.pdf · p4-5 → 475 870,83',
+    ])
+    expect(text('[data-doccheck-fix="case:tractor"] [data-doccheck-value]')).toEqual(['Документы → 777ABC02', 'Заявка → 555ZZZ05'])
+  })
+
+  it('несколько ДТ: счётчики — в шапке блока каждой ДТ, общей суммы в шапке нет', async () => {
+    api.list.mockResolvedValue([
+      check({ id: 'a', declarationId: 'd1', fixCount: 0, manualCount: 3, matchCount: 4 }),
+      check({ id: 'b', declarationId: 'd2', declarationNumber: '2', fixCount: 8, manualCount: 30, matchCount: 5 }),
+    ])
+    await mountIt({ declarations: [{ id: 'd1', declarationNumber: '50408/011126/0001' }, { id: 'd2', declarationNumber: '2' }] })
+    expect(w.find('[data-case-doccheck] > div [data-doccheck-counters]').exists()).toBe(false)
+    const of = (id: string) => w.findAll(`[data-doccheck="${id}"] [data-doccheck-counter]`).map((c) => c.text())
+    expect(of('a')).toEqual(['Исправить — 0', 'Проверить вручную — 3', 'Совпадает — 4'])
+    expect(of('b')).toEqual(['Исправить — 8', 'Проверить вручную — 30', 'Совпадает — 5'])
+  })
+
+  it('ключевые поля не найдены, но что-то сравнено — мягкая пометка, а не «Не удалось сверить»', async () => {
+    api.list.mockResolvedValue([check({ verdict: 'unrecognized', unrecognized: true, shipment: null, rows: [rows[4]] })])
+    await mountIt()
+    expect(w.find('[data-doccheck-unrecognized]').exists()).toBe(false)
+    expect(w.get('[data-doccheck-unrecognized-part]').text()).toBe('Номера, веса и суммы в документах не найдены — эти поля сверьте вручную.')
+    w.unmount()
+
+    // Не сравнено ничего — по-прежнему «Не удалось сверить».
+    api.list.mockResolvedValue([check({ verdict: 'unrecognized', unrecognized: true, shipment: null, rows: [rows[2]] })])
+    await mountIt()
+    expect(w.find('[data-doccheck-unrecognized]').exists()).toBe(true)
+    expect(w.find('[data-doccheck-unrecognized-part]').exists()).toBe(false)
+  })
+
   it('«Сверить заново»: вызов, сверка заменена, тост; 409 «файлы удалены»', async () => {
     api.list.mockResolvedValue([check()])
     api.recheck.mockResolvedValueOnce(check({ fixCount: 0, unresolved: false, shipment: null }))
