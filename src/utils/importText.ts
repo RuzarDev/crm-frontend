@@ -160,6 +160,18 @@ export interface ForeignAddress {
   clipped: boolean
 }
 
+/**
+ * Служебное в адресе стороны (01.11.2026, правки Несибели 30.10 п.3: ЖДН, графа 1): код USCC («USCC:91510104MA63HKWT9T»,
+ * «统一社会信用代码…») и телефон или факс до конца строки («电话-Телефон:0991-8825386», «Tel: +86 …»). В адрес гр. 2 не идут.
+ */
+export function withoutPartyServiceParts(text: string): string {
+  return text
+    .replace(/(?<![A-Za-zА-Яа-яЁё])(?:USCC|统一社会信用代码|社会信用代码|信用代码)\s*[:：]?\s*[0-9A-Z]{15,18}/giu, ' ')
+    .replace(/(?<![A-Za-zА-Яа-яЁё])(?:电话|手机|传真|телефон|тел\.?|tel(?:ephone)?\.?|phone|fax|факс)(?:\s*[-–/:：]\s*(?:телефон|тел\.?|tel\.?|phone))?\s*[-–:：.]?\s*\+?[\d(][\d ()+\-]{4,}/giu, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
+}
+
 /** Пределы R.055 для адреса стороны: Name120 / Id50 / Id20. */
 export const ADDRESS_LIMITS = { region: 120, district: 120, city: 120, street: 120, house: 50, apt: 20 } as const
 
@@ -186,18 +198,23 @@ const clip = (v: string | null, max: number, flag: { clipped: boolean }): string
  * пусто — null (вызывающий предупреждает «заполните вручную»).
  */
 export function parseForeignAddress(text: string | null | undefined): ForeignAddress | null {
-  let s = (text ?? '').replace(/^\s*(address|адрес|地址)\s*[:：]\s*/iu, '').trim()
+  let s = withoutPartyServiceParts((text ?? '').replace(/^\s*(address|адрес|地址)\s*[:：]\s*/iu, ''))
   if (!s) return null
   if (hasHan(s) && !/[A-Za-z]/.test(s.replace(HAN_ALL, ''))) return null
   s = s.replace(HAN_ALL, ' ')
-  const parts = s.split(/[,;\n，；]+/).map((p) => p.replace(/\s+/g, ' ').trim()).filter((p) => p && !/^[.\-–—]+$/.test(p))
+  const parts = s.split(/[,;\n，；]+/).map((p) => p.replace(/\s+/g, ' ').trim()).filter((p) => p && !/^[.\-–—:：]+$/.test(p))
   if (!parts.length) return null
   const out: ForeignAddress = { countryText: null, region: null, district: null, city: null, street: null, house: null, apt: null, clipped: false }
-  // «P.R. China.» — точка в конце адреса не мешает узнать страну (инвойс 39th)
+  // «P.R. China.» — точка в конце адреса не мешает узнать страну (инвойс 39th); в ЖДН страна бывает первой — «China, Room
+  // 1119, …» (01.11.2026, правки 30.10 п.3).
   const lastPart = parts[parts.length - 1].replace(/[.\s]+$/, '')
+  const firstPart = parts[0].replace(/[.\s]+$/, '')
   if (COUNTRY_PART.test(lastPart)) {
     parts.pop()
     out.countryText = lastPart
+  } else if (parts.length > 1 && COUNTRY_PART.test(firstPart)) {
+    parts.shift()
+    out.countryText = firstPart
   }
   const rest: string[] = []
   for (const p of parts) {
@@ -273,6 +290,18 @@ function hasRussianText(s: string): boolean {
   const han = (s.match(/\p{Script=Han}/gu) ?? []).length
   return words.length >= 2 && cyr >= 0.3 * (cyr + han)
 }
+
+/**
+ * В описании есть русская часть (01.11.2026): russianPart даёт текст без иероглифов, с кириллицей. «贴面板» — нет,
+ * «贴面板↵Подвесная панель» — да.
+ */
+export function hasRussianPart(text: string | null | undefined): boolean {
+  const ru = russianPart(text)
+  return !!ru && !hasHan(ru) && CYR_RE.test(ru)
+}
+
+/** Описание только на китайском — без русской части (01.11.2026). */
+export const chineseOnly = (text: string | null | undefined): boolean => hasHan(text) && !hasRussianPart(text)
 
 /**
  * Описание гр. 31 из двуязычной ячейки (правка 2.4, 22.10.2026): есть и иероглифы, и русский текст — только русская часть.

@@ -38,7 +38,12 @@ const props = withDefaults(defineProps<{
   dropText?: string
   /** Свой список видов вместо видов документов клиента (сканы с границы: CMR, транзит, акт…); с withKind. */
   kinds?: { value: string; label: string }[]
-}>(), { label: '', hint: '', canUpload: false, canRemove: false, multiple: false, withKind: false, emptyText: '', dropText: '', kinds: undefined })
+  /**
+   * Вид у каждого загруженного файла меняется выбором (01.11.2026, правки 30.10 п.4): декларант, РОП, админ — ctx.perms
+   * .canSetDocKind; только раздел documents с видами клиента. Файл клиента нового вида закрывает пункт доработки (сервер).
+   */
+  canSetKind?: boolean
+}>(), { label: '', hint: '', canUpload: false, canRemove: false, multiple: false, withKind: false, emptyText: '', dropText: '', kinds: undefined, canSetKind: false })
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -61,6 +66,14 @@ const kindLabel = (f: Import40FileDto) => {
   if (!props.withKind) return ''
   if (props.kinds) return props.kinds.find((k) => k.value === f.docKind)?.label ?? ''
   return isDocKind(f.docKind) ? t(`client.docKind.${f.docKind}.name`) : ''
+}
+
+// Вид загруженного файла (01.11.2026): тот же список, что у клиента («Что это за документ?»), без пустого значения.
+const editKind = computed(() => props.withKind && props.canSetKind && !props.kinds && props.section === 'documents')
+const fileKindValue = (f: Import40FileDto) => (isDocKind(f.docKind) ? f.docKind : null)
+const setFileKind = (f: Import40FileDto, v: unknown) => {
+  if (typeof v !== 'string' || !isDocKind(v) || v === (f.docKind || 'other')) return
+  void props.ctx.actions.mutate(`file-kind:${f.id}`, () => import40Api.setFileKind(props.ctx.kase.id, f.id, v), { done: 'broker.case.done.fileKindSet' })
 }
 
 const uploadKey = computed(() => `upload:${props.section}`)
@@ -151,7 +164,23 @@ const translations = injectCaseTranslations()
         >{{ extOf(f.originalFileName) || '—' }}</span>
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium text-ink" :title="f.originalFileName" data-slot-file-name>{{ f.originalFileName }}</div>
-          <div v-if="kindLabel(f)" class="truncate text-xs font-medium text-ink-2" data-slot-file-kind>{{ kindLabel(f) }}</div>
+          <div v-if="editKind" class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1" data-slot-file-kind-edit>
+            <label :for="`${labelId}-fk-${f.id}`" class="text-xs text-ink-2">{{ t('broker.case.docs.kind') }}</label>
+            <ZSelect
+              :id="`${labelId}-fk-${f.id}`"
+              :value="fileKindValue(f)"
+              :options="kindOptions"
+              :placeholder="t('broker.case.docs.kindPh')"
+              :loading="ctx.actions.isPending(`file-kind:${f.id}`)"
+              :disabled="ctx.actions.busy()"
+              size="sm"
+              :popup-width="320"
+              class="w-[min(260px,100%)] max-sm:w-full"
+              data-slot-file-kind-select
+              @update:value="(v: unknown) => setFileKind(f, v)"
+            />
+          </div>
+          <div v-else-if="kindLabel(f)" class="truncate text-xs font-medium text-ink-2" data-slot-file-kind>{{ kindLabel(f) }}</div>
           <div class="text-xs tabular-nums text-muted">{{ meta(f) }}</div>
         </div>
         <button

@@ -3924,6 +3924,7 @@ export default {
         fileUploaded: 'File uploaded',
         filesUploaded: 'Files uploaded',
         fileDeleted: 'File deleted',
+        fileKindSet: 'Document type set',
         containerAdded: 'Container added',
         containerRemoved: 'Container removed',
         dtAdded: 'DT added',
@@ -4128,6 +4129,9 @@ export default {
           senderAddressHan: 'Consignor address is in Chinese — fill in box 2 by hand',
           senderAddressClipped: 'Consignor address is longer than KEDEN accepts — check box 2',
           senderFromRefs: 'Consignor taken from the parties directory',
+          // Гр. 2 «по поручению» (01.11.2026, правки 30.10 п.3).
+          senderOnBehalf: 'Box 2: consignor per the waybill {consignor} “on behalf of” seller {seller}; the address is the waybill consignor’s — check it',
+          senderOnBehalfLong: 'Box 2 is longer than {max} characters and was cut — check the name: {full}',
           hanDropped: 'Bilingual description: {n} — only the Russian part is taken',
           modelFromDescription: 'Model taken from the description: {n}',
           placesAmbiguous: 'Places in text are ambiguous: {n} — enter places in the goods card: {list}',

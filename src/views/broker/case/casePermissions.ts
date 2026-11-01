@@ -246,7 +246,17 @@ export interface CasePerms {
   dtDeleteBlockedByRelease: boolean
   /** CanManageDeclarations (админ, РОП, право import40.declarant): переименовать ДТ (23.10.2026), XML, документы ДТ. */
   canManageDeclarations: boolean
+  /** Менять вид документа клиента (canSetDocKind, 01.11.2026). */
+  canSetDocKind: boolean
 }
+
+/**
+ * Вид документа клиента (раздел documents) меняет сотрудник (01.11.2026, правки Несибели 30.10 п.4): админ — всегда, декларант
+ * и РОП (CanManageDeclarations) — до выпуска ДТ. Как сервер SetKind; КПП — нет. Файл клиента нового вида закрывает пункт
+ * доработки.
+ */
+export const canSetDocKind = (a: CaseAuth, c: Import40CaseDto): boolean =>
+  isAdmin(a) || (canManageDeclarations(dtUserFrom(a)) && c.status < RELEASED_STATUS)
 
 export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
   return {
@@ -281,5 +291,6 @@ export function casePerms(a: CaseAuth, c: Import40CaseDto): CasePerms {
     canDeleteDt: canDeleteCaseDt(a, c),
     dtDeleteBlockedByRelease: dtDeleteBlockedByRelease(a, c),
     canManageDeclarations: canManageDeclarations(dtUserFrom(a)),
+    canSetDocKind: canSetDocKind(a, c),
   }
 }

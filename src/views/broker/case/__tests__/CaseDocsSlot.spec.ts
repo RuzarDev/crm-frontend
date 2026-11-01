@@ -6,7 +6,7 @@ import { mountStep } from './stepHarness'
 import { defineComponent, h } from 'vue'
 import type { CaseStepProps } from '../caseContext'
 
-const api = vi.hoisted(() => ({ uploadFile: vi.fn(), deleteFile: vi.fn(), downloadFile: vi.fn() }))
+const api = vi.hoisted(() => ({ uploadFile: vi.fn(), deleteFile: vi.fn(), downloadFile: vi.fn(), setFileKind: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/ui/message', () => ({ message: msg }))
@@ -47,6 +47,27 @@ afterEach(() => {
 })
 
 describe('CaseDocsSlot', () => {
+  // 01.11.2026 (правки Несибели 30.10 п.4): вид файла клиента меняет декларант / РОП — выбором у файла.
+  it('вид загруженного файла: с правом — выбор у файла, запрос, тост и перечитывание; без права — только подпись', async () => {
+    api.setFileKind.mockResolvedValue(fileDto({ id: 'f1', docKind: 'contract' }))
+    mount({ withKind: true, canSetKind: true }, [fileDto({ id: 'f1', docKind: 'other', originalFileName: 'scan.pdf' })])
+    expect(w.find('[data-slot-file-kind]').exists()).toBe(false)
+    await w.get('[data-slot-file-kind-select] [data-option="contract"]').trigger('click')
+    await flushPromises()
+    expect(api.setFileKind).toHaveBeenCalledWith('c1', 'f1', 'contract')
+    expect(reload).toHaveBeenCalledTimes(1)
+    expect(msg.success).toHaveBeenCalledWith('Вид документа указан')
+    // тот же вид — запроса нет
+    await w.get('[data-slot-file-kind-select] [data-option="other"]').trigger('click')
+    await flushPromises()
+    expect(api.setFileKind).toHaveBeenCalledTimes(1)
+    w.unmount()
+
+    mount({ withKind: true }, [fileDto({ id: 'f1', docKind: 'invoice', originalFileName: 'inv.pdf' })])
+    expect(w.find('[data-slot-file-kind-select]').exists()).toBe(false)
+    expect(w.get('[data-slot-file-kind]').text()).toBe('Инвойс (коммерческий счёт)')
+  })
+
   it('показывает файлы раздела карточками: имя, вид документа, кто загрузил; чужие разделы не видны', () => {
     mount({ withKind: true }, [
       fileDto({ id: 'f1', docKind: 'invoice', originalFileName: 'inv.pdf', uploadedByStaffName: 'Айгерим К.' }),

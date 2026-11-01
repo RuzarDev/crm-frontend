@@ -6,7 +6,9 @@
 //   4. отправитель — из справочника сторон (точное совпадение названия) или разбором адреса из документа.
 import { companyLookupApi, isBinLike } from '@/api/companyLookup'
 import { partyRefsApi } from '@/api/partyRefs'
-import type { Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionResult, Import40Party } from '@/api/import40'
+import type {
+  Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionPartySource, Import40ExtractionResult, Import40Party,
+} from '@/api/import40'
 import type { ClassifierItem, Import40GoodsItemInput } from '@/types/api'
 import { countryFromText, fixCyrillicLookalikes, hasHan, normPartyName, parseForeignAddress, upperRu, type CountryOption } from '@/utils/importText'
 import { parseKzAddress } from '@/utils/kzAddress'
@@ -15,7 +17,7 @@ import { docDateConflicts } from '@/views/broker/dt/goods/goodsImport'
 import { buildGoods, noteCount, noteDetails, SENDER_AS_MANUFACTURER_DEFAULT } from '@/views/broker/dt/goods/importBuild'
 import { resolveCodes } from '@/views/broker/dt/goods/importResolve'
 import { previewToUpsert, type DocumentsBuilt } from '../declarations'
-import { applyExcelFallback, type ExcelDoc } from './excelFallback'
+import { applyExcelFallback, looksLikeLabel, type ExcelDoc } from './excelFallback'
 
 /** Замечание для окна замечаний: ключ i18n broker.case.declaring.batch.* и параметры. */
 export interface DocumentsNote { key: string; params?: Record<string, unknown> }
@@ -40,6 +42,46 @@ export interface DocumentsCase {
 
 /** Краткое наименование стороны в R.055 — Name120. */
 const SHORT_NAME_MAX = 120
+/** Наименование отправителя гр. 2 — колонка SenderName (200; в R.055 SubjectName — до 300). */
+const SENDER_NAME_MAX = 200
+
+/** Отправитель гр. 2 «по поручению»: отправитель по транспортному документу и продавец. */
+export interface OnBehalfSender { consignor: Import40ExtractionPartySource; seller: string }
+
+/**
+ * Отправитель по товаросопроводительному документу другой, чем продавец (01.11.2026, правки Несибели 30.10 п.3, ответ Ирины):
+ * гр. 2 — отправитель по CMR / СМГС / авианакладной (бывает экспедитор) «по поручению» продавца из инвойса. Отправитель
+ * накладной — из senderSources (вид записи transport), продавец — sellerName; если разбор сам взял отправителем накладную,
+ * продавец — отправитель другого документа. Совпадают, нет накладной или старый сервер без senderSources — null (как раньше).
+ */
+export function onBehalfSender(
+  sources: readonly Import40ExtractionPartySource[] | null | undefined, sellerName: string | null | undefined,
+): OnBehalfSender | null {
+  const valid = (sources ?? []).filter((x) => x.name?.trim() && !looksLikeLabel(x.name))
+  const consignor = valid.find((x) => x.docType === 'transport')
+  if (!consignor) return null
+  const key = normPartyName(consignor.name)
+  if (!key) return null
+  const differs = (name: string | null | undefined) => !!name?.trim() && !looksLikeLabel(name) && normPartyName(name) !== key
+  const seller = differs(sellerName) ? sellerName! : valid.find((x) => x.docType !== 'transport' && differs(x.name))?.name
+  return seller ? { consignor, seller: seller.trim() } : null
+}
+
+/**
+ * Гр. 2 «X ПО ПОРУЧЕНИЮ Y» (01.11.2026): адрес и страна — отправителя по накладной (справочник сторон или разбор адреса без
+ * иероглифов, USCC и телефона). Длиннее колонки — обрезается с замечанием (не молча); краткое — до 120, как раньше.
+ */
+export async function resolveOnBehalfSender(o: OnBehalfSender, notes: DocumentsNote[]): Promise<DocumentsBuilt['sender']> {
+  const consignor = upperRu(o.consignor.name)!
+  const seller = upperRu(o.seller)!
+  const full = `${consignor} ПО ПОРУЧЕНИЮ ${seller}`
+  const name = full.length > SENDER_NAME_MAX ? full.slice(0, SENDER_NAME_MAX).trim() : full
+  notes.push({ key: 'senderOnBehalf', params: { consignor, seller } })
+  if (name !== full) notes.push({ key: 'senderOnBehalfLong', params: { max: SENDER_NAME_MAX, full } })
+  const resolved = await resolveSender(o.consignor.name, o.consignor.address ?? null, notes)
+  if (!resolved) return null
+  return { ...resolved, party: { ...resolved.party, name }, shortName: name.slice(0, SHORT_NAME_MAX) }
+}
 
 const digits = (s: string | null | undefined) => (s ?? '').replace(/\D/g, '')
 
@@ -211,8 +253,10 @@ export async function prepareDocumentsDeclaration(
   // Гр. 44 из перечня документов Zircon AI (29.10.2026): код не определён, сверить код, нет скана.
   notes.push(...excel.doc44Notes)
 
+  // Гр. 2 (01.11.2026): отправитель по накладной другой, чем продавец, — «по поручению», адрес накладной; иначе — как раньше.
+  const onBehalf = onBehalfSender(extras?.senderSources, senderName)
   const [sender, receiverAddr] = await Promise.all([
-    resolveSender(senderName, excel.senderAddress, notes),
+    onBehalf ? resolveOnBehalfSender(onBehalf, notes) : resolveSender(senderName, excel.senderAddress, notes),
     resolveReceiverAddress(excel.receiverBin, excel.receiverAddress, notes),
   ])
   // Получатель — ЗАГЛАВНЫМИ, как поля ДТ (совпал с компанией клиента — сервер возьмёт поля профиля); адрес — по БИН.

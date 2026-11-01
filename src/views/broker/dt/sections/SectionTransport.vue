@@ -24,7 +24,9 @@ import TransportMeansList from './TransportMeansList.vue'
 // только при правке гр. 18 и только если не выбран вручную (utils/transportMode.ts); иначе — предупреждение и «Поставить».
 // Страна регистрации ТС — одна на графу (в XML это RegistrationNationalityCode и страна каждого номера), поэтому она
 // стоит над списком с номером графы, а не в каждой строке.
-const props = defineProps<{ form: DtFormState; readonly: boolean }>()
+// caseRail — заявка ЖД (utils/transportMode.caseIsRail, 01.11.2026): пустые гр. 25 / 26 не заполняются кодом 30/31/32 по составу
+// гр. 18 — там вагоны, даже если номер из ЖДН прочитан как «тягач и прицеп».
+const props = defineProps<{ form: DtFormState; readonly: boolean; caseRail?: boolean }>()
 const { t } = useI18n()
 const classifiers = useClassifiersStore()
 const countries = useCountryAlpha2Options()
@@ -61,7 +63,7 @@ const composition = computed<RoadMode | null>(() => compositionMode(arrivalRows.
 // Правило — только для автомобильной гр. 18 (вид гр. 26, без неё гр. 25) или пока вид не выбран: при гр. 26 = 20 в гр. 18
 // вагоны, и ручной 31 гр. 25 (тягач с прицепом на границе) не должен ни меняться, ни давать предупреждение. Так же сервер
 // (TransportComposition.ExpectedRoadMode).
-const roadArrival = computed(() => !(arrivalMode.value ?? '').trim() || isRoadMode(arrivalMode.value))
+const roadArrival = computed(() => ((arrivalMode.value ?? '').trim() ? isRoadMode(arrivalMode.value) : !props.caseRail))
 const expected = computed<RoadMode | null>(() => (roadArrival.value ? composition.value : null))
 // Последний известный состав. Стёртый на время перенабора номер головы делает состав «неизвестным» (null); если брать
 // прежнее значение слежения, следующий знак номера выглядел бы как «состав появился», и ручной код молча сменился бы.
