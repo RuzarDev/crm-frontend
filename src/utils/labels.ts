@@ -44,6 +44,7 @@ const auditActionMap: Record<string, string> = {
   'user.password_reset': 'Выдал временный пароль',
   'user.password_change': 'Сменил пароль',
   'user.poa': 'Изменил статус представителя',
+  'user.places': 'Изменил посты и станции сотрудника',
   'role.permissions': 'Изменил права роли',
   'role.reset': 'Вернул права ролей по умолчанию',
 }

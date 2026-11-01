@@ -10,6 +10,7 @@ import { USERS, caseDto, fileDto } from './caseFixture'
 
 const api = vi.hoisted(() => ({
   get: vi.fn(), listFiles: vi.fn(), listBrokerInvoices: vi.fn(), kedenReadinessSummary: vi.fn(), action: vi.fn(), update: vi.fn(), downloadFile: vi.fn(),
+  kppPoa: vi.fn(),
 }))
 const manage = vi.hoisted(() => ({ staff: vi.fn() }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn() }))
@@ -103,6 +104,7 @@ beforeEach(() => {
   api.kedenReadinessSummary.mockResolvedValue([])
   api.action.mockImplementation(async () => server.kase)
   api.update.mockImplementation(async () => server.kase)
+  api.kppPoa.mockResolvedValue(null)
   refs.listCountries.mockResolvedValue([])
   // Поставка до границы: по умолчанию не начата.
   preBorder.get.mockImplementation(async () => ({
@@ -446,6 +448,22 @@ describe('CaseView: действия', () => {
     await flushPromises()
     expect(w.find('[data-modal]').exists()).toBe(true)
     expect(msg.success).not.toHaveBeenCalled()
+  })
+
+  it('пакет C: назначенного КПП нет в доверенности клиента — предупреждение под строкой КПП; в доверенности — тихо', async () => {
+    api.kppPoa.mockResolvedValue({ kppId: 'k1', status: 'notInPoa' })
+    await mountCard(USERS.admin, { status: 1, assignedKppId: 'k1', assignedKppName: 'Ерлан Б.' })
+    expect(api.kppPoa).toHaveBeenCalledWith('c1')
+    expect(w.get('[data-team-row="kpp"] [data-team-kpp-poa]').text()).toBe('Ерлан Б. нет в доверенности клиента — перевыпустите доверенность')
+    w.unmount()
+    api.kppPoa.mockResolvedValue({ kppId: 'k1', status: 'ok' })
+    await mountCard(USERS.admin, { status: 1, assignedKppId: 'k1', assignedKppName: 'Ерлан Б.' })
+    expect(w.find('[data-team-kpp-poa]').exists()).toBe(false)
+    w.unmount()
+    // КПП не назначен — не спрашиваем.
+    api.kppPoa.mockClear()
+    await mountCard(USERS.admin, { status: 1, assignedKppId: null })
+    expect(api.kppPoa).not.toHaveBeenCalled()
   })
 
   it('назначение: оба поля, как раньше (второе — текущее или Guid.Empty)', async () => {

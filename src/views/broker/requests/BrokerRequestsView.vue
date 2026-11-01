@@ -31,7 +31,7 @@ import { formatMoney } from '@/ui/number'
 import { formatDateText } from '@/ui/date'
 import type { ZColumn, ZKey } from '@/ui/table'
 import {
-  REQUEST_TABS, clientOptions as buildClientOptions, emptyFilters, executorInfo, executorOptions as buildExecutorOptions,
+  REQUEST_TABS, byMyPlaceThenUpdated, clientOptions as buildClientOptions, emptyFilters, executorInfo, executorOptions as buildExecutorOptions,
   executorText, filterRows, filtersFromQuery, filtersToQuery, formatTnved, hasFilters, inTab, isActiveProblem, isRework, parseTab, sameFilters, stageTone, tabCounts,
   type RequestFilters, type RequestTab,
 } from './requests'
@@ -182,6 +182,7 @@ const assign = async (field: 'assignedDeclarantId' | 'assignedKppId', staffId: s
 }
 
 // ---- Таблица ----
+const byUpdated = (a: Import40BoardRow, b: Import40BoardRow) => Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc)
 const columns = computed<ZColumn<Import40BoardRow>[]>(() => [
   { key: 'request', title: t('broker.requests.col.request'), width: 160, sorter: (a, b) => a.number.localeCompare(b.number, 'ru', { numeric: true }) },
   { key: 'client', title: t('broker.requests.col.client'), width: 170 },
@@ -189,7 +190,8 @@ const columns = computed<ZColumn<Import40BoardRow>[]>(() => [
   { key: 'stage', title: t('broker.requests.col.stage'), width: 200, sorter: (a, b) => a.status - b.status },
   { key: 'executor', title: t('broker.requests.col.executor'), width: 130 },
   { key: 'payments', title: t('broker.requests.col.payments'), width: 110, align: 'right' },
-  { key: 'updated', title: t('broker.requests.col.updated'), width: 96, align: 'right', defaultSortOrder: 'descend', sorter: (a, b) => Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc) },
+  // Пакет C (01.11.2026): во «Моих» заявки ваших постов и станций — первыми (при сортировке «сначала новые», она по умолчанию).
+  { key: 'updated', title: t('broker.requests.col.updated'), width: 96, align: 'right', defaultSortOrder: 'descend', sorter: tab.value === 'my' ? byMyPlaceThenUpdated : byUpdated },
 ])
 // Ширина таблицы — сумма колонок (+40 под колонку выбора): иначе узкие колонки сжимаются и «+N» наезжает на «Этап».
 const tableWidth = computed(() => columns.value.reduce((s, c) => s + (typeof c.width === 'number' ? c.width : 0), rowSelection.value ? 40 : 0))
@@ -327,6 +329,8 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
             <span v-if="record.status < 8" class="text-xs tabular-nums text-muted">{{ t('broker.requests.stepOf', { step: record.step, total: TOTAL_STEPS }) }}</span>
             <!-- S-21: возвращённый на доработку черновик — «На доработке» (ждёт клиента). -->
             <ZTag v-if="isRework(record)" tone="wait" data-request-rework>{{ t('broker.requests.rework') }}</ZTag>
+            <!-- Пакет C (01.11.2026): заявка на посту или станции, закреплённых за вами. -->
+            <ZTag v-if="record.myPlace" tone="info" :data-request-my-place="record.myPlace">{{ t(record.myPlace === 'station' ? 'broker.requests.myStation' : 'broker.requests.myPost') }}</ZTag>
             <!-- S-18: у выполненных и отменённых флаг проблемы не показываем — проблемой считается только заявка в работе. -->
             <ZTag v-if="isActiveProblem(record)" tone="danger">
               <PhFlag :size="12" weight="fill" class="mr-1" aria-hidden="true" />{{ t('broker.requests.problem') }}

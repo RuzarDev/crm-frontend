@@ -1066,6 +1066,12 @@ export const import40Api = {
     return response.data
   },
 
+  // Есть ли назначенный КПП в действующей доверенности клиента (пакет C, 01.11.2026): null — КПП не назначен (204).
+  kppPoa: async (id: string): Promise<{ kppId: string; status: 'ok' | 'noIin' | 'noPoa' | 'notInPoa' } | null> => {
+    const res = await apiClient.get(`/import40/${encodeURIComponent(id)}/kpp-poa`, { silent: true })
+    return res.status === 204 || !res.data ? null : res.data
+  },
+
   create: async (data: Import40CreateRequest): Promise<Import40CaseDto> => {
     const response = await apiClient.post<Import40CaseDto>('/import40', data)
     return response.data

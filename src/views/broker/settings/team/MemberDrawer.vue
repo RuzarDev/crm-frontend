@@ -12,7 +12,7 @@ import ZSwitch from '@/components/z/ZSwitch.vue'
 import { extractServerText } from '@/api/client'
 import type { DeclarantProfileDto } from '@/api/declarantProfile'
 import { permissionsApi } from '@/api/permissions'
-import { usersApi } from '@/api/users'
+import { usersApi, type StaffPlaceDto } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/ui/confirm'
 import { formatDateText } from '@/ui/date'
@@ -20,11 +20,12 @@ import { message } from '@/ui/message'
 import { formatDay } from '@/views/broker/list'
 import type { TeamMemberDto } from '@/types/api'
 import MemberClients from './MemberClients.vue'
+import MemberPlaces from './MemberPlaces.vue'
 import TempPasswordDialog from './TempPasswordDialog.vue'
-import { STAFF_ROLES, isAdminMember, memberName, orderRoles } from './team'
+import { STAFF_ROLES, isAdminMember, memberName, orderRoles, samePlaces } from './team'
 import { useTeamRoleLabels } from './useTeamRoleLabels'
 
-// Панель сотрудника (редизайн, волна 5б, доска Team): роли, профиль декларанта, клиенты (МПП), доступ, удаление.
+// Панель сотрудника (редизайн, волна 5б, доска Team): роли, профиль декларанта, посты и станции (КПП), клиенты (МПП), доступ, удаление.
 // Роли и клиенты сохраняются кнопкой «Сохранить» (роли — одним PUT); переключатель представителя, временный пароль
 // и удаление — действия на месте. Несохранённое при закрытии — вопрос (canLeave: его же зовёт страница при смене строки).
 // Ошибки сервера (403 «нельзя себе / администратора», 409 «последний администратор») показываются внутри панели.
@@ -176,6 +177,34 @@ const loadClients = async () => {
 }
 const clientsDirty = computed(() => showClients.value && clientsState.value === 'ready' && !sameSet(clientIds.value, clientsBase.value))
 
+// ---- Посты и станции (КПП; пакет C, 01.11.2026, пункт 8 правок 30.10) ----
+// Правит тот же, кто правит роли (users.assign_role, себе и администратору — только администратор): lock — как у ролей.
+// Сохраняются кнопкой «Сохранить» вместе с ролями.
+const showPlaces = computed(() => !!m.value && draftRoles.value.includes('kpp'))
+const places = ref<StaffPlaceDto[]>([])
+const placesBase = ref<StaffPlaceDto[]>([])
+const placesState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+let placesFor: string | null = null
+const loadPlaces = async () => {
+  const id = m.value?.id
+  if (!id) return
+  placesFor = id
+  placesState.value = 'loading'
+  try {
+    const rows = await usersApi.places(id, { silent: true })
+    if (placesFor !== id) return
+    places.value = rows
+    placesBase.value = rows
+    placesState.value = 'ready'
+  } catch {
+    if (placesFor !== id) return
+    placesState.value = 'error'
+  }
+}
+const placesDirty = computed(() => showPlaces.value && placesState.value === 'ready' && !samePlaces(places.value, placesBase.value))
+// Без ИИН не сверить с доверенностью клиента — предупреждаем рядом с местами (профиль грузится для роли КПП).
+const placesNoIin = computed(() => profileState.value === 'ready' && !profile.value?.iin?.trim())
+
 // ---- Состояние сотрудника: сброс при смене / появлении данных ----
 const serverError = ref('')
 const saving = ref(false)
@@ -189,11 +218,13 @@ watch(() => props.member?.id, (id) => {
   if (!id) {
     draftRoles.value = [...(shown.value?.businessRoles ?? [])]
     clientIds.value = [...clientsBase.value]
+    places.value = [...placesBase.value]
     serverError.value = ''
     return
   }
   profile.value = null; profileState.value = 'idle'; profileFor = null
   clientIds.value = []; loginById.value = {}; clientsBase.value = []; clientsState.value = 'idle'; clientsFor = null
+  places.value = []; placesBase.value = []; placesState.value = 'idle'; placesFor = null
   resetState()
   void loadCatalog()
 }, { immediate: true })
@@ -202,9 +233,11 @@ watch(() => props.member?.businessRoles.join(','), () => { if (props.member) dra
 watch(() => props.member?.isPoaRepresentative, (v) => { if (!poaBusy.value) poa.value = !!v })
 watch([() => props.member?.id, showProfile], ([id, show]) => { if (id && show && profileFor !== id) void loadProfile() }, { immediate: true })
 watch([() => props.member?.id, showClients], ([id, show]) => { if (id && show && clientsFor !== id) void loadClients() }, { immediate: true })
+watch([() => props.member?.id, showPlaces], ([id, show]) => { if (id && show && placesFor !== id) void loadPlaces() }, { immediate: true })
 
-const dirty = computed(() => rolesDirty.value || clientsDirty.value)
-const canSave = computed(() => dirty.value && !rolesInvalid.value && !saving.value && !(rolesDirty.value && !!rolesLock.value))
+const dirty = computed(() => rolesDirty.value || clientsDirty.value || placesDirty.value)
+const canSave = computed(() => dirty.value && !rolesInvalid.value && !saving.value
+  && !((rolesDirty.value || placesDirty.value) && !!rolesLock.value))
 
 const errText = (err: unknown): string =>
   extractServerText((err as { response?: { data?: unknown } })?.response?.data) ?? t('broker.settings.team.drawer.failed')
@@ -225,6 +258,13 @@ const save = async () => {
       if ((mem.systemRole || '').toLowerCase() === 'broker') await usersApi.editBroker(mem.id, { username: null, clientIds: ids }, { silent: true })
       else await usersApi.editStaffClients(mem.id, { clientIds: ids }, { silent: true })
       clientsBase.value = ids
+    }
+    if (placesDirty.value) {
+      const saved = await usersApi.setPlaces(mem.id, places.value.map((p) => (p.kind === 'post'
+        ? { kind: 'post' as const, code: p.key }
+        : { kind: 'station' as const, name: p.name })), { silent: true })
+      places.value = saved
+      placesBase.value = saved
     }
   } catch (err) {
     serverError.value = errText(err)
@@ -378,6 +418,21 @@ const sinceText = computed(() => (m.value ? `${m.value.username} · ${t('broker.
             <p v-if="lockText" class="m-0 mt-1.5 text-xs text-muted" data-member-poa-lock>{{ lockText }}</p>
           </dd>
         </dl>
+      </section>
+
+      <section v-if="showPlaces" aria-labelledby="member-places-h" data-member-places-section>
+        <h3 id="member-places-h" class="m-0 mb-1 text-sm font-medium text-muted">{{ t('broker.settings.team.drawer.places') }}</h3>
+        <p class="m-0 mb-2 text-sm text-muted" data-member-places-hint>{{ t('broker.settings.team.drawer.placesHint') }}</p>
+        <ZAlert v-if="placesNoIin" type="warning" show-icon :message="t('broker.settings.team.drawer.placesNoIin')" class="mb-2" data-member-places-no-iin />
+        <MemberPlaces
+          :value="places"
+          :disabled="busy || !!rolesLock"
+          :loading="placesState === 'loading' || placesState === 'idle'"
+          :error="placesState === 'error'"
+          @update:value="places = $event"
+          @retry="loadPlaces()"
+        />
+        <p v-if="lockText" class="m-0 mt-1.5 text-xs text-muted" data-member-places-lock>{{ lockText }}</p>
       </section>
 
       <section v-if="showClients" aria-labelledby="member-clients-h" data-member-clients-section>

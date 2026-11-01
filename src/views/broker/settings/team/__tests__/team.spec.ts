@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ADMIN_FILTER, filterTeam, generatePassword, memberName, mergeClients, orderRoles, systemRoleFor } from '../team'
+import { ADMIN_FILTER, filterTeam, generatePassword, memberName, mergeClients, orderRoles, samePlaces, stationKey, systemRoleFor } from '../team'
 import type { TeamMemberDto } from '@/types/api'
 
 const m = (o: Partial<TeamMemberDto>): TeamMemberDto => ({
@@ -54,5 +54,20 @@ describe('team.ts', () => {
     const catalog = [c('1', 'Zeta'), c('2', 'Альфа')]
     expect(mergeClients(catalog, null, 'ru').map((r) => r.id)).toEqual(['2', '1'])
     expect(mergeClients(catalog, null, 'en').map((r) => r.id)).toEqual(['1', '2'])
+  })
+})
+
+describe('посты и станции (пакет C, 01.11.2026)', () => {
+  it('ключ станции — как на сервере: без регистра, пробелов и знаков, ё → е', () => {
+    expect(stationKey('Алматы-1')).toBe(stationKey('  алматы 1 '))
+    expect(stationKey('Семёновка')).toBe('семеновка')
+    expect(stationKey('Алматы-1')).not.toBe(stationKey('Алматы-2'))
+    expect(stationKey(' - ')).toBeNull()
+  })
+  it('тот же набор мест — без учёта порядка', () => {
+    const a = [{ kind: 'post', key: '99101' }, { kind: 'station', key: 'тестовая1' }]
+    expect(samePlaces(a, [...a].reverse())).toBe(true)
+    expect(samePlaces(a, [a[0]])).toBe(false)
+    expect(samePlaces([{ kind: 'post', key: '99101' }], [{ kind: 'station', key: '99101' }])).toBe(false)
   })
 })

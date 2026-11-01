@@ -99,3 +99,22 @@ export function mergeClients(catalog: CatalogClientRow[], onboarding: ClientOnbo
 
 export const filterClients = (rows: TeamClientRow[], q: string): TeamClientRow[] =>
   rows.filter((c) => matchesQuery(q, [c.companyName, c.username, c.bin]))
+
+// ---- Посты и станции сотрудника (пакет C, 01.11.2026) ----
+
+/**
+ * Ключ станции — как на сервере (Import40StaffPlaces.StationKey): нижний регистр, только буквы и цифры, ё → е
+ * («Алматы-1» = «алматы 1»). Пусто — null.
+ */
+export const stationKey = (name: string): string | null => {
+  const k = (name ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, '')
+  return k || null
+}
+
+/** Тот же набор мест (порядок не важен). */
+export const samePlaces = (a: { kind: string; key: string }[], b: { kind: string; key: string }[]): boolean => {
+  const ids = (x: { kind: string; key: string }[]) => new Set(x.map((p) => `${p.kind}:${p.key}`))
+  const A = ids(a)
+  const B = ids(b)
+  return A.size === B.size && [...A].every((x) => B.has(x))
+}

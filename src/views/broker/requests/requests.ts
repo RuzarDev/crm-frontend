@@ -55,6 +55,13 @@ export function inTab(r: WaitRow, tab: RequestTab): boolean {
   }
 }
 
+/**
+ * Сортировка «Обновлена» во вкладке «Мои» (пакет C, 01.11.2026): заявки ваших постов/станций — одной группой. Таблица
+ * переворачивает результат для «сначала новые» (по умолчанию) — тогда ваши места наверху.
+ */
+export const byMyPlaceThenUpdated = (a: Pick<Import40BoardRow, 'myPlace' | 'updatedAtUtc'>, b: Pick<Import40BoardRow, 'myPlace' | 'updatedAtUtc'>): number =>
+  (Number(!!a.myPlace) - Number(!!b.myPlace)) || (Date.parse(a.updatedAtUtc) - Date.parse(b.updatedAtUtc))
+
 /** Нужен КПП: «На границе», «ДТ выпущена», «Закрытие СВХ», «Счёт выставлен». */
 export const needsKpp = (status: number): boolean => status === 1 || status === 4 || status === 5 || status === 6
 /** Нужен декларант: «Декларирование», «ДТ подана». */

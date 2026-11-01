@@ -109,6 +109,24 @@ describe('BrokerRequestsView', () => {
     expect(w.text()).not.toContain('проблема')
   })
 
+  it('пакет C: во «Моих» заявки ваших постов и станций — первыми, с отметкой «ваш пост» / «ваша станция»', async () => {
+    api.board.mockImplementation(async (view: string) => ({
+      items: view === 'my'
+        ? [
+          row({ id: 'n', number: 'ИМ-2026-0010', status: 1, updatedAtUtc: '2026-10-09T08:00:00Z' }),
+          row({ id: 'p', number: 'ИМ-2026-0011', status: 1, updatedAtUtc: '2026-10-02T08:00:00Z', myPlace: 'post' }),
+          row({ id: 's', number: 'ИМ-2026-0012', status: 1, updatedAtUtc: '2026-10-01T08:00:00Z', myPlace: 'station' }),
+        ]
+        : ALL,
+      truncated: false,
+    }))
+    await mountAt('/import-40?tab=my')
+    expect(numbers()).toEqual(['ИМ-2026-0011', 'ИМ-2026-0012', 'ИМ-2026-0010'])
+    expect(w.get('[data-request-my-place="post"]').text()).toBe('ваш пост')
+    expect(w.get('[data-request-my-place="station"]').text()).toBe('ваша станция')
+    expect(w.findAll('[data-request-my-place]')).toHaveLength(2)
+  })
+
   it('при открытии уходят оба запроса, справочники окна создания не грузятся', async () => {
     await mountAt('/import-40?tab=active')
     expect(api.board).toHaveBeenCalledWith('all', { silent: true })

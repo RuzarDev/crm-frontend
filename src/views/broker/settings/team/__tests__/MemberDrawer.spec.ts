@@ -7,14 +7,17 @@ import type { TeamMemberDto } from '@/types/api'
 const api = vi.hoisted(() => ({
   declarantProfile: vi.fn(), linkedClients: vi.fn(), editBroker: vi.fn(), editStaffClients: vi.fn(),
   resetPassword: vi.fn(), deleteUser: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(), setPoa: vi.fn(), confirm: vi.fn(),
+  places: vi.fn(), setPlaces: vi.fn(), listPosts: vi.fn(), listStations: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/users', () => ({
   usersApi: {
     declarantProfile: api.declarantProfile, linkedClients: api.linkedClients, editBroker: api.editBroker,
     editStaffClients: api.editStaffClients, resetPassword: api.resetPassword, deleteUser: api.deleteUser,
+    places: api.places, setPlaces: api.setPlaces,
   },
 }))
+vi.mock('@/api/references', () => ({ referencesApi: { listCustomsPosts: api.listPosts, listStations: api.listStations } }))
 vi.mock('@/api/permissions', async (orig) => ({
   ...(await orig<typeof import('@/api/permissions')>()),
   permissionsApi: { catalog: api.catalog, setUserRoles: api.setUserRoles, setPoaRepresentative: api.setPoa },
@@ -24,6 +27,7 @@ vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) })
 
 import MemberDrawer from '../MemberDrawer.vue'
 import MemberClients from '../MemberClients.vue'
+import MemberPlaces from '../MemberPlaces.vue'
 import { useAuthStore } from '@/stores/auth'
 
 // Панель и окно — заглушки (механика Reka не проверяется): содержимое, слоты и запросы.
@@ -82,6 +86,11 @@ beforeEach(() => {
   api.deleteUser.mockResolvedValue(undefined)
   api.resetPassword.mockResolvedValue({ username: 'd.seitkali', temporaryPassword: 'Tmp-Pass-4821' })
   api.confirm.mockResolvedValue(true)
+  api.places.mockResolvedValue([])
+  api.setPlaces.mockImplementation(async (_id: string, rows: { kind: string; code?: string; name?: string }[]) =>
+    rows.map((r) => (r.kind === 'post' ? { kind: 'post', key: r.code, name: `${r.code} — ТЕСТОВЫЙ ПОСТ` } : { kind: 'station', key: 'тестовая1', name: r.name })))
+  api.listPosts.mockResolvedValue([{ id: 'p1', name: '99101 — ТАМОЖЕННЫЙ ПОСТ «ТЕСТ»', isActive: true, code: '99101' }])
+  api.listStations.mockResolvedValue([{ id: 's1', name: 'Тестовая-1', isActive: true }])
   as('administrator', FULL)
 })
 afterEach(() => {
@@ -487,5 +496,55 @@ describe('MemberDrawer: правки (раунд 1)', () => {
     expect(w.emitted('changed')).toHaveLength(1)
     expect(w.emitted('saved')).toBeUndefined()
     expect(w.get('[data-member-error]').text()).toContain('Не получилось')
+  })
+})
+
+describe('MemberDrawer: посты и станции (пакет C, 01.11.2026)', () => {
+  const kpp = (o: Partial<TeamMemberDto> = {}) => member({ id: 'k1', username: 'k.test', displayName: 'ТЕСТ КПП', businessRoles: ['kpp'], ...o })
+
+  it('блок есть только у КПП; места грузятся и показываются с кодом и видом', async () => {
+    await mountIt()
+    expect(w.find('[data-member-places-section]').exists()).toBe(false)
+    expect(api.places).not.toHaveBeenCalled()
+    w.unmount()
+    api.places.mockResolvedValue([{ kind: 'post', key: '99101', name: '99101 — ТАМОЖЕННЫЙ ПОСТ «ТЕСТ»' }])
+    await mountIt(kpp())
+    expect(api.places).toHaveBeenCalledWith('k1', { silent: true })
+    const row = w.get('[data-member-place="post:99101"]')
+    expect(row.text()).toContain('99101')
+    expect(row.text()).toContain('пост')
+  })
+
+  it('варианты — посты и станции из справочников; добавленное сохраняется кнопкой «Сохранить» одним PUT', async () => {
+    await mountIt(kpp())
+    const opts = w.findComponent(MemberPlaces).findComponent({ name: 'ZSelect' }).props('options') as { value: string }[]
+    expect(opts.map((o) => o.value)).toEqual(['post:99101', 'station:тестовая1'])
+    w.findComponent(MemberPlaces).vm.$emit('update:value', [
+      { kind: 'post', key: '99101', name: '99101 — ТАМОЖЕННЫЙ ПОСТ «ТЕСТ»' },
+      { kind: 'station', key: 'тестовая1', name: 'Тестовая-1' },
+    ])
+    await flushPromises()
+    expect(w.get('[data-member-save]').attributes('disabled')).toBeUndefined()
+    await click('[data-member-save]')
+    expect(api.setPlaces).toHaveBeenCalledWith('k1', [{ kind: 'post', code: '99101' }, { kind: 'station', name: 'Тестовая-1' }], { silent: true })
+    expect(api.setUserRoles).not.toHaveBeenCalled()
+    expect(w.emitted('saved')).toHaveLength(1)
+  })
+
+  it('без ИИН в профиле — предупреждение: доверенность не проверить', async () => {
+    api.declarantProfile.mockResolvedValue({ ...PROFILE, iin: null })
+    await mountIt(kpp())
+    expect(w.get('[data-member-places-no-iin]').text()).toContain('нет ИИН')
+    w.unmount()
+    api.declarantProfile.mockResolvedValue(PROFILE)
+    await mountIt(kpp())
+    expect(w.find('[data-member-places-no-iin]').exists()).toBe(false)
+  })
+
+  it('права как на роли: без users.assign_role места не меняются', async () => {
+    as('importer', ['users.read'])
+    await mountIt(kpp())
+    expect(w.findComponent(MemberPlaces).props('disabled')).toBe(true)
+    expect(w.find('[data-member-places-lock]').exists()).toBe(true)
   })
 })

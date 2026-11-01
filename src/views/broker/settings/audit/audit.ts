@@ -16,7 +16,7 @@ export const AUDIT_DEFAULT_DAYS = 30
 
 /** Все действия, которые пишет сервер: для чипа «Все действия». Порядок — по группам, подписи — enum.auditAction. */
 export const AUDIT_ACTIONS = [
-  'role.permissions', 'role.reset', 'user.role', 'user.roles', 'user.poa',
+  'role.permissions', 'role.reset', 'user.role', 'user.roles', 'user.poa', 'user.places',
   'user.password_reset', 'user.password_change',
   'client.block', 'document.revoke', 'declaration.delete',
   'user.create', 'user.delete', 'client.invite', 'client.unblock', 'document.sign.upload', 'invoice.remind', 'organization.update',
@@ -28,7 +28,7 @@ export const AUDIT_ACTIONS = [
 
 /** Вид действия → тон точки: права/роли — фиолетовый, пароли — охра, отзыв/блокировка — красный, остальное — синий. */
 const KIND: Record<string, ZTone> = {
-  'role.permissions': 'submitted', 'role.reset': 'submitted', 'user.role': 'submitted', 'user.roles': 'submitted', 'user.poa': 'submitted',
+  'role.permissions': 'submitted', 'role.reset': 'submitted', 'user.role': 'submitted', 'user.roles': 'submitted', 'user.poa': 'submitted', 'user.places': 'submitted',
   'user.password_reset': 'wait', 'user.password_change': 'wait',
   'client.block': 'danger', 'document.revoke': 'danger', 'declaration.delete': 'danger',
   'invoice.cancel': 'danger', 'invoice.unmark_paid': 'wait', 'import40.reopen': 'wait',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZAvatar from '@/components/z/ZAvatar.vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -73,6 +73,26 @@ const save = async (role: StepRole) => {
   if (ok) open[role] = false
 }
 
+// ---- КПП и доверенность клиента (пакет C, 01.11.2026, пункт 8 правок 30.10) ----
+// Назначенного КПП нет в действующей доверенности клиента (или не сверить: нет ИИН / доверенности) — предупреждение под строкой.
+// Назначение не блокируется: доверенность может быть в работе. Сбой проверки — молча (это подсказка).
+const kppPoa = ref<'ok' | 'noIin' | 'noPoa' | 'notInPoa' | null>(null)
+let kppPoaSeq = 0
+watch(() => [props.kase.id, props.kase.assignedKppId, props.kase.status] as const, async ([caseId, kppId, status]) => {
+  const seq = ++kppPoaSeq
+  kppPoa.value = null
+  if (!kppId || status >= 8) return
+  try {
+    const r = await import40Api.kppPoa(caseId)
+    if (seq === kppPoaSeq) kppPoa.value = r?.status ?? null
+  } catch { /* подсказка — без тоста */ }
+}, { immediate: true })
+const kppPoaText = computed(() => {
+  if (!kppPoa.value || kppPoa.value === 'ok') return ''
+  const name = assignedNameOf(props.kase, 'kpp') || t('import40Case.staffAssigned')
+  return t(`broker.case.team.poa.${kppPoa.value}`, { name })
+})
+
 const label = (role: StepRole) => t(`broker.case.team.${role}`)
 const linkBtn = 'inline-flex min-h-8 cursor-pointer items-center rounded-field border-0 bg-transparent px-1 font-sans text-xs font-medium text-zircon-ink outline-hidden hover:underline focus-visible:shadow-focus max-sm:min-h-11'
 </script>
@@ -97,6 +117,7 @@ const linkBtn = 'inline-flex min-h-8 cursor-pointer items-center rounded-field b
         <div v-if="r.busy" class="mt-1 flex">
           <ZTag tone="wait" size="sm" data-team-busy>{{ t('broker.case.team.busy') }}</ZTag>
         </div>
+        <p v-if="r.role === 'kpp' && r.id && kppPoaText" role="status" class="m-0 mt-1 text-xs text-gold-ink" data-team-kpp-poa>{{ kppPoaText }}</p>
       </div>
 
       <ZButton

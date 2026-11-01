@@ -33,6 +33,8 @@ export interface Import40BoardRow {
   rework?: boolean
   /** Открытый запрос таможни без ответа клиента (S-21) — «Ждут клиента». */
   openCustomsRequest?: boolean
+  /** Заявка на месте, закреплённом за вами (пакет C, 01.11.2026): 'post' — ваш пост, 'station' — ваша станция. */
+  myPlace?: 'post' | 'station' | null
   createdAtUtc: string
   updatedAtUtc: string
 }

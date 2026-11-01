@@ -15,6 +15,11 @@ import type { DeclarantProfileDto } from './declarantProfile'
 
 // opts.silent — экран «Команда» сам показывает ошибку на месте (без тоста перехватчика).
 export interface SilentOpts { silent?: boolean }
+
+/** Место сотрудника: пост (key — 5-значный код) или станция ЖД (key — название без регистра и пробелов); name — из справочника. */
+export interface StaffPlaceDto { kind: 'post' | 'station'; key: string; name: string }
+/** Что уходит в PUT: пост — кодом, станция — названием из справочника. */
+export interface StaffPlaceInput { kind: 'post' | 'station'; code?: string; name?: string }
 const cfg = (opts?: SilentOpts) => (opts?.silent ? { silent: true } : undefined)
 
 export const usersApi = {
@@ -47,6 +52,13 @@ export const usersApi = {
     const res = await apiClient.get<DeclarantProfileDto | ''>(`/users/${encodeURIComponent(id)}/declarant-profile`, cfg(opts))
     return res.status === 204 || !res.data ? null : (res.data as DeclarantProfileDto)
   },
+
+  // Посты и станции сотрудника (пакет C, 01.11.2026): заявка с этим местом уведомляет закреплённых КПП, одного из
+  // доверенности клиента назначает сразу. GET — users.read, PUT — как роли (users.assign_role), набор целиком.
+  places: async (id: string, opts?: SilentOpts): Promise<StaffPlaceDto[]> =>
+    (await apiClient.get<StaffPlaceDto[]>(`/users/${encodeURIComponent(id)}/places`, cfg(opts))).data,
+  setPlaces: async (id: string, places: StaffPlaceInput[], opts?: SilentOpts): Promise<StaffPlaceDto[]> =>
+    (await apiClient.put<StaffPlaceDto[]>(`/users/${encodeURIComponent(id)}/places`, { places }, cfg(opts))).data,
 
   // Новый сотрудник: ошибку (в т.ч. 403 «администратора заводит только администратор») показывает форма.
   // Сервер возвращает id и логин созданного сотрудника.
