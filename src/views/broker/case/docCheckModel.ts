@@ -86,6 +86,37 @@ export function groupDocValues(docs: readonly DocumentCheckDocValue[], norm: (v:
   return [...groups.values()]
 }
 
+/** Числовые поля строк товаров в расхождениях документов между собой — показываются числом, как в строках сверки. */
+const CONFLICT_NUMBER_FIELDS = new Set(['quantity', 'packages', 'gross', 'net', 'value'])
+export const conflictValueKind = (d: Pick<DocumentDiscrepancy, 'field' | 'itemIndex'>): 'number' | 'text' =>
+  d.itemIndex != null && CONFLICT_NUMBER_FIELDS.has(d.field) ? 'number' : 'text'
+
+/**
+ * Значения расхождения «документы между собой / с заявкой» (01.11.2026, доработка пакета D) — по тем же правилам, что у
+ * строк: одно значение — один раз, источники без повторов («179随车.pdf · p3, 179随车.pdf · p4-5 → 475 870,83»).
+ * Числа сравниваются по величине (475870.83 = 475870.830), текст — без регистра и крайних пробелов.
+ */
+export function groupConflictValues(d: DocumentDiscrepancy, sourceLabel: (v: DocumentDiscrepancy['values'][number]) => string): DocValueGroup[] {
+  const kind = conflictValueKind(d)
+  const groups = new Map<string, DocValueGroup>()
+  for (const v of d.values) {
+    const raw = (v.value ?? '').trim()
+    const n = kind === 'number' && raw !== '' ? Number(raw) : NaN
+    const key = Number.isFinite(n) ? `n:${n}` : `t:${raw.toUpperCase()}`
+    const g = groups.get(key) ?? { value: v.value ?? '', files: [] }
+    const label = sourceLabel(v)
+    if (label && !g.files.includes(label)) g.files.push(label)
+    groups.set(key, g)
+  }
+  return [...groups.values()]
+}
+
+/** Подпись источника из разбора «файл#часть» → «файл · часть», как в строках (прежний сервер присылал «#p3»). */
+export const partLabel = (source: string): string => {
+  const i = source.indexOf('#')
+  return i > 0 && i < source.length - 1 ? `${source.slice(0, i).trim()} · ${source.slice(i + 1).trim()}` : source
+}
+
 /** Источник по подписи строки («file.pdf · p3») — для «Открыть документ». */
 export function sourceByDisplayName(c: DocumentCheck, display: string): DocumentCheckSource | undefined {
   return (c.documents ?? []).find((s) => (s.sheet ? `${s.fileName} · ${s.sheet}` : s.fileName) === display)

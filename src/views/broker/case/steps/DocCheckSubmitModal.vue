@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import type { SubmitFixItem, SubmitSummary } from '../docCheckModel'
-import { groupDocValues } from '../docCheckModel'
+import { conflictValueKind, groupConflictValues, groupDocValues } from '../docCheckModel'
 import { useDocCheckFormat } from '../useDocCheckFormat'
 
 // Окно при «Подать ДТ» (01.11.2026, D5): остались расхождения с документами или файл другой поставки. Одно окно вместо
@@ -23,7 +23,9 @@ const line = (it: SubmitFixItem) => {
     return t('docCheck.submit.fixLine', { field: f.rowLabel(r), dt: f.fmt(r.declarationValue, r), doc })
   }
   const d = it.conflict!
-  return `${f.fieldName(d)}${d.itemIndex ? ` · ${t('docCheck.item', { n: d.itemIndex })}` : ''}: ${d.values.map((v) => v.value ?? '—').join(' / ')}`
+  // Одно значение — один раз, числа с разрядами — как в карточке сверки (01.11.2026, доработка).
+  const values = groupConflictValues(d, () => '').map((g) => (g.value ? f.fmt(g.value, { valueKind: conflictValueKind(d), currency: null }) : '—'))
+  return `${f.fieldName(d)}${d.itemIndex ? ` · ${t('docCheck.item', { n: d.itemIndex })}` : ''}: ${values.join(' / ')}`
 }
 </script>
 

@@ -7787,7 +7787,7 @@ export default {
     transport: 'Транспорт {n}',
     item: 'строка {n}',
     scope: { documents: 'Документы между собой', case: 'Документы и заявка', declaration: 'Документы и ДТ' },
-    source: { case: 'Заявка', dt: 'ДТ {n}', documents: 'Документы', document: 'Документ' },
+    source: { case: 'Заявка', dt: 'ДТ {n}', documents: 'Документы', document: 'Документ', goodsTable: 'основной документ (таблица товаров)' },
     field: {
       contract: 'Номер контракта', invoice: 'Номер инвойса', invoiceDate: 'Дата инвойса', transport: 'Транспорт',
       transportDoc: 'Транспортный документ', tractor: 'Номер тягача', trailer: 'Номер прицепа', sender: 'Отправитель',
