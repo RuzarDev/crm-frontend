@@ -81,7 +81,12 @@ describe('ownerParts / taskNext / stageHref', () => {
     expect(ownerParts(null)).toEqual([])
   })
   it('что дальше: заполнение с числами, этап — подпись шага', () => {
-    expect(taskNext({ next: 'fill', step: 3, filled: 40, total: 54 })).toEqual({ key: 'home.tasks.next.fill', params: { filled: 40, total: 54 } })
+    // 02.11.2026: не сумма полей ДТ и товаров, а сколько не хватает; несколько ДТ — сколько не готовы.
+    expect(taskNext({ next: 'fill', step: 3, filled: 2799, total: 3444, missing: 12, notReady: 1, declarations: 1 }))
+      .toEqual({ key: 'home.tasks.next.fill', params: { missing: 12 } })
+    expect(taskNext({ next: 'fill', step: 3, filled: 1, total: 2, missing: 18, notReady: 2, declarations: 5 }))
+      .toEqual({ key: 'home.tasks.next.fillMany', params: { missing: 18, notReady: 2, declarations: 5 } })
+    expect(taskNext({ next: 'fill', step: 3, filled: 40, total: 54 })).toEqual({ key: 'home.tasks.next.fillLegacy', params: { filled: 40, total: 54 } })
     expect(taskNext({ next: 'ready', step: 3, filled: null, total: null }).key).toBe('home.tasks.next.ready')
     expect(taskNext({ next: 'stage', step: 2, filled: null, total: null }).key).toBe('enum.step.s2')
   })

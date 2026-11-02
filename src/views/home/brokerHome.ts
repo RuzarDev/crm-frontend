@@ -76,12 +76,18 @@ export const ownerParts = (o: StaffHomeOwners | null | undefined): { key: 'decla
   !o ? [] : (['declarants', 'kpp', 'clients'] as const).filter((k) => o[k] > 0).map((k) => ({ key: k, n: o[k] }))
 
 /** «Что дальше» под заявкой в «Моих задачах»: ключ home.tasks.next.* либо этап (enum.step.sN). */
-export const taskNext = (r: Pick<StaffHomeTask, 'next' | 'step' | 'filled' | 'total'>): { key: string; params: Record<string, number> } =>
-  r.next === 'stage'
-    ? { key: `enum.step.s${r.step}`, params: {} }
-    : r.next === 'fill'
-      ? { key: 'home.tasks.next.fill', params: { filled: r.filled ?? 0, total: r.total ?? 0 } }
-      : { key: `home.tasks.next.${r.next}`, params: {} }
+// fill (02.11.2026): «Незаполненных полей в ДТ: N», при нескольких ДТ — «Не готовы ДТ: 2 из 5 · …». Сумма Filled/Total по
+// ДТ и товарам («Заполнено 2799 из 3444 граф») на экран больше не идёт; старый сервер без missing — по-старому.
+export const taskNext = (
+  r: Pick<StaffHomeTask, 'next' | 'step' | 'filled' | 'total' | 'missing' | 'notReady' | 'declarations'>,
+): { key: string; params: Record<string, number> } => {
+  if (r.next === 'stage') return { key: `enum.step.s${r.step}`, params: {} }
+  if (r.next !== 'fill') return { key: `home.tasks.next.${r.next}`, params: {} }
+  if (r.missing == null) return { key: 'home.tasks.next.fillLegacy', params: { filled: r.filled ?? 0, total: r.total ?? 0 } }
+  return (r.declarations ?? 1) > 1
+    ? { key: 'home.tasks.next.fillMany', params: { missing: r.missing, notReady: r.notReady ?? 0, declarations: r.declarations ?? 0 } }
+    : { key: 'home.tasks.next.fill', params: { missing: r.missing } }
+}
 
 /**
  * Строка «Заявки по этапам» → список заявок с фильтром шага (?step=N, пакет G). Шаг 1 — черновики: вкладка «Черновики»

@@ -74,6 +74,10 @@ export interface StaffHomeTask {
   next: StaffHomeNext
   filled: number | null
   total: number | null
+  /** fill: незаполненных полей во всех неготовых ДТ, неготовых ДТ и всего ДТ (02.11.2026). Старый сервер — нет. */
+  missing?: number | null
+  notReady?: number | null
+  declarations?: number | null
 }
 /** Блоки заявок (activeCases, tasks, bySteps) — null у бухгалтера и у тех, кто заявок не видит. */
 export interface StaffHomeDto {
