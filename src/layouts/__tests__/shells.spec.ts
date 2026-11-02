@@ -121,6 +121,16 @@ describe('оболочки', () => {
     expect(w!.get('[data-density]').attributes('data-density')).toBe('comfortable')
   })
 
+  // 02.11.2026, пакет K: «Мои поставки» — весь список (/import-40), сводка — «Главная», ДТ — «Мои декларации».
+  it('клиент: «Мои поставки» ведёт на список поставок и горит на карточке, «Мои декларации» — на /declarations', async () => {
+    await mountAs('client', '/import-40/c1')
+    const ships = link('Мои поставки')!
+    expect(ships.attributes('href')).toBe('/import-40')
+    expect(ships.attributes('aria-current')).toBe('page')
+    expect(link('Главная')!.attributes('href')).toBe('/home')
+    expect(link('Мои декларации')!.attributes('href')).toBe('/declarations')
+  })
+
   it('на /billing у администратора в шапке — вкладки раздела «Обзор» и «Счета и акты»', async () => {
     await mountAs('administrator', '/billing')
     const tabs = header().findAll('nav a').map((a) => a.text().trim())

@@ -23,13 +23,14 @@ import { cn } from '@/ui/cn'
 import {
   activeShipments, clientAsks, clientGreetingName, dayMonth, hasPaymentCheck, moreToPay, unpaidInvoices,
 } from '@/views/home/clientHome'
-import { askFor, askHref, segments, shipmentHref, shipmentTag } from '@/views/client/shipment'
+import { askFor, askHref, segments, shipmentHref, shipmentTag, tabCounts } from '@/views/client/shipment'
 import { useShipmentText } from '@/views/client/useShipmentText'
 import { condRelLabel } from '@/utils/conditionalRelease'
 import { greetingKey } from '@/views/home/greeting'
 import { useBlock } from '@/views/home/useBlock'
 
-// «Мои поставки» — Главная клиента (макет Client.dc): что нужно от клиента, поставки в работе, счёт к оплате.
+// Главная клиента (макет Client.dc): что нужно от клиента, поставки в работе, счёт к оплате. С 02.11.2026 (пакет K)
+// это пункт меню «Главная»; «Мои поставки» — весь список с вкладками (/import-40).
 // Клиенту только транзита — приветствие и ссылки в его разделы, без запросов Импорта 40.
 const { t } = useI18n()
 const router = useRouter()
@@ -79,6 +80,10 @@ const active = computed(() => activeShipments(cases.data ?? []))
 const cards = computed(() => active.value.slice(0, MAX_CARDS))
 // Отменённые не в счёт: «Поставок пока нет» — только если клиент ещё ничего не оформлял.
 const hasAny = computed(() => (cases.data ?? []).some((c) => c.status !== 9))
+// 02.11.2026, пакет K (владелец: «заявка при закрытии исчезает»): завершённые не пропадают — рядом с «Все поставки»
+// их число со ссылкой на вкладку «Завершённые» (тот же счёт, что у вкладки).
+const doneCount = computed(() => tabCounts(cases.data ?? []).done)
+const DONE_TAB = '/import-40?tab=done'
 const CARD_SKELETON = [['62%', '38%'], ['48%', '44%']]
 
 // ---- Счёт к оплате ----
@@ -175,9 +180,20 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       </section>
 
       <section :aria-labelledby="ids.ships" :aria-busy="cases.loading || undefined" class="flex flex-col gap-3">
-        <div class="flex items-baseline gap-3">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 :id="ids.ships" class="m-0 text-sm font-semibold text-ink-2">{{ t('clientHome.shipments') }}</h2>
-          <RouterLink v-if="active.length > MAX_CARDS" to="/import-40" :class="cn(link, 'ml-auto')">{{ t('clientHome.all') }}</RouterLink>
+          <!-- «Все поставки» — всегда, когда они есть: список с вкладками, в том числе завершённые (пакет K). -->
+          <span v-if="!cases.loading && !cases.error && hasAny" class="ml-auto flex items-baseline gap-x-3 max-sm:min-h-11 max-sm:items-center">
+            <RouterLink
+              v-if="doneCount"
+              :to="DONE_TAB"
+              :class="cn(link, 'font-normal text-ink-3')"
+              data-client-done-count
+            >{{ t('clientHome.doneCount', { n: doneCount }) }}</RouterLink>
+            <RouterLink to="/import-40" :class="cn(link, 'inline-flex items-center gap-1')" data-client-all>
+              {{ t('clientHome.all') }}<PhArrowRight :size="14" aria-hidden="true" />
+            </RouterLink>
+          </span>
         </div>
 
         <div v-if="cases.loading" :class="grid" data-client-skeleton>
@@ -202,7 +218,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
         <div v-else-if="!cards.length" class="rounded-[16px] border border-dashed border-line-strong">
           <ZEmpty
             :title="hasAny ? t('clientHome.noActive') : t('clientHome.emptyTitle')"
-            :hint="hasAny ? undefined : t('clientHome.emptyText')"
+            :hint="hasAny ? (doneCount ? t('clientHome.noActiveDone') : undefined) : t('clientHome.emptyText')"
           >
             <template #action>
               <div class="flex flex-col items-center gap-3">
@@ -214,7 +230,8 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
                     </ZButton>
                   </span>
                 </ZTooltip>
-                <RouterLink v-if="hasAny" to="/import-40" :class="link">{{ t('clientHome.all') }}</RouterLink>
+                <RouterLink v-if="hasAny && doneCount" :to="DONE_TAB" :class="cn(link, 'max-sm:min-h-11 max-sm:content-center')" data-client-empty-done>{{ t('clientHome.toDone') }}</RouterLink>
+                <RouterLink v-else-if="hasAny" to="/import-40" :class="cn(link, 'max-sm:min-h-11 max-sm:content-center')">{{ t('clientHome.all') }}</RouterLink>
               </div>
             </template>
           </ZEmpty>

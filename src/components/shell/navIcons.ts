@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import {
   PhArchive, PhBooks, PhBuildings, PhChartBar, PhChartLineUp, PhClipboardText, PhCurrencyCircleDollar, PhFileText,
-  PhGear, PhHandshake, PhHouse, PhMagnifyingGlass, PhPackage, PhPlus, PhReceipt, PhScales, PhShieldCheck, PhTruck, PhUsers, PhWallet,
+  PhGear, PhHandshake, PhHouse, PhMagnifyingGlass, PhPackage, PhPlus, PhReceipt, PhScales, PhShieldCheck, PhStamp, PhTruck, PhUsers, PhWallet,
 } from '@phosphor-icons/vue'
 import type { NavIcon } from '@/shell/navModel'
 
@@ -27,4 +27,5 @@ export const NAV_ICONS: Record<NavIcon, Component> = {
   npa: PhScales,
   company: PhBuildings,
   contracts: PhHandshake,
+  declarations: PhStamp,
 }

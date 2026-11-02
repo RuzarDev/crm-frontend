@@ -224,6 +224,13 @@ const router = createRouter({
           meta: { requiresImport40: true, requiresRole: 'client' },
         },
         {
+          // «Мои декларации» клиента (02.11.2026, пакет K): ДТ всех его поставок, поданные в КЕДЕН.
+          path: '/declarations',
+          name: 'client-declarations',
+          component: () => import('@/views/client/ClientDeclarationsView.vue'),
+          meta: { requiresImport40: true, requiresRole: 'client' },
+        },
+        {
           // Внешнеторговые контракты клиента и валютный контроль (17.10).
           path: '/contracts',
           name: 'client-contracts',
