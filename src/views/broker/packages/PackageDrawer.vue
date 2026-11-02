@@ -19,6 +19,7 @@ import { useConfirm } from '@/ui/confirm'
 import { formatUpdated } from '@/views/broker/list'
 import { formatContainer } from '@/views/broker/transit/transit'
 import { canModifyFiles, formatFileSize, formatStamp, statusLabelKey, statusTone } from './packages'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Панель пакета (редизайн, волна 3а): сначала показываем данные строки, затем getById (скелетон контейнеров).
 // Файлы — скачать (всем), загрузить и удалить (canModifyFiles — как на сервере), «Открыть пакет» и «Сменить статус» —
@@ -193,7 +194,7 @@ const iconBtn = 'inline-flex size-[30px] shrink-0 cursor-pointer items-center ju
             v-if="canModify"
             multiple
             accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-            :max-size-mb="25"
+            :max-size-mb="DOC_MAX_MB"
             :loading="uploading"
             button-variant="ghost"
             button-size="sm"

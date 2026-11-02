@@ -20,6 +20,7 @@ import { saveBlob } from '@/ui/download'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Панель «что сейчас» карточки поставки (доска Shipment): ход клиента по askFor — оплата склада, ответ на
 // вопрос AQNIET, черновик/возврат; иначе — нейтральная плашка этапа (чек на проверке, склад оплачен, отмена).
@@ -48,9 +49,8 @@ const svhPayStage = computed(() => status.value === 6)
 // Клиент отменяет только свой черновик (статус 0) — и с открытым вопросом AQNIET тоже.
 const isDraft = computed(() => status.value === 0)
 
-// Форматы и размер — как проверяет сервер (ReestrDocumentRules, MaxFileSizeBytes = 25 МБ).
+// Форматы и размер — как проверяет сервер (ReestrDocumentRules, MaxFileSizeBytes, 100 МБ — DOC_MAX_MB).
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
-const MAX_MB = 25
 
 // ---- Оплата склада ----
 const svhSum = computed(() => (props.shipment.svhInvoiceAmount != null ? formatMoney(props.shipment.svhInvoiceAmount) : ''))
@@ -223,7 +223,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
     <ZUpload
       :accept="ACCEPT"
       convert-heic
-      :max-size-mb="MAX_MB"
+      :max-size-mb="DOC_MAX_MB"
       :loading="uploading === 'payment-check'"
       button-variant="primary"
       :class="cn(uploadMain, 'mt-1 sm:col-start-2 sm:mt-0', svhFile ? 'sm:row-[1/span_2]' : 'sm:row-start-1')"
@@ -286,7 +286,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         <ZUpload
           :accept="ACCEPT"
           convert-heic
-          :max-size-mb="MAX_MB"
+          :max-size-mb="DOC_MAX_MB"
           :loading="uploading === 'documents'"
           button-variant="secondary"
           :class="cn(uploadSecond, '[&>button]:bg-surface')"
@@ -300,7 +300,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
           v-if="svhPayStage"
           :accept="ACCEPT"
           convert-heic
-          :max-size-mb="MAX_MB"
+          :max-size-mb="DOC_MAX_MB"
           :loading="uploading === 'payment-check'"
           button-variant="secondary"
           :class="cn(uploadSecond, '[&>button]:bg-surface')"
@@ -378,7 +378,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
           v-if="notice === 'check'"
           :accept="ACCEPT"
           convert-heic
-          :max-size-mb="MAX_MB"
+          :max-size-mb="DOC_MAX_MB"
           :loading="uploading === 'payment-check'"
           button-variant="secondary"
           :class="cn(uploadSecond, 'mt-1.5 [&>button]:bg-surface sm:[&>button]:h-9 sm:[&>button]:text-sm')"

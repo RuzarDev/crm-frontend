@@ -15,6 +15,7 @@ export default {
     invalidCredentials: 'Неверный логин или пароль',
     inviteNotAccepted: 'Завершите регистрацию по ссылке из приглашения. Ссылка истекла — нажмите «Забыли пароль» и задайте пароль по письму.',
     accountBlocked: 'Аккаунт заблокирован. Обратитесь к вашему менеджеру.',
+    fileTooLarge: 'Файл слишком большой — загрузите файл до {mb} МБ',
     loginNoToken: 'Ошибка входа: в ответе нет токена',
   },
   // Тексты набора компонентов Z (редизайн 2026-10).
@@ -499,7 +500,7 @@ export default {
     currency: 'Валюта',
     estimatedValue: 'Ориентировочная стоимость',
     dropTitle: 'Перетащите файлы сюда или нажмите для выбора',
-    dropHint: 'PDF, JPG, PNG, XLSX, DOCX — до 25 МБ каждый',
+    dropHint: 'PDF, JPG, PNG, XLSX, DOCX — до {mb} МБ каждый',
     respTitle: 'Ответственность за документы',
     respDesc: 'Отправляя заявку, вы подтверждаете, что предоставленные документы и сведения полные и достоверны. Ответственность за их полноту и достоверность несёт клиент.',
     respConfirm: 'Подтверждаю полноту и достоверность документов и сведений',
@@ -1123,7 +1124,7 @@ export default {
         pendingHint: 'Инвойсы прикрепятся при сохранении партии',
         removePending: 'Убрать из очереди: {name}',
         show: 'Показать: {name}',
-        tooBig: 'Размер файла не должен превышать 10 МБ',
+        tooBig: 'Размер файла не должен превышать {mb} МБ',
         badType: 'Допустимы PDF, Excel (.xlsx) и изображения (JPG, PNG)',
       },
       import: {
@@ -1223,7 +1224,7 @@ export default {
         deleteOk: 'Удалить',
         deleted: 'Файл удалён',
         drop: 'Перетащите файлы или выберите',
-        dropHint: 'PDF, JPG, PNG, DOCX, XLSX — до 25 МБ',
+        dropHint: 'PDF, JPG, PNG, DOCX, XLSX — до {mb} МБ',
         uploading: 'Загружаем файлы…',
         uploaded: 'Загружено {n} из {m}',
         linked: 'Файл привязан',
@@ -3314,7 +3315,7 @@ export default {
       create: {
         files: 'Файлы',
         addFiles: 'Выбрать файлы',
-        filesHint: 'PDF, JPG, PNG, DOCX, XLSX — до 25 МБ каждый',
+        filesHint: 'PDF, JPG, PNG, DOCX, XLSX — до {mb} МБ каждый',
         removeFile: 'Убрать файл {name}',
       },
       someFilesFailed: 'Пакет создан, но часть файлов не загрузилась — добавьте их в открывшейся панели',
@@ -4150,6 +4151,9 @@ export default {
         batch: {
           doneFromExcel: 'ДТ создана: товары, условия поставки и инвойс взяты из Excel-документов — проверьте их',
           failedExtract: 'Не удалось распознать пакет документов',
+          tooLargeForAi: 'Пакет слишком большой для распознавания — уберите крупные сканы или сожмите их и повторите',
+          tooLargeForAiMb: 'Пакет слишком большой для распознавания — уберите крупные сканы (каждый файл — не больше {mb} МБ) или сожмите их и повторите',
+          filesSaved: 'Загруженные файлы сохранены в заявке',
           failedCreate: 'Пакет распознан, но ДТ не создана',
           codesRejected: 'Код {code} не перенесён: {reason}',
           reason: {
@@ -5779,7 +5783,7 @@ export default {
         keep: 'Оставить',
         other: 'Другие документы',
         otherDrop: 'Другие документы — перетащите сюда или выберите',
-        formats: 'PDF, JPG, PNG, DOCX, XLSX до 25 МБ',
+        formats: 'PDF, JPG, PNG, DOCX, XLSX до {mb} МБ',
         tooBig: '{name}: больше {mb} МБ',
         wrongType: '{name}: такой формат не подходит — нужен PDF, JPG, PNG, DOCX или XLSX',
         failed: '{name}: {reason}',

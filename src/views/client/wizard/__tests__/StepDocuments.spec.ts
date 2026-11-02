@@ -136,13 +136,13 @@ describe('StepDocuments', () => {
     expect(lastFiles().map((x) => x.id)).toEqual(['f1', 'f2', 'f3'])
   })
 
-  it('файл больше 25 МБ или не того формата — ошибка в строке, upload не вызван', async () => {
+  it('файл больше 100 МБ или не того формата — ошибка в строке, upload не вызван', async () => {
     await mountStep()
-    await pickFiles('contract', [pdf('contract.pdf', 26 * 1024 * 1024), new File(['x'], 'contract.zip')])
+    await pickFiles('contract', [pdf('contract.pdf', 100 * 1024 * 1024 + 1), new File(['x'], 'contract.zip')])
     expect(api.uploadFile).not.toHaveBeenCalled()
     const err = row('contract').get('[data-doc-error]')
     expect(err.attributes('role')).toBe('alert')
-    expect(err.text()).toContain('contract.pdf: больше 25 МБ')
+    expect(err.text()).toContain('contract.pdf: больше 100 МБ')
     expect(err.text()).toContain('contract.zip: такой формат не подходит')
     // Повтор не поможет — кнопки «Повторить» нет.
     expect(row('contract').find('[data-doc-retry]').exists()).toBe(false)
@@ -295,33 +295,33 @@ describe('StepDocuments', () => {
     api.uploadFile.mockRejectedValueOnce({ response: { status: 500, data: '' } })
     const failed = pdf('cmr.pdf')
     await pickFiles('transport', [failed])
-    await pickFiles('transport', [pdf('awb.pdf', 30 * 1024 * 1024)])
+    await pickFiles('transport', [pdf('awb.pdf', 101 * 1024 * 1024)])
     const texts = () => row('transport').findAll('[data-doc-error] p').map((p) => p.text())
     expect(texts()).toEqual([
       'cmr.pdf: не загрузился — проверьте связь и повторите',
-      'awb.pdf: больше 25 МБ',
+      'awb.pdf: больше 100 МБ',
     ])
     await row('transport').get('[data-doc-retry]').trigger('click')
     await flushPromises()
     expect(api.uploadFile).toHaveBeenCalledTimes(2)
     expect(api.uploadFile.mock.calls[1][2]).toBe(failed)
-    expect(texts()).toEqual(['awb.pdf: больше 25 МБ'])
+    expect(texts()).toEqual(['awb.pdf: больше 100 МБ'])
     expect(row('transport').find('[data-doc-retry]').exists()).toBe(false)
     await row('transport').get('[data-doc-dismiss]').trigger('click')
     expect(row('transport').find('[data-doc-error]').exists()).toBe(false)
   })
 
-  it('зона «Другие документы»: не тот формат или больше 25 МБ — текст под зоной, без тоста и без загрузки', async () => {
+  it('зона «Другие документы»: не тот формат или больше 100 МБ — текст под зоной, без тоста и без загрузки', async () => {
     await mountStep()
     const input = w.get('[data-docs-other] input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'setup.exe'), pdf('huge.pdf', 40 * 1024 * 1024)], configurable: true })
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'setup.exe'), pdf('huge.pdf', 101 * 1024 * 1024)], configurable: true })
     await input.trigger('change')
     await flushPromises()
     expect(api.uploadFile).not.toHaveBeenCalled()
     expect(msg.error).not.toHaveBeenCalled()
     const err = w.get('[data-docs-other] [data-doc-error]')
     expect(err.text()).toContain('setup.exe: такой формат не подходит')
-    expect(err.text()).toContain('huge.pdf: больше 25 МБ')
+    expect(err.text()).toContain('huge.pdf: больше 100 МБ')
   })
 
   it('фото iPhone (HEIC): Safari переводит в JPEG до загрузки; иначе HEIC уходит на сервер; отказ сервера — ошибка в строке', async () => {

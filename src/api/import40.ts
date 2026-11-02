@@ -1347,6 +1347,9 @@ export const import40Api = {
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
+        // Отказ по размеру (02.11.2026): 422 AiExtraction.PackageTooLarge (Zircon AI не принял пакет) и 413 (запрос больше
+        // предела) показывает вызывающий своим текстом — uploadTooLargeText, без второго тоста перехватчика.
+        silentStatuses: [413, 422],
         // apiClient's default 30s timeout is fine for ordinary requests but too short
         // here: Zircon AI runs OCR over every scanned PDF and photo in the batch. Цепочка таймаутов (пакет «ocr»):
         // Zircon AI заканчивает OCR пакета к 170 с → сервер CRM ждёт 200 с → nginx 210 с → здесь 220 с, чтобы

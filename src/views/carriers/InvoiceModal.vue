@@ -17,6 +17,7 @@ import { formatDay, todayIso } from '@/views/broker/list'
 import { message } from '@/ui/message'
 import { emptyInvoice, invoiceErrors, type InvoiceField } from './carriers'
 import { useCurrencyOptions } from './useCurrencyOptions'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Счёт перевозчика (фрахт): номер, дата, сумма и валюта, поставка, оплачен (и когда), файл (только при создании —
 // у существующего счёта файл меняется в карточке), примечание. Поставка нужна, чтобы фрахт попал в её себестоимость.
@@ -148,7 +149,7 @@ const submit = async () => {
         <ZDate v-model:value="fields.paidOn" :max="todayIso()" class="max-sm:h-11" data-invoice-paid-on />
       </ZField>
       <div v-if="mode === 'create'" class="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2">
-        <ZUpload :accept="ACCEPT" :max-size-mb="25" class="max-sm:w-full" data-invoice-file @select="file = $event[0] ?? null">
+        <ZUpload :accept="ACCEPT" :max-size-mb="DOC_MAX_MB" class="max-sm:w-full" data-invoice-file @select="file = $event[0] ?? null">
           {{ t('carriers.invoice.chooseFile') }}
         </ZUpload>
         <span v-if="file" class="min-w-0 text-sm break-all text-ink-2">{{ file.name }}</span>

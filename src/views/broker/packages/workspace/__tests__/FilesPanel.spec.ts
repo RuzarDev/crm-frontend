@@ -101,14 +101,17 @@ describe('FilesPanel', () => {
     expect(w.find('[data-ws-upload]').exists()).toBe(false)
   })
 
-  it('зона загрузки отклоняет чужой тип и файл больше 25 МБ до отправки', async () => {
+  // 02.11.2026: лимит документов 25 → 100 МБ — 30 МБ проходит, 100 МБ + 1 байт нет.
+  it('зона загрузки отклоняет чужой тип и файл больше 100 МБ до отправки', async () => {
     mountPanel()
     const input = w.get('input[type="file"]')
     const big = new File(['x'], 'scan.png')
-    Object.defineProperty(big, 'size', { value: 25 * 1024 * 1024 + 1 })
-    Object.defineProperty(input.element, 'files', { configurable: true, value: [new File(['a'], 'ok.docx'), new File(['b'], 'old.xls'), big] })
+    Object.defineProperty(big, 'size', { value: 100 * 1024 * 1024 + 1 })
+    const mid = new File(['m'], 'scan30.pdf')
+    Object.defineProperty(mid, 'size', { value: 30 * 1024 * 1024 })
+    Object.defineProperty(input.element, 'files', { configurable: true, value: [new File(['a'], 'ok.docx'), new File(['b'], 'old.xls'), big, mid] })
     await input.trigger('change')
     expect(toast.error).toHaveBeenCalledTimes(2)
-    expect((w.emitted('upload')?.[0]?.[0] as File[]).map((f) => f.name)).toEqual(['ok.docx'])
+    expect((w.emitted('upload')?.[0]?.[0] as File[]).map((f) => f.name)).toEqual(['ok.docx', 'scan30.pdf'])
   })
 })

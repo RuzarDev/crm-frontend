@@ -3,6 +3,7 @@ import { message } from '@/ui/message'
 import { i18n } from '@/i18n'
 import { heicErrorKey, heicErrorName } from '@/utils/heic'
 import { loginPath } from '@/router/safePath'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Коды отказа входа сервера → ключи i18n (ревью M-9, 30.10.2026).
 const LOGIN_ERROR_KEYS: Record<string, string> = {
@@ -194,6 +195,12 @@ apiClient.interceptors.response.use(
         else if (!silent) errorToast('forbidden', serverText || t('errors.forbidden'))
       } else if (status === 404) {
         if (!silent) errorToast('not-found', serverText || t('errors.notFound'))
+      } else if (status === 413) {
+        // Запрос больше предела сервера или nginx (02.11.2026): тело — пустое (Kestrel) или HTML-страница nginx, не текст
+        // для человека. Свой текст про лимит файла; JSON-ответ сервера с error/detail — как есть.
+        const data = error.response.data
+        const jsonText = data && typeof data === 'object' ? serverText : null
+        if (!silent) errorToast('too-large', jsonText || i18n.global.t('errors.fileTooLarge', { mb: DOC_MAX_MB }))
       } else if (status === 429) {
         if (!silent) errorToast('rate-limit', serverText || t('errors.rateLimit'))
       } else if (status >= 500) {

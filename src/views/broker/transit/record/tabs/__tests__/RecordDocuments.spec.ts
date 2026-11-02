@@ -232,16 +232,24 @@ describe('RecordDocuments: загрузка файлов', () => {
     expect(api.listDocuments).toHaveBeenCalledTimes(2)
   })
 
-  it('правила файлов: неподходящее расширение и размер больше 10 МБ — прежние тексты, остальные файлы идут', async () => {
+  // 02.11.2026: документы записи — общий лимит 100 МБ (было 10 МБ): 30 МБ уходит, 100 МБ + 1 байт — нет.
+  it('правила файлов: неподходящее расширение и размер больше 100 МБ — тексты, остальные файлы идут', async () => {
     await mount('client')
     const good = pdf('ok.pdf')
-    await pick('client', [new File(['x'], 'virus.exe'), pdf('huge.pdf', 10 * 1024 * 1024 + 1), good])
+    const sized = (name: string, size: number) => {
+      const f = pdf(name)
+      Object.defineProperty(f, 'size', { value: size })
+      return f
+    }
+    const mid = sized('scan30.pdf', 30 * 1024 * 1024)
+    await pick('client', [new File(['x'], 'virus.exe'), sized('huge.pdf', 100 * 1024 * 1024 + 1), mid, good])
     expect(toast.error).toHaveBeenCalledWith('Допустимы: PDF, JPG, PNG, DOCX, XLSX')
-    expect(toast.error).toHaveBeenCalledWith('Размер файла не должен превышать 10 МБ')
-    // «из m» считает и отклонённые файлы: 1 из 3, а не 1 из 1; неполный итог — предупреждением.
-    expect(toast.warning).toHaveBeenCalledWith('Загружено 1 из 3')
+    expect(toast.error).toHaveBeenCalledWith('Файл больше 100 МБ: huge.pdf')
+    // «из m» считает и отклонённые файлы: 2 из 4, а не 2 из 2; неполный итог — предупреждением.
+    expect(toast.warning).toHaveBeenCalledWith('Загружено 2 из 4')
     expect(toast.success).not.toHaveBeenCalled()
-    expect(api.uploadDocument).toHaveBeenCalledTimes(1)
+    expect(api.uploadDocument).toHaveBeenCalledTimes(2)
+    expect(api.uploadDocument).toHaveBeenCalledWith('r1', 'client', mid, undefined)
     expect(api.uploadDocument).toHaveBeenCalledWith('r1', 'client', good, undefined)
   })
 })

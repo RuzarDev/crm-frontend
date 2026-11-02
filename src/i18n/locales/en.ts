@@ -13,6 +13,7 @@ export default {
     invalidCredentials: 'Invalid username or password',
     inviteNotAccepted: 'Finish registration via the link in your invitation. If the link has expired, press “Forgot password?” and set a password from the email.',
     accountBlocked: 'Your account is blocked. Please contact your manager.',
+    fileTooLarge: 'The file is too large — upload a file of up to {mb} MB',
     loginNoToken: 'Login error: no token in the response',
   },
   // Тексты набора компонентов Z (редизайн 2026-10).
@@ -495,7 +496,7 @@ export default {
     currency: 'Currency',
     estimatedValue: 'Estimated value',
     dropTitle: 'Drag files here or click to select',
-    dropHint: 'PDF, JPG, PNG, XLSX, DOCX — up to 25 MB each',
+    dropHint: 'PDF, JPG, PNG, XLSX, DOCX — up to {mb} MB each',
     respTitle: 'Responsibility for documents',
     respDesc: 'By submitting the request, you confirm that the provided documents and information are complete and accurate. The client is responsible for their completeness and accuracy.',
     respConfirm: 'I confirm the completeness and accuracy of the documents and information',
@@ -1119,7 +1120,7 @@ export default {
         pendingHint: 'Invoices will be attached when the consignment is saved',
         removePending: 'Remove from the queue: {name}',
         show: 'Show: {name}',
-        tooBig: 'File size must not exceed 10 MB',
+        tooBig: 'File size must not exceed {mb} MB',
         badType: 'PDF, Excel (.xlsx) and images (JPG, PNG) are allowed',
       },
       import: {
@@ -1219,7 +1220,7 @@ export default {
         deleteOk: 'Delete',
         deleted: 'File deleted',
         drop: 'Drag files here or browse',
-        dropHint: 'PDF, JPG, PNG, DOCX, XLSX — up to 25 MB',
+        dropHint: 'PDF, JPG, PNG, DOCX, XLSX — up to {mb} MB',
         uploading: 'Uploading files…',
         uploaded: 'Uploaded {n} of {m}',
         linked: 'File linked',
@@ -3310,7 +3311,7 @@ export default {
       create: {
         files: 'Files',
         addFiles: 'Choose files',
-        filesHint: 'PDF, JPG, PNG, DOCX, XLSX — up to 25 MB each',
+        filesHint: 'PDF, JPG, PNG, DOCX, XLSX — up to {mb} MB each',
         removeFile: 'Remove file {name}',
       },
       someFilesFailed: 'The package was created, but some files did not upload — add them in the panel that opened',
@@ -4146,6 +4147,9 @@ export default {
         batch: {
           doneFromExcel: 'Declaration created: goods, delivery terms and invoice were taken from the Excel documents — please check them',
           failedExtract: 'Could not recognise the document package',
+          tooLargeForAi: 'The package is too large to recognise — remove the large scans or compress them and try again',
+          tooLargeForAiMb: 'The package is too large to recognise — remove the large scans (each file up to {mb} MB) or compress them and try again',
+          filesSaved: 'The uploaded files are saved in the request',
           failedCreate: 'The package was recognised, but the DT was not created',
           codesRejected: 'Code {code} not imported: {reason}',
           reason: {
@@ -5775,7 +5779,7 @@ export default {
         keep: 'Keep',
         other: 'Other documents',
         otherDrop: 'Other documents — drag here or choose',
-        formats: 'PDF, JPG, PNG, DOCX, XLSX up to 25 MB',
+        formats: 'PDF, JPG, PNG, DOCX, XLSX up to {mb} MB',
         tooBig: '{name}: larger than {mb} MB',
         wrongType: '{name}: this format is not accepted — use PDF, JPG, PNG, DOCX or XLSX',
         failed: '{name}: {reason}',

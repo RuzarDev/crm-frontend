@@ -237,7 +237,7 @@ describe('WorkspacePage: файлы', () => {
     api.uploadFile.mockResolvedValueOnce({}).mockRejectedValueOnce(httpError(400))
     const input = w.get('[data-ws-files] input[type="file"]')
     const big = new File(['x'], 'big.pdf')
-    Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 })
+    Object.defineProperty(big, 'size', { value: 100 * 1024 * 1024 + 1 })
     Object.defineProperty(input.element, 'files', {
       configurable: true,
       value: [new File(['a'], 'a.pdf'), new File(['b'], 'virus.exe'), big, new File(['c'], 'c.xlsx')],

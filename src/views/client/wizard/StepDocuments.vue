@@ -275,7 +275,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
       >
         <span class="flex flex-col gap-1">
           <span class="text-[14.5px] font-semibold text-ink">{{ t('client.wizard.docs.otherDrop') }}</span>
-          <span class="text-[13px] text-muted">{{ t('client.wizard.docs.formats') }}</span>
+          <span class="text-[13px] text-muted">{{ t('client.wizard.docs.formats', { mb: DOC_MAX_MB }) }}</span>
         </span>
       </ZUpload>
 

@@ -21,6 +21,7 @@ import { cn } from '@/ui/cn'
 import { formatDay } from '@/views/broker/list'
 import { emptyInsurance, hasInsurance, insuranceErrors, insuranceFieldsOf } from './carriers'
 import { useCurrencyOptions } from './useCurrencyOptions'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // «Перевозка и страховка» поставки (очередь 4, задача 2): счета перевозчиков по этой поставке (фрахт идёт в
 // себестоимость) и страховка груза — только сведения (страховщик, полис, сумма, стоимость, файл), без «застраховать».
@@ -214,7 +215,7 @@ defineExpose({ reload: load })
         <ZUpload
           v-if="canEdit"
           :accept="ACCEPT"
-          :max-size-mb="25"
+          :max-size-mb="DOC_MAX_MB"
           :loading="fileBusy"
           button-size="sm"
           class="max-sm:w-full"

@@ -5,6 +5,7 @@ import { PhCheckCircle, PhCircleDashed, PhUploadSimple } from '@phosphor-icons/v
 import ZUpload from '@/components/z/ZUpload.vue'
 import { reworkApi, reworkTitle, type ReworkItemDto } from '@/api/import40Rework'
 import { message } from '@/ui/message'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // «Нужно от вас: догрузить» (17.10): пункты возврата на доработку — у каждого своя загрузка файла нужного вида
 // и отметка «загружено». Файл к пункту закрывает его на сервере; после загрузки карточка перечитывает заявку.
@@ -12,9 +13,8 @@ const props = defineProps<{ caseId: string; items: ReworkItemDto[] }>()
 const emit = defineEmits<{ changed: [] }>()
 const { t } = useI18n()
 
-// Форматы и размер — как проверяет сервер (ReestrDocumentRules, 25 МБ).
+// Форматы и размер — как проверяет сервер (ReestrDocumentRules, 100 МБ — DOC_MAX_MB).
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
-const MAX_MB = 25
 
 const uploading = ref<string | null>(null)
 const upload = async (item: ReworkItemDto, file: File) => {
@@ -64,7 +64,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-9 [&>button]:px-3.5 [
         v-if="!x.resolvedAtUtc"
         :accept="ACCEPT"
         convert-heic
-        :max-size-mb="MAX_MB"
+        :max-size-mb="DOC_MAX_MB"
         :loading="uploading === x.id"
         :disabled="!!uploading && uploading !== x.id"
         button-variant="primary"

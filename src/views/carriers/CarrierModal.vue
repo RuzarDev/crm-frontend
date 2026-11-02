@@ -18,6 +18,7 @@ import { buildCountryOptions, filterCountryOption } from '@/utils/countries'
 import { formatDay } from '@/views/broker/list'
 import { message } from '@/ui/message'
 import { carrierErrors, emptyCarrier, KZ_CODE, type CarrierField } from './carriers'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Окно перевозчика: название, страна, БИН/ИИН или иностранный рег. номер, контакты и договор перевозки.
 // Договор — документ реестра клиента «Договор перевозки»: выбрать уже загруженный или загрузить новый (номер, срок,
@@ -212,7 +213,7 @@ const submit = async () => {
             <ZDate v-model:value="newContract.validUntil" class="max-sm:h-11" data-carrier-contract-until />
           </ZField>
           <div class="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2">
-            <ZUpload :accept="ACCEPT" :max-size-mb="25" class="max-sm:w-full" data-carrier-contract-file @select="newContract.file = $event[0] ?? null">
+            <ZUpload :accept="ACCEPT" :max-size-mb="DOC_MAX_MB" class="max-sm:w-full" data-carrier-contract-file @select="newContract.file = $event[0] ?? null">
               {{ t('carriers.form.chooseFile') }}
             </ZUpload>
             <span v-if="newContract.file" class="min-w-0 text-sm break-all text-ink-2">{{ newContract.file.name }}</span>

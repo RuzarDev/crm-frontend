@@ -15,6 +15,7 @@ import { roleLabel } from './caseFormat'
 import type { CaseStepContext } from './caseContext'
 import FileTranslateButton from '@/views/preBorder/FileTranslateButton.vue'
 import { canTranslate, injectCaseTranslations } from '@/views/preBorder/translate'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // «Место для файлов» раздела заявки (доски Case/CaseSvh): подпись, файлы раздела карточками (расширение, имя, вид документа,
 // размер · кто загрузил · когда, скачивание, удаление) и зона загрузки. Используется в шагах: «Заявка и документы»
@@ -50,9 +51,8 @@ const { confirm } = useConfirm()
 const uid = useId()
 const labelId = `case-slot-${uid}`
 
-// Разрешённые типы и размер — как на сервере (ReestrDocumentRules, MaxFileSizeBytes 25 МБ).
+// Разрешённые типы и размер — как на сервере (ReestrDocumentRules, MaxFileSizeBytes, 100 МБ — DOC_MAX_MB).
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
-const MAX_MB = 25
 
 const files = computed(() => props.ctx.files.filter((f) => f.section === props.section))
 
@@ -241,7 +241,7 @@ const translations = injectCaseTranslations()
         :multiple="multiple"
         :accept="ACCEPT"
         convert-heic
-        :max-size-mb="MAX_MB"
+        :max-size-mb="DOC_MAX_MB"
         :loading="uploading"
         :disabled="anotherBusy"
         data-slot-upload

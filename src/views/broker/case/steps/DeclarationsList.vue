@@ -33,6 +33,7 @@ import { prepareDocumentsDeclaration, receiverAddressReplaced, receiverIsClient,
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from './documentsSources'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
+import { uploadTooLargeText } from '@/utils/uploadLimits'
 import QuoteImportModal from './QuoteImportModal.vue'
 
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
@@ -236,8 +237,12 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   let createdId: string | null = null
   let usedExcel = false
   let extraWarnings: string[] = []
+  let extractError: unknown = null
   const ok = await props.ctx.actions.mutate('dt-batch', async () => {
-    result = await import40Api.extractBatch(caseId, files, fileIds)
+    result = await import40Api.extractBatch(caseId, files, fileIds).catch((e: unknown) => {
+      extractError = e
+      throw e
+    })
     // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, гр. 41 / гр. 31,
     // упаковка, страна, отправитель с адресом), гр. 44 инвойса, упаковочного и транспортного документа.
     const [docs, packageKinds, docKindNames] = await Promise.all([
@@ -269,7 +274,9 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   const extracted = result as Import40ExtractionResult | null
   const dtId = createdId as string | null
   if (!ok || !extracted || !dtId) {
-    message.error(t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate'))
+    // Пакет больше предела распознавания или запроса (02.11.2026) — «уберите крупные сканы», а не «не удалось распознать».
+    const tooLarge = stage === 'extract' ? uploadTooLargeText(extractError, t) : null
+    message.error(tooLarge ?? t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate'))
     return
   }
   message.success(t(usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))

@@ -20,6 +20,7 @@ import {
   rowsOf, sourceByDisplayName, type DocCheckDtRef,
 } from './docCheckModel'
 import { useDocCheckFormat } from './useDocCheckFormat'
+import { uploadTooLargeText } from '@/utils/uploadLimits'
 
 // Сверка документов в карточке заявки — новый вид (01.11.2026, дизайн 2026-11-01-document-check-redesign-design.md).
 // Что работник должен понять за секунды: что не совпадает с документами и что исправить. Сверху вниз: документы одной
@@ -129,7 +130,8 @@ const recheck = async (c: DocumentCheck) => {
       message.error(t(res.data?.title === RECHECK_NOTHING_TO_PARSE ? 'docCheck.nothingToParse' : 'docCheck.filesMissing'))
       if (res.data?.title === RECHECK_FILES_MISSING) await load()
     } else {
-      message.error(t('docCheck.recheckFailed'))
+      // Пакет больше предела Zircon AI (02.11.2026, 422): «уберите крупные сканы» вместо общего «не удалось».
+      message.error(uploadTooLargeText(e, t) ?? t('docCheck.recheckFailed'))
       await load()
     }
   } finally {
