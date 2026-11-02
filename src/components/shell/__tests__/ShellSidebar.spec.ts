@@ -24,6 +24,22 @@ describe('ShellSidebar', () => {
     const w = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/home', attention: 3 })
     expect(w.text()).toContain('требует внимания: 3')
   })
+  // Пакет G (02.11.2026): значок «Главной» — красный при срочном, жёлтый при «Ждут вас», без значка при нуле.
+  it('значок «Главной»: danger — красный «срочно», gold — жёлтый, 0 — нет', () => {
+    const red = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/import-40', attention: 2, attentionTone: 'danger' })
+    const badge = red.get('[data-attention-badge]')
+    expect(badge.attributes('data-tone')).toBe('danger')
+    expect(badge.classes()).toContain('bg-danger')
+    expect(badge.text()).toContain('срочно: 2')
+    const gold = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/import-40', attention: 4, attentionTone: 'gold' })
+    expect(gold.get('[data-attention-badge]').classes()).toContain('bg-gold')
+    expect(gold.get('[data-attention-badge]').text()).toContain('требует внимания: 4')
+    const none = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/import-40', attention: 0, attentionTone: 'danger' })
+    expect(none.find('[data-attention-badge]').exists()).toBe(false)
+    // Узкое меню — точка того же цвета.
+    const dot = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/import-40', attention: 1, attentionTone: 'danger', compact: true })
+    expect(dot.get('[data-attention-badge]').classes()).toContain('bg-danger')
+  })
   it('ссылка раздела ведёт на первую видимую вкладку', () => {
     const w = mountIt({ model: buildBrokerNav(acc('administrator')), path: '/home', attention: null })
     expect(w.find('a[href="/finance"]').exists()).toBe(true)

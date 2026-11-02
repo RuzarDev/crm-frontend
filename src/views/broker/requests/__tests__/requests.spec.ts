@@ -240,15 +240,30 @@ describe('фильтр «Нет связи с КЕДЕН» (17.10)', () => {
 describe('filtersFromQuery / filtersToQuery', () => {
   it('туда и обратно без потерь; пустые — без параметров', async () => {
     const { emptyFilters, filtersFromQuery, filtersToQuery, sameFilters } = await import('../requests')
-    const f = { q: 'кофе ', client: 'c1', executor: 'none', stage: '3', period: ['2026-10-01', '2026-10-31'] as [string, string], condRel: 'open' as const, keden: 'unlinked' as const, problem: true }
+    const f = { q: 'кофе ', client: 'c1', executor: 'none', stage: '3', period: ['2026-10-01', '2026-10-31'] as [string, string], condRel: 'open' as const, keden: 'unlinked' as const, problem: true, step: 4, stuck: true }
     const q = filtersToQuery(f)
-    expect(q).toEqual({ q: 'кофе ', client: 'c1', executor: 'none', stage: '3', dateFrom: '2026-10-01', dateTo: '2026-10-31', condRel: 'open', keden: 'unlinked', problem: '1' })
+    expect(q).toEqual({ q: 'кофе ', client: 'c1', executor: 'none', stage: '3', dateFrom: '2026-10-01', dateTo: '2026-10-31', condRel: 'open', keden: 'unlinked', problem: '1', step: '4', stuck: '1' })
     expect(filtersFromQuery(q)).toEqual(f)
     expect(Object.values(filtersToQuery(emptyFilters())).every((v) => v === undefined)).toBe(true)
     expect(sameFilters({ ...emptyFilters(), q: '  ' }, emptyFilters())).toBe(true)
   })
   it('мусор в адресе — без фильтра', async () => {
     const { emptyFilters, filtersFromQuery } = await import('../requests')
-    expect(filtersFromQuery({ stage: 'x', dateFrom: '2026-10-01', condRel: 'bad', keden: 'yes' })).toEqual(emptyFilters())
+    expect(filtersFromQuery({ stage: 'x', dateFrom: '2026-10-01', condRel: 'bad', keden: 'yes', step: '7', stuck: 'yes' })).toEqual(emptyFilters())
+  })
+})
+
+// Пакет G (02.11.2026): ссылки с Главной — строка «Заявки по этапам» (?step=) и карточка «Застряли» (?stuck=1).
+describe('фильтры «Шаг» и «Застряли»', () => {
+  it('шаг — по лестнице шагов: шаг 3 = «Декларирование» и «ДТ подана», шаг 4 = выпуск и СВХ', () => {
+    const rows = [row({ id: 'a', status: 2 }), row({ id: 'b', status: 3 }), row({ id: 'c', status: 4 }), row({ id: 'd', status: 5 }), row({ id: 'e', status: 1 })]
+    expect(filterRows(rows, { ...emptyFilters(), step: 3 }).map((r) => r.id)).toEqual(['a', 'b'])
+    expect(filterRows(rows, { ...emptyFilters(), step: 4 }).map((r) => r.id)).toEqual(['c', 'd'])
+    expect(hasFilters({ ...emptyFilters(), step: 2 })).toBe(true)
+  })
+  it('«Застряли» — по флагу строки, который считает сервер', () => {
+    const rows = [row({ id: 'a', stuck: true }), row({ id: 'b' }), row({ id: 'c', stuck: false })]
+    expect(filterRows(rows, { ...emptyFilters(), stuck: true }).map((r) => r.id)).toEqual(['a'])
+    expect(hasFilters({ ...emptyFilters(), stuck: true })).toBe(true)
   })
 })

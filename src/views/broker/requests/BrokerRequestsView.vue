@@ -102,6 +102,9 @@ const executorOptions = computed(() => buildExecutorOptions(known.value, t))
 const stageOptions = computed(() => IMPORT40_STATUSES.map((s) => ({ value: String(s.id), label: statusLabel(s.id) })))
 const kedenOptions = computed(() => [{ value: 'unlinked', label: t('kedenLink.filter.unlinked') }])
 const problemOptions = computed(() => [{ value: '1', label: t('broker.requests.filter.problemOnly') }])
+// Пакет G (02.11.2026): шаг и «Застряли» приходят ссылками с Главной; чипы видны, только пока фильтр включён (снять — ×).
+const stepOptions = computed(() => [1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: t(`enum.step.s${n}`) })))
+const stuckOptions = computed(() => [{ value: '1', label: t('broker.requests.filter.stuckOnly') }])
 const condRelOptions = computed(() => (['any', 'open', 'overdue', 'uploaded'] as const).map((k) => ({ value: k, label: t(`condRel.filter.${k}`) })))
 
 // Шапка — число заявок «В работе» без фильтров; счётчики вкладок — по найденному (видно, где совпадения).
@@ -288,6 +291,8 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       <FilterChip :label="t('condRel.filter.label')" :options="condRelOptions" :value="filters.condRel ?? null" data-requests-condrel @update:value="patch({ condRel: $event as CondRelFilter | null })" />
       <FilterChip :label="t('kedenLink.filter.label')" :options="kedenOptions" :value="filters.keden ?? null" data-requests-keden @update:value="patch({ keden: $event as 'unlinked' | null })" />
       <FilterChip :label="t('broker.requests.filter.problem')" :options="problemOptions" :value="filters.problem ? '1' : null" data-requests-problem @update:value="patch({ problem: $event === '1' })" />
+      <FilterChip v-if="filters.step" :label="t('broker.requests.filter.step')" :options="stepOptions" :value="String(filters.step)" data-requests-step @update:value="patch({ step: $event ? Number($event) : null })" />
+      <FilterChip v-if="filters.stuck" :label="t('broker.requests.filter.stuck')" :options="stuckOptions" value="1" data-requests-stuck @update:value="patch({ stuck: $event === '1' })" />
     </div>
 
     <div v-if="source.error && !source.data" class="flex flex-wrap items-center gap-3 rounded-panel border border-line bg-surface px-5 py-4" data-requests-error>

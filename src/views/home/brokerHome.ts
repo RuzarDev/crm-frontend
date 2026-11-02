@@ -1,62 +1,42 @@
-import type { Import40DashboardDto } from '@/api/dashboard'
-import type { ManageOverview } from '@/api/manage'
+import type { StaffHomeDto, StaffHomeOwners, StaffHomeTask, StaffHomeUrgent } from '@/api/dashboard'
 import type { BrokerInvoice } from '@/api/billing'
-import type { Import40CaseDto } from '@/api/import40'
 import type { DashboardDto } from '@/types/api'
-import { stepForStatus } from '@/utils/import40Steps'
 
 export type AttentionTone = 'gold' | 'danger' | 'neutral'
 
 export interface AttentionCard {
-  key: 'awaitingMe' | 'unassigned' | 'problems' | 'stale' | 'overdue' | 'transitProblems' | 'transitSubmitted'
+  key: 'awaitingMe' | 'awaitingClient' | 'stuck' | 'expiringDocs' | 'transitProblems' | 'transitSubmitted'
   tone: AttentionTone
   count: number
-  amount?: number
   to: string
 }
 
 const MAX_ATTENTION = 4
 
-/** Карточки «Требует внимания» в фиксированном порядке, не более четырёх. */
+/** «Истекают документы»: окно в днях — как на сервере (GetStaffHome.ExpiringDays). */
+export const EXPIRING_DAYS = 14
+
+/**
+ * Карточки «Требует внимания» (пакет G, 02.11.2026) в фиксированном порядке, только ненулевые, не более четырёх:
+ * «Ждут вас» (только у декларанта и КПП — сервер отдаёт null остальным), «Ждут клиента», «Застряли», «Истекают
+ * документы»; у кого есть транзит — его проблемные и поданные записи (S-50). Каждая ведёт в отфильтрованный список.
+ */
 export const buildAttention = (i: {
-  import40: Import40DashboardDto | null
-  manage: ManageOverview | null
-  invoices: BrokerInvoice[] | null
+  home: StaffHomeDto | null
   /** Сводка транзита (/dashboard) — у кого reestr.read и не «только финансы». */
   transit?: DashboardDto | null
-  now: Date
 }): AttentionCard[] => {
-  const { import40, manage, invoices, transit, now } = i
+  const { home, transit } = i
   const cards: AttentionCard[] = []
-
-  if (import40 && !import40.isManagerView && import40.awaitingMe > 0) {
-    cards.push({ key: 'awaitingMe', tone: 'gold', count: import40.awaitingMe, to: '/import-40?tab=my' })
+  const a = home?.attention
+  if (a?.awaitingMe) cards.push({ key: 'awaitingMe', tone: 'gold', count: a.awaitingMe, to: '/import-40?tab=my' })
+  if (a?.awaitingClient) cards.push({ key: 'awaitingClient', tone: 'neutral', count: a.awaitingClient, to: '/import-40?tab=waiting' })
+  if (a?.stuck) {
+    // Декларант и КПП — по своим заявкам («Мои»), руководитель — по всем в работе.
+    cards.push({ key: 'stuck', tone: 'danger', count: a.stuck, to: `/import-40?tab=${a.stuckMine ? 'my' : 'active'}&stuck=1` })
   }
-  // S-14/S-15 (30.10.2026): «Без исполнителя» = «Без декларанта» + «Без КПП» (сервер считает той же формулой), карточки
-  // ведут на свой сегмент «Распределения» (?segment=), а не на первый непустой; число карточки = число сегмента.
-  if (manage && manage.unassigned > 0) {
-    cards.push({ key: 'unassigned', tone: 'gold', count: manage.unassigned, to: '/import-40/manage?segment=unassigned' })
-  }
-  // S-16/S-18: «Проблемные» — только заявки в работе; сотруднику — список «В работе» с фильтром «Проблема».
-  const problems = manage ? manage.problems : import40?.problemCases ?? 0
-  if (problems > 0) {
-    cards.push({ key: 'problems', tone: 'danger', count: problems, to: manage ? '/import-40/manage?segment=problem' : '/import-40?tab=active&problem=1' })
-  }
-  if (manage && manage.stale > 0) {
-    cards.push({ key: 'stale', tone: 'neutral', count: manage.stale, to: '/import-40/manage?segment=stale' })
-  }
-  const overdue = (invoices ?? []).filter(
-    (x) => x.kind === 'invoice' && x.status === 1 && x.dueDateUtc && new Date(x.dueDateUtc) < now,
-  )
-  if (overdue.length > 0) {
-    cards.push({
-      key: 'overdue',
-      tone: 'neutral',
-      count: overdue.length,
-      amount: overdue.reduce((s, x) => s + x.total, 0),
-      // S-44 (30.10.2026): сразу фильтр «Просрочены», а не весь список счетов.
-      to: '/billing?status=overdue',
-    })
+  if (a?.expiringDocs) {
+    cards.push({ key: 'expiringDocs', tone: 'neutral', count: a.expiringDocs, to: `/client-documents?state=expiring&within=${EXPIRING_DAYS}` })
   }
   // S-50 (30.10.2026): МПП — «Требует внимания» по транзиту: проблемные записи и поданные, ждущие выпуска;
   // карточка ведёт в «Транзит» с фильтром статуса (?status=N, номер — как ReestrEntryStatus).
@@ -71,6 +51,44 @@ export const buildAttention = (i: {
   }
   return cards.slice(0, MAX_ATTENTION)
 }
+
+/** Сколько строк «Срочно» видно сразу; остальные — под «Ещё N». */
+export const URGENT_VISIBLE = 5
+
+/** Подпись срока строки «Срочно»: ключ home.urgent.* и параметры. */
+export const urgentWhen = (u: Pick<StaffHomeUrgent, 'kind' | 'dueTime' | 'overdueDays' | 'past'>): { key: string; params: Record<string, string | number> } => {
+  if (u.kind === 'invoice') {
+    return u.overdueDays > 0 ? { key: 'payOverdue', params: { n: u.overdueDays } } : { key: 'payToday', params: {} }
+  }
+  if (u.overdueDays > 0) return { key: 'overdue', params: { n: u.overdueDays } }
+  if (u.dueTime) return u.past ? { key: 'expiredAt', params: { time: u.dueTime } } : { key: 'answerBy', params: { time: u.dueTime } }
+  return { key: 'dueToday', params: {} }
+}
+
+/** Куда ведёт строка «Срочно»: счёт — список счетов с его номером в поиске (как ⌘K), остальное — заявка. */
+export const urgentHref = (u: Pick<StaffHomeUrgent, 'kind' | 'caseId' | 'invoiceNumber'>): string =>
+  u.kind === 'invoice'
+    ? `/billing?q=${encodeURIComponent(u.invoiceNumber ?? '')}`
+    : `/import-40/${u.caseId}`
+
+/** Чей ход в шапке: только ненулевые части, по порядку декларанты · КПП · клиенты. */
+export const ownerParts = (o: StaffHomeOwners | null | undefined): { key: 'declarants' | 'kpp' | 'clients'; n: number }[] =>
+  !o ? [] : (['declarants', 'kpp', 'clients'] as const).filter((k) => o[k] > 0).map((k) => ({ key: k, n: o[k] }))
+
+/** «Что дальше» под заявкой в «Моих задачах»: ключ home.tasks.next.* либо этап (enum.step.sN). */
+export const taskNext = (r: Pick<StaffHomeTask, 'next' | 'step' | 'filled' | 'total'>): { key: string; params: Record<string, number> } =>
+  r.next === 'stage'
+    ? { key: `enum.step.s${r.step}`, params: {} }
+    : r.next === 'fill'
+      ? { key: 'home.tasks.next.fill', params: { filled: r.filled ?? 0, total: r.total ?? 0 } }
+      : { key: `home.tasks.next.${r.next}`, params: {} }
+
+/**
+ * Строка «Заявки по этапам» → список заявок с фильтром шага (?step=N, пакет G). Шаг 1 — черновики: вкладка «Черновики»
+ * (возвращённые на доработку — во вкладке «Ждут клиента»); остальные шаги — вкладка «В работе».
+ */
+export const stageHref = (step: number): string =>
+  step <= 1 ? '/import-40?tab=drafts' : `/import-40?tab=active&step=${step}`
 
 // Порядок — как серверный ReestrEntryStatus (0..7) и STATUS_KEYS в transit.ts.
 const REESTR_STATUS_NAMES = ['InProgress', 'Submitted', 'Released', 'ConditionallyReleased', 'Problematic', 'Rejected', 'Withdrawn', 'Archived']
@@ -139,30 +157,6 @@ export const shortWhen = (iso: string, now: Date, yesterday: string): string => 
   if (sameDay(d, y)) return yesterday
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`
 }
-
-export interface TaskRow {
-  id: string
-  number: string
-  clientName: string
-  cargo: string
-  step: number
-  updatedAtUtc: string
-}
-
-/** Последние активные заявки: без выполненных/отменённых (status >= 8), свежие сверху. */
-export const taskRows = (cases: Import40CaseDto[], limit = 6): TaskRow[] =>
-  cases
-    .filter((c) => c.status < 8)
-    .sort((a, b) => new Date(b.updatedAtUtc).getTime() - new Date(a.updatedAtUtc).getTime())
-    .slice(0, limit)
-    .map((c) => ({
-      id: c.id,
-      number: c.number,
-      clientName: c.clientName,
-      cargo: c.cargo,
-      step: stepForStatus(c.status),
-      updatedAtUtc: c.updatedAtUtc,
-    }))
 
 /**
  * Подпись месяца для «Денег за месяц»: «<Месяц> <год>» в любом языке — «Октябрь 2026», «Қазан 2026»,

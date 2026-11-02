@@ -3,6 +3,7 @@ import type { Import40BoardRow } from '@/api/import40Board'
 import { inPeriod, matchesQuery } from '@/views/broker/list'
 import { matchesCondRel, type CondRelFilter } from '@/utils/conditionalRelease'
 import { kedenUnlinked } from '@/utils/kedenLink'
+import { stepForStatus } from '@/utils/import40Steps'
 
 // Чистая логика списка «Заявки» (вкладки, исполнитель, фильтры) — без Vue и запросов, чтобы проверять тестами.
 
@@ -134,10 +135,14 @@ export interface RequestFilters {
   keden?: 'unlinked' | null
   /** Только проблемные заявки в работе (S-16, 30.10.2026; ?problem=1 — ссылка с Главной). */
   problem?: boolean
+  /** Шаг заявки 1..6 (пакет G, 02.11.2026; ?step=3 — строка «Заявки по этапам» на Главной). Шаг 3 — статусы 2 и 3 и т.д. */
+  step?: number | null
+  /** «Застряли» (пакет G; ?stuck=1 — карточка Главной): без движения 5+ дней или этап дольше нормы — флаг считает сервер. */
+  stuck?: boolean
 }
 
-export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null, condRel: null, keden: null, problem: false })
-export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period || f.condRel || f.keden || f.problem)
+export const emptyFilters = (): RequestFilters => ({ q: '', client: null, executor: null, stage: null, period: null, condRel: null, keden: null, problem: false, step: null, stuck: false })
+export const hasFilters = (f: RequestFilters): boolean => !!(f.q.trim() || f.client || f.executor || f.stage || f.period || f.condRel || f.keden || f.problem || f.step || f.stuck)
 
 // ---- Фильтры в адресе (30.10.2026, аудит S-20) ----
 // Вкладка уже была в ?tab=; теперь и фильтры: «Назад» браузера из заявки и крошка «Заявки» (последний адрес списка)
@@ -162,6 +167,8 @@ export function filtersFromQuery(q: Record<string, unknown>): RequestFilters {
     condRel: CONDREL.includes(condRel) ? condRel : null,
     keden: one(q.keden) === 'unlinked' ? 'unlinked' : null,
     problem: one(q.problem) === '1',
+    step: /^[1-6]$/.test(one(q.step)) ? Number(one(q.step)) : null,
+    stuck: one(q.stuck) === '1',
   }
 }
 /** Параметры адреса для фильтров; пустые — undefined (vue-router их убирает). */
@@ -176,6 +183,8 @@ export function filtersToQuery(f: RequestFilters): Record<string, string | undef
     condRel: f.condRel || undefined,
     keden: f.keden || undefined,
     problem: f.problem ? '1' : undefined,
+    step: f.step ? String(f.step) : undefined,
+    stuck: f.stuck ? '1' : undefined,
   }
 }
 /** Те же фильтры в терминах адреса (пробелы-only в поиске и порядок ключей не важны). */
@@ -197,6 +206,8 @@ export function filterRows(rows: Import40BoardRow[], f: RequestFilters): Import4
     if (!matchesCondRel(r.conditionalRelease, f.condRel ?? null)) return false
     if (f.keden === 'unlinked' && !kedenUnlinked(r)) return false
     if (f.problem && !isActiveProblem(r)) return false
+    if (f.step && stepForStatus(r.status) !== f.step) return false
+    if (f.stuck && !r.stuck) return false
     return matchesQuery(f.q, [r.number, r.clientName, r.cargo, r.post, ...r.tnvedCodes, ...r.containerNumbers])
   })
 }

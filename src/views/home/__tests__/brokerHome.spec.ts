@@ -1,104 +1,93 @@
 import { describe, expect, it } from 'vitest'
-import type { Import40DashboardDto } from '@/api/dashboard'
-import type { ManageOverview } from '@/api/manage'
+import type { StaffHomeAttention, StaffHomeDto } from '@/api/dashboard'
 import type { BrokerInvoice } from '@/api/billing'
-import type { Import40CaseDto } from '@/api/import40'
 import type { DashboardDto } from '@/types/api'
-import { buildAttention, monthCaption, moneyForMonth, shortWhen, stageRows, stepTone, taskRows, transitStatusHref } from '../brokerHome'
+import {
+  buildAttention, monthCaption, moneyForMonth, ownerParts, shortWhen, stageHref, stageRows, stepTone, taskNext, transitStatusHref,
+  urgentHref, urgentWhen,
+} from '../brokerHome'
 
-const dash = (o: Partial<Import40DashboardDto> = {}): Import40DashboardDto => ({
-  totalCases: 0, casesThisMonth: 0, activeCases: 0, doneCases: 0, problemCases: 0, awaitingMe: 0, bySteps: [],
-  totalDeclarations: 0, declarationsWithNumber: 0, paymentsTotalKzt: 0, avgDaysToDone: null, topClients: [],
-  unassignedCases: 0, isManagerView: false, ...o,
-})
-const manage = (o: Partial<ManageOverview> = {}): ManageOverview => ({
-  cases: [], staff: [], unassigned: 0, problems: 0, stale: 0, clientDrafts: 0, ...o,
+const home = (a: Partial<StaffHomeAttention> = {}): StaffHomeDto => ({
+  activeCases: 0, owners: null, urgent: [], urgentTotal: 0, tasks: [], tasksTotal: 0, bySteps: [],
+  attention: { awaitingMe: null, awaitingClient: null, stuck: null, stuckMine: false, expiringDocs: null, ...a },
 })
 const inv = (o: Partial<BrokerInvoice> = {}): BrokerInvoice => ({
   id: 'i', clientId: 'c', clientName: 'Клиент', caseId: null, caseNumber: null, kind: 'invoice', status: 0,
   number: '1', year: 2026, issuedAtUtc: null, dueDateUtc: null, paidAtUtc: null, vatRate: 0, subtotal: 0,
   vatAmount: 0, total: 0, note: '', createdAtUtc: '2026-10-01T00:00:00Z', lines: [], ...o,
 })
-const kase = (o: Partial<Import40CaseDto> = {}): Import40CaseDto =>
-  ({ id: 'x', number: 'ИМ-1', clientName: 'К', cargo: 'Груз', status: 0, updatedAtUtc: '2026-10-01T00:00:00Z', ...o }) as Import40CaseDto
 
 const NOW = new Date(Date.UTC(2026, 9, 15, 12, 0)) // 15.10.2026 12:00 UTC
 
+// Пакет G (02.11.2026): карточки — «Ждут вас», «Ждут клиента», «Застряли», «Истекают документы» (+ транзит).
 describe('buildAttention', () => {
   it('без данных — пусто', () => {
-    expect(buildAttention({ import40: null, manage: null, invoices: null, now: NOW })).toEqual([])
+    expect(buildAttention({ home: null })).toEqual([])
   })
-  it('awaitingMe: gold, ссылка на «мои»', () => {
-    expect(buildAttention({ import40: dash({ awaitingMe: 3 }), manage: null, invoices: null, now: NOW })).toEqual([
+  it('null и 0 — карточек нет (null — не положена: админ без «Ждут вас», бухгалтер)', () => {
+    expect(buildAttention({ home: home({ awaitingMe: 0, awaitingClient: 0, stuck: 0, expiringDocs: 0 }) })).toEqual([])
+    expect(buildAttention({ home: home() })).toEqual([])
+  })
+  it('порядок и ссылки: «Ждут вас» → «Мои», «Ждут клиента» → вкладка, «Застряли» → фильтр, документы → реестр (14 дн.)', () => {
+    expect(buildAttention({ home: home({ awaitingMe: 3, awaitingClient: 2, stuck: 1, expiringDocs: 4 }) })).toEqual([
       { key: 'awaitingMe', tone: 'gold', count: 3, to: '/import-40?tab=my' },
+      { key: 'awaitingClient', tone: 'neutral', count: 2, to: '/import-40?tab=waiting' },
+      { key: 'stuck', tone: 'danger', count: 1, to: '/import-40?tab=active&stuck=1' },
+      { key: 'expiringDocs', tone: 'neutral', count: 4, to: '/client-documents?state=expiring&within=14' },
     ])
   })
-  it('isManagerView не даёт awaitingMe', () => {
-    expect(buildAttention({ import40: dash({ awaitingMe: 3, isManagerView: true }), manage: null, invoices: null, now: NOW })).toEqual([])
+  it('«Застряли» по своим (декларант, КПП) — во вкладке «Мои»', () => {
+    expect(buildAttention({ home: home({ stuck: 2, stuckMine: true }) })[0].to).toBe('/import-40?tab=my&stuck=1')
   })
-  it('awaitingMe = 0 не даёт карточку', () => {
-    expect(buildAttention({ import40: dash({ awaitingMe: 0 }), manage: null, invoices: null, now: NOW })).toEqual([])
+  it('не более 4 карточек: транзит после заявочных', () => {
+    const transit = { totalEntries: 0, entriesThisMonth: 0, totalWeightKg: 0, totalGrandTotal: 0, topClients: [], topCodes: [], byStatus: [{ status: 'Problematic', count: 1 }] }
+    expect(buildAttention({ home: home({ awaitingMe: 1, awaitingClient: 1, stuck: 1, expiringDocs: 1 }), transit }).map((c) => c.key))
+      .toEqual(['awaitingMe', 'awaitingClient', 'stuck', 'expiringDocs'])
+    expect(buildAttention({ home: home({ awaitingClient: 1 }), transit }).map((c) => c.key)).toEqual(['awaitingClient', 'transitProblems'])
   })
-  it('unassigned (S-14/S-15): gold, на сегмент «Без исполнителя» — то же число, что в сегменте', () => {
-    expect(buildAttention({ import40: null, manage: manage({ unassigned: 2 }), invoices: null, now: NOW })).toEqual([
-      { key: 'unassigned', tone: 'gold', count: 2, to: '/import-40/manage?segment=unassigned' },
-    ])
-  })
-  it('problems без manage (S-16) берёт problemCases и ведёт в список «В работе» с фильтром «Проблема»', () => {
-    expect(buildAttention({ import40: dash({ problemCases: 4 }), manage: null, invoices: null, now: NOW })).toEqual([
-      { key: 'problems', tone: 'danger', count: 4, to: '/import-40?tab=active&problem=1' },
-    ])
-  })
-  it('problems с manage берёт manage.problems и ведёт на сегмент «С проблемой» (S-15)', () => {
-    expect(buildAttention({ import40: dash({ problemCases: 4 }), manage: manage({ problems: 1 }), invoices: null, now: NOW })).toEqual([
-      { key: 'problems', tone: 'danger', count: 1, to: '/import-40/manage?segment=problem' },
-    ])
-  })
-  it('stale: neutral, сегмент «Зависли» (S-15)', () => {
-    expect(buildAttention({ import40: null, manage: manage({ stale: 5 }), invoices: null, now: NOW })).toEqual([
-      { key: 'stale', tone: 'neutral', count: 5, to: '/import-40/manage?segment=stale' },
-    ])
-  })
-  it('overdue: только выставленные счета с просроченным сроком, сумма и счёт', () => {
-    const invoices = [
-      inv({ id: '1', status: 1, dueDateUtc: '2026-10-10T00:00:00Z', total: 100 }),
-      inv({ id: '2', status: 1, dueDateUtc: '2026-10-01T00:00:00Z', total: 250 }),
-      inv({ id: '3', status: 1, dueDateUtc: '2026-10-20T00:00:00Z', total: 999 }), // не просрочен
-      inv({ id: '4', status: 2, dueDateUtc: '2026-10-01T00:00:00Z', total: 999 }), // оплачен
-      inv({ id: '5', status: 1, kind: 'act', dueDateUtc: '2026-10-01T00:00:00Z', total: 999 }), // акт
-      inv({ id: '6', status: 1, dueDateUtc: null, total: 999 }), // без срока
-    ]
-    expect(buildAttention({ import40: null, manage: null, invoices, now: NOW })).toEqual([
-      { key: 'overdue', tone: 'neutral', count: 2, amount: 350, to: '/billing?status=overdue' },
-    ])
-  })
-  it('порядок фиксирован и не более 4 карточек', () => {
-    const cards = buildAttention({
-      import40: dash({ awaitingMe: 1 }),
-      manage: manage({ unassigned: 2, problems: 3, stale: 4 }),
-      invoices: [inv({ status: 1, dueDateUtc: '2026-10-01T00:00:00Z', total: 10 })],
-      now: NOW,
-    })
-    expect(cards.map((c) => c.key)).toEqual(['awaitingMe', 'unassigned', 'problems', 'stale'])
-  })
-  it('без awaitingMe в четвёрку попадает overdue', () => {
-    const cards = buildAttention({
-      import40: dash({ isManagerView: true }),
-      manage: manage({ unassigned: 2, problems: 3, stale: 4 }),
-      invoices: [inv({ status: 1, dueDateUtc: '2026-10-01T00:00:00Z', total: 10 })],
-      now: NOW,
-    })
-    expect(cards.map((c) => c.key)).toEqual(['unassigned', 'problems', 'stale', 'overdue'])
-  })
-  // S-50 (30.10.2026): МПП — проблемные записи транзита и поданные, ждущие выпуска; ссылки с фильтром статуса.
   it('транзит: «Проблемные записи» (danger) и «поданы, ждут выпуска»; нули не показываются', () => {
     const transit = (byStatus: DashboardDto['byStatus']): DashboardDto =>
       ({ totalEntries: 0, entriesThisMonth: 0, totalWeightKg: 0, totalGrandTotal: 0, topClients: [], topCodes: [], byStatus })
-    expect(buildAttention({ import40: null, manage: null, invoices: null, transit: transit([{ status: 'Problematic', count: 2 }, { status: 'Submitted', count: 5 }]), now: NOW })).toEqual([
+    expect(buildAttention({ home: null, transit: transit([{ status: 'Problematic', count: 2 }, { status: 'Submitted', count: 5 }]) })).toEqual([
       { key: 'transitProblems', tone: 'danger', count: 2, to: '/reestr?status=4' },
       { key: 'transitSubmitted', tone: 'neutral', count: 5, to: '/reestr?status=1' },
     ])
-    expect(buildAttention({ import40: null, manage: null, invoices: null, transit: transit([{ status: 'Problematic', count: 0 }, { status: 'Released', count: 9 }]), now: NOW })).toEqual([])
+    expect(buildAttention({ home: null, transit: transit([{ status: 'Problematic', count: 0 }, { status: 'Released', count: 9 }]) })).toEqual([])
+  })
+})
+
+describe('urgentWhen / urgentHref', () => {
+  const u = { dueTime: null, overdueDays: 0, past: false }
+  it('запрос таможни: до времени сегодня, срок сегодня, истёк сегодня, просрочено N дн.', () => {
+    expect(urgentWhen({ ...u, kind: 'customsRequest', dueTime: '18:00' })).toEqual({ key: 'answerBy', params: { time: '18:00' } })
+    expect(urgentWhen({ ...u, kind: 'customsRequest' })).toEqual({ key: 'dueToday', params: {} })
+    expect(urgentWhen({ ...u, kind: 'customsRequest', dueTime: '09:00', past: true })).toEqual({ key: 'expiredAt', params: { time: '09:00' } })
+    expect(urgentWhen({ ...u, kind: 'customsRequest', overdueDays: 2, past: true })).toEqual({ key: 'overdue', params: { n: 2 } })
+  })
+  it('условный выпуск и счёт', () => {
+    expect(urgentWhen({ ...u, kind: 'conditionalRelease', overdueDays: 1, past: true })).toEqual({ key: 'overdue', params: { n: 1 } })
+    expect(urgentWhen({ ...u, kind: 'invoice', overdueDays: 3, past: true })).toEqual({ key: 'payOverdue', params: { n: 3 } })
+    expect(urgentWhen({ ...u, kind: 'invoice', past: true })).toEqual({ key: 'payToday', params: {} })
+  })
+  it('ссылка: заявка или счета с номером в поиске', () => {
+    expect(urgentHref({ kind: 'customsRequest', caseId: 'c1', invoiceNumber: null })).toBe('/import-40/c1')
+    expect(urgentHref({ kind: 'invoice', caseId: 'c1', invoiceNumber: '14/2026' })).toBe('/billing?q=14%2F2026')
+  })
+})
+
+describe('ownerParts / taskNext / stageHref', () => {
+  it('чей ход — только ненулевые, по порядку', () => {
+    expect(ownerParts({ declarants: 5, kpp: 0, clients: 1 })).toEqual([{ key: 'declarants', n: 5 }, { key: 'clients', n: 1 }])
+    expect(ownerParts(null)).toEqual([])
+  })
+  it('что дальше: заполнение с числами, этап — подпись шага', () => {
+    expect(taskNext({ next: 'fill', step: 3, filled: 40, total: 54 })).toEqual({ key: 'home.tasks.next.fill', params: { filled: 40, total: 54 } })
+    expect(taskNext({ next: 'ready', step: 3, filled: null, total: null }).key).toBe('home.tasks.next.ready')
+    expect(taskNext({ next: 'stage', step: 2, filled: null, total: null }).key).toBe('enum.step.s2')
+  })
+  it('строка этапа: шаг 1 — «Черновики», остальные — «В работе» с ?step=', () => {
+    expect(stageHref(1)).toBe('/import-40?tab=drafts')
+    expect(stageHref(4)).toBe('/import-40?tab=active&step=4')
   })
 })
 
@@ -159,27 +148,6 @@ describe('shortWhen', () => {
   })
   it('старая дата — DD.MM', () => {
     expect(shortWhen(new Date(2026, 8, 3, 12, 0).toISOString(), now, 'вчера')).toBe('03.09')
-  })
-})
-
-describe('taskRows', () => {
-  it('сортирует по updatedAtUtc убыв., отбрасывает status >= 8, считает шаг', () => {
-    const cases = [
-      kase({ id: 'a', status: 0, updatedAtUtc: '2026-10-01T00:00:00Z' }),
-      kase({ id: 'b', status: 8, updatedAtUtc: '2026-10-09T00:00:00Z' }),
-      kase({ id: 'c', status: 3, updatedAtUtc: '2026-10-05T00:00:00Z' }),
-      kase({ id: 'd', status: 9, updatedAtUtc: '2026-10-08T00:00:00Z' }),
-      kase({ id: 'e', status: 7, updatedAtUtc: '2026-10-03T00:00:00Z' }),
-    ]
-    const rows = taskRows(cases)
-    expect(rows.map((r) => r.id)).toEqual(['c', 'e', 'a'])
-    expect(rows.map((r) => r.step)).toEqual([3, 6, 1])
-    expect(Object.keys(rows[0]).sort()).toEqual(['cargo', 'clientName', 'id', 'number', 'step', 'updatedAtUtc'])
-  })
-  it('ограничивает limit', () => {
-    const cases = Array.from({ length: 10 }, (_, i) => kase({ id: String(i), updatedAtUtc: `2026-10-${String(i + 1).padStart(2, '0')}T00:00:00Z` }))
-    expect(taskRows(cases)).toHaveLength(6)
-    expect(taskRows(cases, 2).map((r) => r.id)).toEqual(['9', '8'])
   })
 })
 

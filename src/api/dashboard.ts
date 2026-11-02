@@ -34,6 +34,61 @@ export interface Import40ClientDashboardDto {
   recentCases: Import40ClientRecentCase[]
 }
 
+// Главная сотрудника (GET dashboard/home, пакет G 02.11.2026) — один запрос на все блоки.
+/** Строка «Срочно»: срок по Алматы; overdueDays — дней после даты срока (0 — сегодня), past — срок прошёл. */
+export interface StaffHomeUrgent {
+  kind: 'customsRequest' | 'conditionalRelease' | 'invoice'
+  caseId: string | null
+  caseNumber: string | null
+  invoiceId: string | null
+  /** «14/2026» */
+  invoiceNumber: string | null
+  clientName: string
+  amount: number | null
+  /** гггг-мм-дд */
+  dueDate: string
+  /** «18:00», если у срока есть время */
+  dueTime: string | null
+  overdueDays: number
+  past: boolean
+}
+export interface StaffHomeOwners { declarants: number; kpp: number; clients: number }
+/** null — карточка пользователю не положена; stuckMine — «Застряли» только по своим заявкам. */
+export interface StaffHomeAttention {
+  awaitingMe: number | null
+  awaitingClient: number | null
+  stuck: number | null
+  stuckMine: boolean
+  expiringDocs: number | null
+}
+export type StaffHomeNext = 'customsRequest' | 'customsAnswered' | 'createDt' | 'fill' | 'ready' | 'stage'
+export interface StaffHomeTask {
+  id: string
+  number: string
+  clientName: string
+  cargo: string
+  status: number
+  step: number
+  isProblem: boolean
+  updatedAtUtc: string
+  next: StaffHomeNext
+  filled: number | null
+  total: number | null
+}
+/** Блоки заявок (activeCases, tasks, bySteps) — null у бухгалтера и у тех, кто заявок не видит. */
+export interface StaffHomeDto {
+  activeCases: number | null
+  owners: StaffHomeOwners | null
+  urgent: StaffHomeUrgent[]
+  urgentTotal: number
+  attention: StaffHomeAttention
+  tasks: StaffHomeTask[] | null
+  tasksTotal: number
+  bySteps: Import40StepCount[] | null
+}
+/** Значок «Главной» в меню: срочное — красным, иначе «Ждут вас» — жёлтым. */
+export interface StaffHomeBadgeDto { urgent: number; awaitingMe: number }
+
 export const dashboardApi = {
   // транзит (требует reestr.read)
   get: () => apiClient.get<DashboardDto>('/dashboard'),
@@ -41,4 +96,7 @@ export const dashboardApi = {
   import40: () => apiClient.get<Import40DashboardDto>('/dashboard/import40'),
   // импорт 40 — клиент
   client: () => apiClient.get<Import40ClientDashboardDto>('/dashboard/client'),
+  // Главная сотрудника и значок меню (пакет G); silent — ошибки рисует сам экран, опрос значка без тостов.
+  home: async (): Promise<StaffHomeDto> => (await apiClient.get<StaffHomeDto>('/dashboard/home', { silent: true })).data,
+  homeBadge: async (): Promise<StaffHomeBadgeDto> => (await apiClient.get<StaffHomeBadgeDto>('/dashboard/home/badge', { silent: true })).data,
 }
