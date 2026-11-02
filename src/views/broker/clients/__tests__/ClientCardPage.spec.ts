@@ -633,7 +633,8 @@ describe('карточка клиента: вкладки «Транзит», «
     expect(rows[1].text()).toContain('осталось 11\u00a0дн.')
     expect(rows[2].text()).toContain('Истёк')
     expect(rows[2].text()).toContain('просрочен 300\u00a0дн.')
-    expect(rows[0].find('[data-row-primary]').text()).toBe('Скачать бланк')
+    // Подписанный — «Скачать», не «бланк» (02.11.2026).
+    expect(rows[0].find('[data-row-primary]').text()).toBe('Скачать')
     api.download.mockResolvedValue(new Blob(['x']))
     await rows[0].get('[data-row-primary]').trigger('click')
     await flushPromises()
@@ -811,6 +812,6 @@ describe('карточка клиента: «Перевыпустить» дов
     expect(rows[1].get('[data-doc-replaced]').text()).toBe('Заменена доверенностью № 10/2026')
     expect(rows[0].get('[data-doc-status]').text()).toBe('Действует')
     expect(rows[0].get('[data-row-primary]').text()).toBe('Перевыпустить')
-    expect(rows[1].get('[data-row-primary]').text()).toBe('Скачать бланк')
+    expect(rows[1].get('[data-row-primary]').text()).toBe('Скачать')
   })
 })

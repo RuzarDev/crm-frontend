@@ -113,7 +113,7 @@ const fileLink = 'inline-flex max-w-full min-h-8 cursor-pointer items-center gap
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <ZButton size="sm" :loading="downloading === d.id" :disabled="downloading !== null && downloading !== d.id" class="max-sm:h-11" data-doc-blank @click="downloadBlank(d)">
             <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-            {{ t('admin.skachatBlank') }}
+            {{ d.clientSigned || d.providerSigned ? t('broker.clientCard.doc.download') : t('admin.skachatBlank') }}
           </ZButton>
           <button
             v-for="f in d.files"

@@ -369,6 +369,9 @@ const docColumns = computed<ZColumn<ClientCardDoc>[]>(() => [
   { key: 'signs', title: t('broker.clientCard.doc.col.signs'), width: 250 },
   { key: 'actions', title: '', width: 200, align: 'right' },
 ])
+// Подписанный документ — «Скачать» (документ с QR подписантов), «бланк» — только пока никто не подписал (02.11.2026:
+// владелец — у подписанных доверенности и договора стояло «Скачать бланк»).
+const blankLabel = (d: ClientCardDoc) => t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank')
 const docPrimary = (d: ClientCardDoc): RowPrimary | null =>
   canSignDoc(d)
     ? { key: 'sign', label: t('broker.clientCard.doc.sign'), variant: 'primary' }
@@ -376,8 +379,8 @@ const docPrimary = (d: ClientCardDoc): RowPrimary | null =>
       ? { key: 'extend', label: t('broker.clientCard.doc.extend'), variant: 'primary', loading: extending.value === d.id }
       : canReissue(d)
         ? { key: 'reissue', label: t('broker.company.reissue.action'), variant: 'primary' }
-        : canImport.value ? { key: 'blank', label: t('broker.clientCard.doc.blank'), variant: 'outline', loading: downloading.value === d.id } : null
-const docItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d) || canReissue(d)) && canImport.value ? [{ key: 'blank', label: t('broker.clientCard.doc.blank') }] : [])
+        : canImport.value ? { key: 'blank', label: blankLabel(d), variant: 'outline', loading: downloading.value === d.id } : null
+const docItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d) || canReissue(d)) && canImport.value ? [{ key: 'blank', label: blankLabel(d) }] : [])
 const onDocAction = (d: ClientCardDoc, key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
   else if (key === 'extend') void extend(d)
