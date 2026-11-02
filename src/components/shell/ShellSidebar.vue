@@ -16,6 +16,8 @@ const props = withDefaults(defineProps<{
   model: NavModel
   path: string
   attention: number | null
+  /** Цвет значка «Главной» (пакет G, 02.11.2026): danger — «Срочно», gold — «Ждут вас» / у клиента «Нужно ваше действие». */
+  attentionTone?: 'danger' | 'gold'
   /** Кнопка поиска (⌘K) — только если родитель открывает поиск. */
   searchable?: boolean
   /** Клиентская оболочка: пункты 38px и крупнее текст. */
@@ -24,7 +26,7 @@ const props = withDefaults(defineProps<{
   showLogo?: boolean
   /** Узкое меню из иконок (страница ДТ, как на доске): подписи — для чтения с экрана и в подсказке. */
   compact?: boolean
-}>(), { searchable: true, comfortable: false, showLogo: true, compact: false })
+}>(), { attentionTone: 'gold', searchable: true, comfortable: false, showLogo: true, compact: false })
 
 const emit = defineEmits<{ search: []; navigate: [] }>()
 const { t } = useI18n()
@@ -33,6 +35,8 @@ const uid = useId()
 const activeKey = computed(() => resolveActive(props.model, props.path)?.section.key ?? null)
 const isActive = (s: NavSection) => !s.action && s.key === activeKey.value
 const attentionCount = computed(() => (props.attention && props.attention > 0 ? props.attention : 0))
+const urgent = computed(() => props.attentionTone === 'danger')
+const attentionSr = computed(() => t(urgent.value ? 'shell.urgentSr' : 'shell.attentionSr', { n: attentionCount.value }))
 
 // Подпись клавиш: на Mac — ⌘K, иначе Ctrl K. aria-keyshortcuts — для чтения с экрана (саму подпись прячем).
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
@@ -131,12 +135,19 @@ const iconSize = computed(() => (props.compact ? 18 : props.comfortable ? 17 : 1
               <span :class="compact ? 'sr-only' : 'min-w-0 truncate'">{{ t(s.labelKey) }}</span>
               <span
                 v-if="s.badge === 'attention' && attentionCount && compact"
-                class="absolute top-1.5 right-1.5 size-2 rounded-pill bg-gold"
-              ><span class="sr-only">{{ t('shell.attentionSr', { n: attentionCount }) }}</span></span>
+                data-attention-badge
+                :data-tone="attentionTone"
+                :class="cn('absolute top-1.5 right-1.5 size-2 rounded-pill', urgent ? 'bg-danger' : 'bg-gold')"
+              ><span class="sr-only">{{ attentionSr }}</span></span>
               <span
                 v-else-if="s.badge === 'attention' && attentionCount"
-                class="ml-auto shrink-0 rounded-pill bg-gold px-[7px] text-[11.5px] leading-[18px] font-bold tabular-nums text-navy"
-              ><span aria-hidden="true">{{ attentionCount }}</span><span class="sr-only">{{ t('shell.attentionSr', { n: attentionCount }) }}</span></span>
+                data-attention-badge
+                :data-tone="attentionTone"
+                :class="cn(
+                  'ml-auto shrink-0 rounded-pill px-[7px] text-[11.5px] leading-[18px] font-bold tabular-nums',
+                  urgent ? 'bg-danger text-white' : 'bg-gold text-navy',
+                )"
+              ><span aria-hidden="true">{{ attentionCount }}</span><span class="sr-only">{{ attentionSr }}</span></span>
               <span v-else-if="s.dot" :class="cn('size-2 shrink-0 rounded-pill bg-gold', compact ? 'absolute top-1.5 right-1.5' : 'ml-auto')">
                 <span class="sr-only">{{ t('shell.dotSr') }}</span>
               </span>

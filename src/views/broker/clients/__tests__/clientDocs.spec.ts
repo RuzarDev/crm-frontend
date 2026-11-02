@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ClientDocumentRow } from '@/api/clientCard'
 import ru from '@/i18n/locales/ru'
-import { DOC_KINDS, DOC_STATES, docExcelRows, filterDocs, matchesDoc, needsAqniet, stateCounts, validity } from '../clientDocs'
+import { DOC_KINDS, DOC_STATES, docExcelRows, filterDocs, matchesDoc, needsAqniet, parseDocState, parseWithin, stateCounts, validity } from '../clientDocs'
 
 const doc = (o: Partial<ClientDocumentRow>): ClientDocumentRow => ({
   id: 'd', clientId: 'c', clientName: 'ТОО «Клиент»', clientEmail: 'c@client.kz', kind: 'contract', number: '1', year: 2026, status: 2,
@@ -104,5 +104,27 @@ describe('Excel', () => {
     })
     expect(rows[1]).toMatchObject({ Статус: 'Ждёт подписи', 'Подпись AQNIET': 'нет', 'Срок действия': '', 'Осталось дней': '' })
     expect(rows[2]).toMatchObject({ Документ: 'Доверенность', Статус: 'Истёк', 'Осталось дней': -7 })
+  })
+})
+
+// Пакет G (02.11.2026): карточка Главной «Истекают документы» ведёт на ?state=expiring&within=14.
+describe('«Истекают» с окном в днях', () => {
+  const rows = [
+    doc({ id: 'x', daysLeft: 10, expiringSoon: true }),
+    doc({ id: 'y', daysLeft: 14, expiringSoon: true }),
+    doc({ id: 'z', daysLeft: 25, expiringSoon: true }),
+  ]
+  it('within сужает только «Истекают»', () => {
+    expect(ids(filterDocs(rows, '', 'all', 'expiring'))).toEqual(['x', 'y', 'z'])
+    expect(ids(filterDocs(rows, '', 'all', 'expiring', 14))).toEqual(['x', 'y'])
+    expect(ids(filterDocs(rows, '', 'all', 'all', 14))).toEqual(['x', 'y', 'z'])
+  })
+  it('разбор адреса', () => {
+    expect(parseDocState('expiring')).toBe('expiring')
+    expect(parseDocState('bad')).toBeNull()
+    expect(parseWithin('14')).toBe(14)
+    expect(parseWithin('0')).toBeNull()
+    expect(parseWithin('abc')).toBeNull()
+    expect(parseWithin(undefined)).toBeNull()
   })
 })

@@ -12,7 +12,8 @@ import LangMenu from '@/components/shell/LangMenu.vue'
 import UserMenu from '@/components/shell/UserMenu.vue'
 import CommandPalette from '@/components/shell/CommandPalette.vue'
 import { allSections, isSectionPage, navPathOf, resolveActive, type NavModel } from '@/shell/navModel'
-import { homeAttention } from '@/shell/attention'
+import { homeAttention, homeAttentionTone } from '@/shell/attention'
+import { startHomeBadgePolling, stopHomeBadgePolling } from '@/shell/homeBadge'
 import { installPaletteHotkey, useCommandPalette, type PaletteDestination } from '@/shell/useCommandPalette'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useProfileStore } from '@/stores/profile'
@@ -109,6 +110,8 @@ let offHotkey: (() => void) | null = null
 onMounted(() => {
   void notifStore.fetch()
   notifStore.startPolling()
+  // Значок «Главной» сотрудника — сам по себе, без открытия Главной (пакет G, 02.11.2026). У клиента его пишет Главная.
+  if (!props.client) startHomeBadgePolling()
   offHotkey = installPaletteHotkey()
   measureHeader()
   if (headerEl.value && typeof ResizeObserver !== 'undefined') {
@@ -129,6 +132,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   notifStore.stopPolling()
+  if (!props.client) stopHomeBadgePolling()
   offHotkey?.()
   offHotkey = null
   headerObserver?.disconnect()
@@ -162,6 +166,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
         :model="model"
         :path="navPath"
         :attention="homeAttention"
+        :attention-tone="homeAttentionTone"
         :comfortable="comfortable"
         :compact="compact"
         @search="palette.show()"
@@ -257,6 +262,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
           :model="model"
           :path="navPath"
           :attention="homeAttention"
+          :attention-tone="homeAttentionTone"
           :comfortable="comfortable"
           :searchable="false"
           :show-logo="false"

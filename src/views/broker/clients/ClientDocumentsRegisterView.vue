@@ -10,6 +10,7 @@ import ZTable from '@/components/z/ZTable.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientCell from '@/components/broker/ClientCell.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
+import FilterChip from '@/components/broker/FilterChip.vue'
 import NoticeBanner from '@/components/broker/NoticeBanner.vue'
 import ClientRegistryRegister from '@/views/clientRegistry/ClientRegistryRegister.vue'
 import { clientCardApi, type ClientDocumentRow } from '@/api/clientCard'
@@ -20,7 +21,7 @@ import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import { docKindLabelKey, docStatusLabelKey, docStatusTone } from './clients'
 import {
-  DOC_KINDS, DOC_STATES, docExcelRows, filterDocs, kindLabelKey, needsAqniet, stateCounts, stateLabelKey, validity,
+  DOC_KINDS, DOC_STATES, docExcelRows, filterDocs, kindLabelKey, needsAqniet, parseDocState, parseWithin, stateCounts, stateLabelKey, validity,
   type DocKind, type DocState, type Validity,
 } from './clientDocs'
 
@@ -73,20 +74,25 @@ const expiringBanner = computed(() => bannerFor('expiring', expiringCount.value,
 // ---- Поиск, вид, состояние ----
 const query = ref('')
 const kind = ref<DocKind>('all')
-const state = ref<DocState>('all')
+// ?state=expiring&within=14 — карточка «Истекают документы» на Главной (пакет G, 02.11.2026): сразу «Истекают» и окно
+// в днях, как на карточке (у состояния «Истекают» — 30 дней). Окно снимается своим чипом или сменой состояния.
+const state = ref<DocState>(parseDocState(route.query.state) ?? 'all')
+const within = ref<number | null>(state.value === 'expiring' ? parseWithin(route.query.within) : null)
+watch(state, (s) => { if (s !== 'expiring') within.value = null })
+const withinOptions = computed(() => (within.value ? [{ value: String(within.value), label: t('broker.clientDocs.withinDays', { n: within.value }) }] : []))
 // «Показать» на плашке: только это состояние, без вида и поиска — иначе нужные строки могли бы быть скрыты.
-const showState = (s: DocState) => { query.value = ''; kind.value = 'all'; state.value = s }
+const showState = (s: DocState) => { query.value = ''; kind.value = 'all'; state.value = s; within.value = null }
 const filtered = computed(() => !!query.value.trim() || kind.value !== 'all' || state.value !== 'all')
-const rows = computed(() => filterDocs(items.value, query.value, kind.value, state.value))
+const rows = computed(() => filterDocs(items.value, query.value, kind.value, state.value, within.value))
 const counts = computed(() => stateCounts(items.value, query.value, kind.value))
 const kindOptions = computed(() => DOC_KINDS.map((k) => ({ value: k, label: t(kindLabelKey(k)) })))
 const stateOptions = computed(() => DOC_STATES
   .filter((s) => s !== 'aqniet' || canSignProvider.value)
   .map((s) => ({ value: s, label: t(stateLabelKey(s)), count: ready.value ? counts.value[s] : undefined })))
-const resetFilters = () => { query.value = ''; kind.value = 'all'; state.value = 'all' }
+const resetFilters = () => { query.value = ''; kind.value = 'all'; state.value = 'all'; within.value = null }
 // Страница — управляемая: новый поиск или фильтр начинают с первой.
 const page = ref(1)
-watch([query, kind, state], () => { page.value = 1 })
+watch([query, kind, state, within], () => { page.value = 1 })
 
 // ---- Таблица ----
 const columns = computed<ZColumn<ClientDocumentRow>[]>(() => [
@@ -227,6 +233,14 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
         class="max-w-full overflow-x-auto [&_button]:whitespace-nowrap"
         data-docs-states
         @update:value="state = $event as DocState"
+      />
+      <FilterChip
+        v-if="within"
+        :label="t('broker.clientDocs.withinLabel')"
+        :options="withinOptions"
+        :value="String(within)"
+        data-docs-within
+        @update:value="within = $event ? Number($event) : null"
       />
     </div>
 

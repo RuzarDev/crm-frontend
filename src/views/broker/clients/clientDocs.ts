@@ -31,8 +31,21 @@ export const matchesDoc = (q: string, r: ClientDocumentRow): boolean =>
 
 const inKind = (r: ClientDocumentRow, kind: DocKind): boolean => kind === 'all' || r.kind === kind
 
-export const filterDocs = (rows: ClientDocumentRow[], q: string, kind: DocKind, state: DocState): ClientDocumentRow[] =>
-  rows.filter((r) => inKind(r, kind) && inState(r, state) && matchesDoc(q, r))
+/**
+ * within (пакет G, 02.11.2026): у «Истекают» — только с концом срока не позже стольких дней (ссылка с Главной
+ * «Истекают документы» — 14 дней, а состояние «Истекают» — 30). Для других состояний не действует.
+ */
+export const filterDocs = (rows: ClientDocumentRow[], q: string, kind: DocKind, state: DocState, within: number | null = null): ClientDocumentRow[] =>
+  rows.filter((r) => inKind(r, kind) && inState(r, state) && matchesDoc(q, r)
+    && (state !== 'expiring' || within == null || (r.daysLeft != null && r.daysLeft <= within)))
+
+/** Состояние из адреса (?state=expiring — ссылка с Главной); неизвестное — null. */
+export const parseDocState = (v: unknown): DocState | null =>
+  typeof v === 'string' && (DOC_STATES as string[]).includes(v) ? (v as DocState) : null
+
+/** ?within=14 — окно «Истекают» в днях (1..365); иначе null. */
+export const parseWithin = (v: unknown): number | null =>
+  typeof v === 'string' && /^\d{1,3}$/.test(v) && Number(v) >= 1 && Number(v) <= 365 ? Number(v) : null
 
 /** Счётчики состояний: по найденному (поиск и вид учтены, состояние нет) — видно, где совпадения. */
 export function stateCounts(rows: ClientDocumentRow[], q: string, kind: DocKind): Record<DocState, number> {

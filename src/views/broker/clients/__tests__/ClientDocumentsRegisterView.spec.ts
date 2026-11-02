@@ -296,3 +296,19 @@ describe('«Документы клиентов»: Excel', () => {
     expect(w.get('[data-docs-export]').attributes('disabled')).toBeDefined()
   })
 })
+
+// Пакет G (02.11.2026): карточка Главной «Истекают документы» → ?state=expiring&within=14.
+describe('«Документы клиентов»: ссылка с Главной', () => {
+  it('?state=expiring&within=14 — сразу «Истекают» в окне 14 дней; чип снимает окно', async () => {
+    api.documents.mockResolvedValue([...ROWS, doc({ id: 'g', clientId: 'cg', clientName: 'ТОО «Позже»', number: '30', validUntilUtc: '2026-11-01T00:00:00Z', daysLeft: 24, expiringSoon: true })])
+    await router.push('/client-documents?state=expiring&within=14')
+    await mountView()
+    expect(clients()).toEqual(['ТОО «Ақжол Логистик»'])
+    const chip = w.get('[data-docs-within]')
+    expect(chip.text()).toContain('до 14 дн.')
+    await chip.get('button[aria-describedby]').trigger('click')
+    await flushPromises()
+    expect(clients()).toEqual(['ТОО «Ақжол Логистик»', 'ТОО «Позже»'])
+    expect(has('[data-docs-within]')).toBe(false)
+  })
+})

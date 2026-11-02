@@ -35,6 +35,8 @@ export interface Import40BoardRow {
   openCustomsRequest?: boolean
   /** Заявка на месте, закреплённом за вами (пакет C, 01.11.2026): 'post' — ваш пост, 'station' — ваша станция. */
   myPlace?: 'post' | 'station' | null
+  /** «Застряли» (пакет G, 02.11.2026): в работе без движения 5+ дней или этап дольше нормы — фильтр ?stuck=1. */
+  stuck?: boolean
   createdAtUtc: string
   updatedAtUtc: string
 }

@@ -92,6 +92,27 @@ describe('BrokerRequestsView', () => {
     expect(w.find('[data-requests-problem]').exists()).toBe(true)
   })
 
+  // Пакет G (02.11.2026): ссылки с Главной — шаг («Заявки по этапам») и «Застряли»; чипы видны, только пока фильтр включён.
+  it('?step=3 — шаг декларирования (статусы 2 и 3), чип «Шаг» виден; без параметра чипа нет', async () => {
+    await mountAt('/import-40?tab=active&step=3')
+    expect(numbers()).toEqual(['ИМ-2026-0001', 'ИМ-2026-0005'])
+    expect(w.get('[data-requests-step]').text()).toContain('Декларирование и выпуск')
+    w.unmount()
+    await mountAt('/import-40?tab=active')
+    expect(w.find('[data-requests-step]').exists()).toBe(false)
+    expect(w.find('[data-requests-stuck]').exists()).toBe(false)
+  })
+
+  it('?stuck=1 — только «Застряли» (флаг сервера), чип виден', async () => {
+    api.board.mockImplementation(async (view: string) => ({
+      items: view === 'my' ? MINE : ALL.map((r) => (r.id === 'b' ? { ...r, stuck: true } : r)),
+      truncated: false,
+    }))
+    await mountAt('/import-40?tab=active&stuck=1')
+    expect(numbers()).toEqual(['ИМ-2026-0002'])
+    expect(w.find('[data-requests-stuck]').exists()).toBe(true)
+  })
+
   it('S-21/S-18: возвращённый на доработку черновик — во «Ждут клиента» с тегом «На доработке»; у выполненной нет тега проблемы', async () => {
     api.board.mockImplementation(async (view: string) => ({
       items: view === 'my' ? MINE : [...ALL, row({ id: 'r', number: 'ИМ-2026-0009', status: 0, rework: true, updatedAtUtc: '2026-10-03T08:00:00Z' }),

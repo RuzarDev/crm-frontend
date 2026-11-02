@@ -15,7 +15,7 @@ vi.mock('@/api/notifications', () => ({ notificationsApi: { getUnreadCount: api.
 import { resetSession, REG_REDIRECT_FLAG } from '@/shell/resetSession'
 import { useClientRegistration } from '@/composables/useClientRegistration'
 import { useCommandPalette } from '@/shell/useCommandPalette'
-import { homeAttention } from '@/shell/attention'
+import { homeAttention, homeAttentionTone } from '@/shell/attention'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useProfileStore } from '@/stores/profile'
@@ -59,6 +59,7 @@ describe('resetSession', () => {
     notif.startPolling()
     useProfileStore().profile = { userId: 'c1', username: 'c', displayName: 'Клиент Один', phone: null, companyName: null, innBin: null, role: 'Client' }
     homeAttention.value = 2
+    homeAttentionTone.value = 'danger'
     useCommandPalette().show()
     sessionStorage.setItem(REG_REDIRECT_FLAG, '1')
 
@@ -72,6 +73,7 @@ describe('resetSession', () => {
     vi.useRealTimers()
     expect(useProfileStore().profile).toBeNull()
     expect(homeAttention.value).toBeNull()
+    expect(homeAttentionTone.value).toBe('gold')
     expect(useCommandPalette().open.value).toBe(false)
     expect(sessionStorage.getItem(REG_REDIRECT_FLAG)).toBeNull()
     expect(reg.loaded.value).toBe(false)

@@ -8,6 +8,8 @@ vi.mock('@/api/notifications', () => ({
   notificationsApi: { list: vi.fn(async () => ({ data: [] })), getUnreadCount: vi.fn(async () => ({ data: { count: 0 } })) },
 }))
 vi.mock('@/api/profile', () => ({ profileApi: { get: vi.fn(async () => ({ data: null })) } }))
+// Значок «Главной» (пакет G): опрос dashboard/home/badge — без сети.
+vi.mock('@/api/dashboard', () => ({ dashboardApi: { homeBadge: vi.fn(async () => ({ urgent: 0, awaitingMe: 0 })) } }))
 
 import ShellFrame from '@/components/shell/ShellFrame.vue'
 import ShellSidebar from '@/components/shell/ShellSidebar.vue'
