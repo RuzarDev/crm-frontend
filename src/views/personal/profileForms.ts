@@ -41,3 +41,34 @@ export const emptyDeclarant = (): DeclarantProfileDto => ({
   powerOfAttorneyNumber: null, powerOfAttorneyDate: null, powerOfAttorneyValidUntil: null,
   idDocTypeCode: null, idDocNumber: null, idDocIssueDate: null, idDocIssuedBy: null, idDocCountryCode: null,
 })
+
+// ---- «Кем выдан» (02.11.2026, F4) ----
+// Хранится текстом: фиксированные значения — ровно «МВД РК» / «МЮ РК» (так печатаются доверенность и гр.54), у «другого
+// органа» — введённый текст. Старые написания («мвд», «ҚР ІІМ») сервер распознаёт и отдаёт уже как «МВД РК».
+export const ISSUER_MVD = 'МВД РК'
+export const ISSUER_MJ = 'МЮ РК'
+export type IssuerChoice = 'mvd' | 'mj' | 'other'
+export const ISSUER_CHOICES: IssuerChoice[] = ['mvd', 'mj', 'other']
+
+/** Какой пункт списка выбран для сохранённого текста; пусто — ничего. */
+export const issuerChoice = (text: string | null | undefined): IssuerChoice | null => {
+  const v = (text ?? '').trim()
+  if (!v) return null
+  return v === ISSUER_MVD ? 'mvd' : v === ISSUER_MJ ? 'mj' : 'other'
+}
+
+/** Текст для пункта списка: «другой орган» — введённое пользователем (пусто — null). */
+export const issuerText = (choice: IssuerChoice | null, other: string | null | undefined): string | null =>
+  choice === 'mvd' ? ISSUER_MVD : choice === 'mj' ? ISSUER_MJ : choice === 'other' ? ((other ?? '').trim() || null) : null
+
+// ---- «Мои доверенности» (02.11.2026, F2) ----
+type PoaState = { status: number; daysLeft: number | null }
+
+/** Истекла (статус или срок прошёл) либо отозвана — уходит в свёрнутый список. */
+export const poaIsPast = (r: PoaState): boolean => r.status === 3 || r.status === 4 || (r.status === 2 && r.daysLeft !== null && r.daysLeft < 0)
+
+/** Сначала действующие (и ждущие подписи), потом истекшие и отозванные; порядок внутри — как пришёл с сервера. */
+export const splitMyPoas = <T extends PoaState>(items: T[]): { current: T[]; past: T[] } => ({
+  current: items.filter((r) => !poaIsPast(r)),
+  past: items.filter(poaIsPast),
+})

@@ -10,7 +10,9 @@ import ProfileCard from './ProfileCard.vue'
 
 // «Личные данные»: имя для документов и телефон; брокеру и экспедитору ещё компания и БИН.
 // Компанию отправляем только когда она показана (buildCompanyFormPayload): иначе пустая строка стёрла бы её.
-const props = defineProps<{ companyFields: boolean }>()
+// 02.11.2026 (F1): nameFields=false — у сотрудника есть карточка декларанта, ФИО и телефон вводятся там (одним
+// сохранением и в профиль, и в учётную запись); здесь остаются компания и БИН, имя и телефон уходят как есть.
+const props = withDefaults(defineProps<{ companyFields: boolean; nameFields?: boolean }>(), { nameFields: true })
 const { t } = useI18n()
 const store = useProfileStore()
 
@@ -29,8 +31,7 @@ const dirty = computed(() => {
   const p = store.profile
   if (!p) return false
   const same = (a: string, b: string | null) => a.trim() === (b ?? '').trim()
-  return !same(form.displayName, p.displayName)
-    || !same(form.phone, p.phone)
+  return (props.nameFields && (!same(form.displayName, p.displayName) || !same(form.phone, p.phone)))
     || (props.companyFields && (!same(form.companyName, p.companyName) || !same(form.innBin, p.innBin)))
 })
 
@@ -43,12 +44,14 @@ const save = async () => {
 <template>
   <ProfileCard :title="t('personal.profile.personal.title')" :save-text="t('personal.profile.personal.save')" :can-save="dirty" :saving="store.saving" data-profile-card="personal" @save="save">
     <div class="grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1">
-      <ZField :label="t('personal.profile.personal.displayName')">
-        <ZInput v-model:value="form.displayName" autocomplete="name" data-profile="displayName" />
-      </ZField>
-      <ZField :label="t('personal.profile.personal.phone')">
-        <ZPhone v-model:value="form.phone" autocomplete="tel" data-profile="phone" />
-      </ZField>
+      <template v-if="nameFields">
+        <ZField :label="t('personal.profile.personal.displayName')">
+          <ZInput v-model:value="form.displayName" autocomplete="name" data-profile="displayName" />
+        </ZField>
+        <ZField :label="t('personal.profile.personal.phone')">
+          <ZPhone v-model:value="form.phone" autocomplete="tel" data-profile="phone" />
+        </ZField>
+      </template>
       <template v-if="companyFields">
         <ZField :label="t('personal.profile.personal.company')">
           <ZInput v-model:value="form.companyName" autocomplete="organization" data-profile="companyName" />

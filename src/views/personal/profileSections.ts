@@ -6,10 +6,13 @@
 //               (мультироли: «МПП + декларант» получает карточку через вторую роль). Клиенту — никогда.
 //               30.10.2026: и менеджеру КПП (право import40.kpp) — он тоже представитель по доверенности
 //               клиента, а ФИО/ИИН/удостоверение для доверенности берутся из этой карточки.
+//               02.11.2026 (F1): у кого есть эта карточка, ФИО и телефон вводятся только в ней (сохранение пишет их и в
+//               учётную запись) — в «Личных данных» этих полей нет; не осталось полей вовсе — нет и «Личных данных».
+//   mypoas    — «Мои доверенности» (02.11.2026, F2): тем же, у кого карточка декларанта, — сразу после неё.
 //   telegram  — любому клиенту: привязка Telegram-бота (уведомления кабинета и команды), очередь 4, задача 3.
 //   language  — всем.
 //   password  — всем; при временном пароле идёт первой, остальные закрыты до смены.
-export type ProfileCard = 'personal' | 'company' | 'telegram' | 'declarant' | 'language' | 'password'
+export type ProfileCard = 'personal' | 'company' | 'telegram' | 'declarant' | 'mypoas' | 'language' | 'password'
 
 export interface ProfileAccess {
   /** Системная роль аккаунта (administrator, broker, expeditor, client, …). */
@@ -28,6 +31,8 @@ export interface ProfileSections {
   locked: boolean
   /** В «Личных данных» есть поля компании и БИН (брокер, экспедитор). */
   companyFields: boolean
+  /** В «Личных данных» есть имя и телефон — нет карточки декларанта (там они свои, 02.11.2026). */
+  nameFields: boolean
 }
 
 export function profileSections(a: ProfileAccess): ProfileSections {
@@ -35,16 +40,21 @@ export function profileSections(a: ProfileAccess): ProfileSections {
   const isClient = role === 'client'
   const importClient = isClient && a.clientHasModule('import40')
 
+  const declarant = !isClient && (a.hasPermission('import40.declarant') || a.hasPermission('import40.kpp'))
+  const companyFields = role === 'broker' || role === 'expeditor'
+  const nameFields = !declarant
+
   const rest: ProfileCard[] = []
-  if (!importClient) rest.push('personal')
+  if (!importClient && (nameFields || companyFields)) rest.push('personal')
   if (importClient) rest.push('company')
   if (isClient) rest.push('telegram')
-  if (!isClient && (a.hasPermission('import40.declarant') || a.hasPermission('import40.kpp'))) rest.push('declarant')
+  if (declarant) rest.push('declarant', 'mypoas')
   rest.push('language')
 
   return {
     cards: a.mustChangePassword || a.passwordFirst ? ['password', ...rest] : [...rest, 'password'],
     locked: a.mustChangePassword,
-    companyFields: role === 'broker' || role === 'expeditor',
+    companyFields,
+    nameFields,
   }
 }
