@@ -233,6 +233,38 @@ describe('ClientHomeView', () => {
     expect(homeAttention.value).toBe(0)
   })
 
+  // 02.11.2026, пакет K: «заявка при закрытии исчезает» — с Главной видно, где завершённые.
+  it('«Все поставки →» ведёт на список, рядом — число завершённых со ссылкой на вкладку', async () => {
+    await mountIt()
+    const all = w.get('[data-client-all]')
+    expect(all.text()).toContain('Все поставки')
+    expect(all.attributes('href')).toBe('/import-40')
+    const done = w.get('[data-client-done-count]')
+    expect(done.text()).toBe('завершённых: 1')
+    expect(done.attributes('href')).toBe('/import-40?tab=done')
+  })
+
+  it('без завершённых — только «Все поставки», без счётчика; пустой список — ссылки нет', async () => {
+    api.list.mockResolvedValue([kase({})])
+    await mountIt()
+    expect(w.find('[data-client-all]').exists()).toBe(true)
+    expect(w.find('[data-client-done-count]').exists()).toBe(false)
+    w.unmount()
+    api.list.mockResolvedValue([])
+    await mountIt()
+    expect(w.find('[data-client-all]').exists()).toBe(false)
+  })
+
+  it('в работе пусто, есть завершённые — понятный текст и ссылка на «Завершённые»', async () => {
+    api.list.mockResolvedValue([kase({ id: 'd1', status: 8 }), kase({ id: 'd2', status: 8 })])
+    await mountIt()
+    expect(w.text()).toContain('Сейчас в работе поставок нет')
+    expect(w.text()).toContain('Завершённые поставки — во вкладке «Завершённые»')
+    const link = w.get('[data-client-empty-done]')
+    expect(link.attributes('href')).toBe('/import-40?tab=done')
+    expect(w.get('[data-client-done-count]').text()).toBe('завершённых: 2')
+  })
+
   it('счёт с приложенным чеком — «Чек на проверке» вместо «Оплатить»; первым — счёт без чека', async () => {
     const check = [{ id: 'f1', fileName: 'check.pdf', sizeBytes: 5, createdAtUtc: ago(0) }]
     api.invoices.mockResolvedValue([invoice({ paymentChecks: check })])

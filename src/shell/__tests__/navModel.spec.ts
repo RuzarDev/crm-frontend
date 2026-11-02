@@ -120,10 +120,12 @@ describe('раздел «Настройки»: вкладки по правам'
 })
 
 describe('buildClientNav', () => {
-  it('клиент импорта: поставки, оформить, документы, счета, инструменты, компания', () => {
+  it('клиент импорта: главная, поставки, оформить, декларации, документы, счета, инструменты, компания', () => {
     expect(keys(buildClientNav(access({ role: 'client' })))).toEqual([
+      'home:home',
       'shipments:shipments',
       'newShipment:newShipment',
+      'declarations:declarations',
       'documents:documents',
       'invoices:invoices',
       'contracts:contracts,carriers',
@@ -161,6 +163,29 @@ describe('buildClientNav', () => {
     const trDocs = allSections(tr).find((x) => x.key === 'documents')!
     expect(sectionHref(trDocs)).toBe('/my-documents')
     expect(resolveActive(tr, '/my-documents')?.section.key).toBe('documents')
+  })
+
+  // 02.11.2026, пакет K: «Мои поставки» — весь список с вкладками, сводка — «Главная», ДТ — «Мои декларации».
+  it('«Мои поставки» ведёт на список /import-40 и горит на нём и на карточке; «Главная» — /home со значком', () => {
+    const m = buildClientNav(access({ role: 'client' }))
+    const ships = allSections(m).find((x) => x.key === 'shipments')!
+    expect(sectionHref(ships)).toBe('/import-40')
+    expect(ships.badge).toBeUndefined()
+    expect(resolveActive(m, '/import-40')?.section.key).toBe('shipments')
+    expect(resolveActive(m, '/import-40/c1')?.section.key).toBe('shipments')
+    const home = allSections(m).find((x) => x.key === 'home')!
+    expect(sectionHref(home)).toBe('/home')
+    expect(home.badge).toBe('attention')
+    expect(resolveActive(m, '/dashboard')?.section.key).toBe('home')
+  })
+  it('«Мои декларации» — /declarations, только с модулем Импорт 40', () => {
+    const m = buildClientNav(access({ role: 'client' }))
+    const d = allSections(m).find((x) => x.key === 'declarations')!
+    expect(sectionHref(d)).toBe('/declarations')
+    expect(resolveActive(m, '/declarations')?.section.key).toBe('declarations')
+    const tr = buildClientNav(access({ role: 'client', clientHasModule: (x) => x === 'transit' }))
+    expect(allSections(tr).some((x) => x.key === 'declarations' || x.key === 'home')).toBe(false)
+    expect(resolveActive(tr, '/home')?.section.key).toBe('transit')
   })
 
   it('точка на «Моей компании», пока регистрация не завершена', () => {
@@ -248,7 +273,7 @@ describe('resolveActive', () => {
     const m = buildClientNav(access({ role: 'client' }))
     expect(resolveActive(m, '/import-40/company')?.section.key).toBe('company')
     expect(resolveActive(m, '/import-40/xyz')?.section.key).toBe('shipments')
-    expect(resolveActive(m, '/home')?.section.key).toBe('shipments')
+    expect(resolveActive(m, '/home')?.section.key).toBe('home')
   })
 })
 

@@ -5,6 +5,7 @@ import type { useAuthStore } from '@/stores/auth'
 export type NavIcon =
   | 'home' | 'requests' | 'transit' | 'packages' | 'keden' | 'clients' | 'sales' | 'finance' | 'analytics'
   | 'references' | 'settings' | 'shipments' | 'plus' | 'documents' | 'invoices' | 'search' | 'rates' | 'npa' | 'company' | 'contracts'
+  | 'declarations'
 
 export interface NavPage { key: string; to: string; labelKey: string; match?: string[] }
 export interface NavSection {
@@ -151,11 +152,21 @@ export function buildClientNav(a: NavAccess): NavModel {
   return model(
     [
       group('main', null, [
-        section({ key: 'shipments', labelKey: 'shell.client.shipments', icon: 'shipments', badge: 'attention', pages: [
-          page('shipments', '/home', 'shell.client.shipments', imp, ['/home', '/dashboard', '/import-40']),
+        // 02.11.2026, пакет K (владелец: «заявка при закрытии исчезает»): «Мои поставки» — весь список с вкладками
+        // (/import-40, и завершённые), а сводка /home — своим пунктом «Главная», как у сотрудника. Значок «Нужно от вас»
+        // — у «Главной»: там этот блок.
+        section({ key: 'home', labelKey: 'shell.nav.home', icon: 'home', badge: 'attention', pages: [
+          page('home', '/home', 'shell.nav.home', imp, ['/home', '/dashboard']),
+        ] }),
+        section({ key: 'shipments', labelKey: 'shell.client.shipments', icon: 'shipments', pages: [
+          page('shipments', '/import-40', 'shell.client.shipments', imp),
         ] }),
         section({ key: 'newShipment', labelKey: 'shell.client.newShipment', icon: 'plus', action: true, pages: [
           page('newShipment', '/import-40/new', 'shell.client.newShipment', imp, ['/import-40/new']),
+        ] }),
+        // «Мои декларации» (02.11.2026, пакет K): ДТ всех поставок, поданные в КЕДЕН.
+        section({ key: 'declarations', labelKey: 'shell.client.declarations', icon: 'declarations', pages: [
+          page('declarations', '/declarations', 'shell.client.declarations', imp),
         ] }),
         section({ key: 'transit', labelKey: 'shell.client.transit', icon: 'transit', pages: [
           page('transit', '/reestr', 'shell.client.transit', tr, ['/reestr', ...(imp ? [] : ['/home', '/dashboard'])]),
