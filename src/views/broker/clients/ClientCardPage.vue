@@ -19,7 +19,7 @@ import StatusDot from '@/components/broker/StatusDot.vue'
 import { billingApi, type BrokerInvoice } from '@/api/billing'
 import { foreignContractsApi } from '@/api/foreignContracts'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'
-import { canRenewContract, import40ContractApi } from '@/api/import40Contract'
+import { canReissuePoa as reissuablePoa, canRenewContract, import40ContractApi } from '@/api/import40Contract'
 import { clientRegistryApi } from '@/api/clientRegistry'
 import { reestrApi } from '@/api/reestr'
 import type { ReestrEntry } from '@/types/api'
@@ -45,6 +45,7 @@ import {
 } from './clientCard'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 import ContractsPanel from '@/views/foreignContracts/ContractsPanel.vue'
+import PoaReissueModal from '@/views/broker/company/PoaReissueModal.vue'
 import CarriersPanel from '@/views/carriers/CarriersPanel.vue'
 
 // Карточка клиента /clients/:id (редизайн, волна 4а; доска ClientCard): «клиент 360» для сотрудников.
@@ -278,7 +279,18 @@ const nextPoaLine = (d: ClientCardDoc): string => {
   const params = { number: `${n.number}/${n.year}`, date: validity(n).date }
   return t(n.status === 1 ? 'broker.clientCard.doc.nextPoaAwaiting' : 'broker.clientCard.doc.nextPoaActive', params)
 }
-const canReissuePoa = (d: ClientCardDoc) => canEditPapers.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d)
+// «Перевыпустить» (02.11.2026, пакет I) — права и место как у «Продлить» договора: администратор или руководитель, у текущей
+// многоразовой доверенности в любое время срока. Ссылка «Выпустить новую» (декларант, срок истекает) — только без неё.
+const canReissue = (d: ClientCardDoc) => canSignProvider.value && reissuablePoa(card.value?.documents ?? [], d)
+const canReissuePoa = (d: ClientCardDoc) => canEditPapers.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d) && !canReissue(d)
+const reissueDoc = ref<ClientCardDoc | null>(null)
+const reissueOpen = ref(false)
+const reissue = (d: ClientCardDoc) => {
+  reissueDoc.value = d
+  reissueOpen.value = true
+}
+/** «Заменена доверенностью № 0008/2026» — у прежней после подписи перевыпущенной. */
+const replacedLine = (d: ClientCardDoc) => (d.replacedBy ? t('broker.company.reissue.replacedBy', { no: d.replacedBy }) : '')
 
 // «Продлить» многоразовый договор (30.10.2026): до 31.12 следующего года; администратор или руководитель,
 // за 60 дней до конца срока и 30 после (как на сервере).
@@ -362,11 +374,14 @@ const docPrimary = (d: ClientCardDoc): RowPrimary | null =>
     ? { key: 'sign', label: t('broker.clientCard.doc.sign'), variant: 'primary' }
     : canExtend(d)
       ? { key: 'extend', label: t('broker.clientCard.doc.extend'), variant: 'primary', loading: extending.value === d.id }
-      : canImport.value ? { key: 'blank', label: t('broker.clientCard.doc.blank'), variant: 'outline', loading: downloading.value === d.id } : null
-const docItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d)) && canImport.value ? [{ key: 'blank', label: t('broker.clientCard.doc.blank') }] : [])
+      : canReissue(d)
+        ? { key: 'reissue', label: t('broker.company.reissue.action'), variant: 'primary' }
+        : canImport.value ? { key: 'blank', label: t('broker.clientCard.doc.blank'), variant: 'outline', loading: downloading.value === d.id } : null
+const docItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d) || canReissue(d)) && canImport.value ? [{ key: 'blank', label: t('broker.clientCard.doc.blank') }] : [])
 const onDocAction = (d: ClientCardDoc, key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
   else if (key === 'extend') void extend(d)
+  else if (key === 'reissue') reissue(d)
   else if (key === 'blank') void downloadBlank(d)
 }
 
@@ -611,7 +626,8 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                         <span>{{ s.text }}</span>
                       </li>
                     </ul>
-                    <div v-if="canImport || canSignDoc(d) || canExtend(d)" class="flex flex-wrap gap-2">
+                    <div v-if="replacedLine(d)" class="text-[12.5px] text-ink-3" data-doc-replaced>{{ replacedLine(d) }}</div>
+                    <div v-if="canImport || canSignDoc(d) || canExtend(d) || canReissue(d)" class="flex flex-wrap gap-2">
                       <RouterLink
                         v-if="canSignDoc(d)"
                         :to="signRoute"
@@ -639,6 +655,14 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                         data-doc-extend
                         @click="extend(d)"
                       >{{ t('broker.clientCard.doc.extend') }}</ZButton>
+                      <ZButton
+                        v-if="canReissue(d)"
+                        size="sm"
+                        variant="primary"
+                        class="max-sm:h-11 max-sm:px-4"
+                        data-doc-reissue
+                        @click="reissue(d)"
+                      >{{ t('broker.company.reissue.action') }}</ZButton>
                       <RouterLink
                         v-if="canReissuePoa(d)"
                         :to="poaRoute"
@@ -776,6 +800,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                 <span v-if="column.key === 'doc'" class="block min-w-0">
                   <span class="block text-sm font-semibold text-ink" data-doc-title>{{ docName(record) }}</span>
                   <span class="block text-xs text-muted">{{ t('broker.clientCard.doc.generated', { date: formatDay(record.generatedAtUtc) }) }}</span>
+                  <span v-if="replacedLine(record)" class="block text-xs text-ink-3" data-doc-replaced>{{ replacedLine(record) }}</span>
                 </span>
                 <span v-else-if="column.key === 'status'" class="inline-flex flex-wrap items-center gap-1.5">
                   <ZTag :tone="docTag(record).tone" data-doc-status>{{ t(docTag(record).labelKey) }}</ZTag>
@@ -856,5 +881,6 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
         </template>
       </ZTabs>
     </template>
+    <PoaReissueModal v-model:open="reissueOpen" :client-id="id" :doc="reissueDoc" @reissued="load()" />
   </div>
 </template>

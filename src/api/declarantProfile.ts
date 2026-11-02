@@ -35,6 +35,8 @@ export interface MyPoaRow {
   revokedAtUtc: string | null
   /** Есть подписанный файл (ЭЦП-контейнер) — «Скачать» отдаёт его. */
   hasSignedFile: boolean
+  /** 02.11.2026 (пакет I): доверенность заменена перевыпущенной («0008/2026»); иначе null. */
+  replacedBy?: string | null
 }
 
 /** iinMissing — в профиле нет ИИН, сверить не с чем. */

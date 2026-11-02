@@ -75,6 +75,8 @@ export interface Import40DocumentDto {
   files: Import40DocumentFileDto[]
   /** Страница проверки подписей по QR (20.10.2026); null — документ ещё не подписан. */
   verifyUrl?: string | null
+  /** 02.11.2026 (пакет I): доверенность действует, но текущая — перевыпущенная позже («0008/2026»); иначе null. */
+  replacedBy?: string | null
 }
 
 export interface Import40DocumentGenerateRequest {
@@ -106,6 +108,34 @@ export const canRenewContract = (
   const until = new Date(d.validUntilUtc).getTime()
   if (Number.isNaN(until)) return false
   return now >= until - RENEW_BEFORE_DAYS * DAY_MS && now <= until + RENEW_AFTER_DAYS * DAY_MS
+}
+
+/**
+ * «Перевыпустить» доверенность (02.11.2026, пакет I) — как проверяет сервер: многоразовая, действует (статус 2, в т.ч. срок
+ * уже вышел), не заменена и после неё не выпущена другая многоразовая (черновик, ждёт подписи или действует).
+ */
+export const canReissuePoa = <T extends Pick<Import40DocumentDto, 'id' | 'kind' | 'isSingleUse' | 'status' | 'generatedAtUtc'> & { replacedBy?: string | null }>(
+  docs: T[],
+  d: T,
+): boolean => {
+  if (d.kind !== 'poa' || d.isSingleUse || d.status !== 2 || d.replacedBy) return false
+  const at = new Date(d.generatedAtUtc).getTime()
+  return !docs.some((x) => x.id !== d.id && x.kind === 'poa' && !x.isSingleUse
+    && (x.status === 0 || x.status === 1 || x.status === 2) && new Date(x.generatedAtUtc).getTime() > at)
+}
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+/** Предел выбранной даты перевыпуска — 3 года (как Import40DocumentTerms.ReissueMaxYears на сервере). */
+export const REISSUE_MAX_YEARS = 3
+/**
+ * Даты окна перевыпуска ('YYYY-MM-DD', по местному времени): по умолчанию — 31.12 этого года, в декабре — следующего
+ * (как у новой доверенности на сервере); выбрать — с завтрашнего дня и не позже, чем через 3 года.
+ */
+export const reissueDates = (now = new Date()): { def: string; min: string; max: string } => {
+  const year = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear()
+  const min = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const max = new Date(now.getFullYear() + REISSUE_MAX_YEARS, now.getMonth(), now.getDate())
+  return { def: `${year}-12-31`, min: ymd(min), max: ymd(max) }
 }
 
 export const isDocumentEffective = (doc: Import40DocumentDto | null | undefined): boolean => {
@@ -194,6 +224,14 @@ export const import40ContractApi = {
     (await apiClient.post<Import40DocumentDto>(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/renew`,
       {},
+      opts?.silent ? { silent: true } : undefined,
+    )).data,
+  // «Перевыпустить» многоразовую доверенность (02.11.2026, пакет I): новая с текущими представителями; validUntilUtc —
+  // выбранная дата (конец дня UTC), null — до 31.12 (в декабре — следующего года). Администратор или руководитель.
+  reissueDocument: async (clientId: string, docId: string, body: { validUntilUtc: string | null }, opts?: { silent?: boolean }): Promise<Import40DocumentDto> =>
+    (await apiClient.post<Import40DocumentDto>(
+      `${base(clientId)}/documents/${encodeURIComponent(docId)}/reissue`,
+      body,
       opts?.silent ? { silent: true } : undefined,
     )).data,
   downloadDocument: async (clientId: string, docId: string): Promise<Blob> => {

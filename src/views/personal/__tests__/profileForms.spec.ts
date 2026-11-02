@@ -68,4 +68,11 @@ describe('«Кем выдан» и «Мои доверенности» (02.11.20
     expect(current.map((r) => r.id)).toEqual(['a', 'd', 'f'])
     expect(past.map((r) => r.id)).toEqual(['b', 'c', 'e'])
   })
+
+  // 02.11.2026 (пакет I): прежняя доверенность после подписи перевыпущенной — в свёрнутый список.
+  it('заменённая перевыпущенной — отдельно, даже пока в сроке', () => {
+    const { current, past } = splitMyPoas([{ id: 'new', status: 2, daysLeft: 59 }, { id: 'old', status: 2, daysLeft: 59, replacedBy: '10/2026' }])
+    expect(current.map((r) => r.id)).toEqual(['new'])
+    expect(past.map((r) => r.id)).toEqual(['old'])
+  })
 })

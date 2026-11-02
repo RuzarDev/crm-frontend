@@ -7,13 +7,14 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientSigexModal from '@/components/client/ClientSigexModal.vue'
-import { canRenewContract, import40ContractApi, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
+import { canReissuePoa, canRenewContract, import40ContractApi, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
 import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
 import { ncaSignErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
+import PoaReissueModal from './PoaReissueModal.vue'
 import { REVOKED, isExpired, multiBlocked, nextYearPoa, poaTargetYear, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
@@ -109,6 +110,16 @@ const download = async (d: Import40DocumentDto) => {
   } finally {
     downloadingId.value = null
   }
+}
+
+// ---- Перевыпустить доверенность (02.11.2026, пакет I): как «Продлить» — администратор или руководитель ----
+const canReissue = (d: Import40DocumentDto) => props.canSignProvider && canReissuePoa(props.docs, d)
+const reissueDoc = ref<Import40DocumentDto | null>(null)
+const reissueOpen = ref(false)
+const openReissue = (d: Import40DocumentDto) => {
+  if (refreshing.value) return
+  reissueDoc.value = d
+  reissueOpen.value = true
 }
 
 // ---- Отозвать (администратор) ----
@@ -307,7 +318,8 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
             <p class="m-0 mt-0.5 text-[13px] text-ink-3">{{ t('broker.company.generatedAt', { date: localDate(d.generatedAtUtc, true) }) }}</p>
           </div>
           <div class="flex flex-wrap gap-1.5" data-doc-tags>
-            <ZTag v-if="isDocumentEffective(d)" tone="done" data-tag="effective">{{ t('broker.company.effective') }}</ZTag>
+            <ZTag v-if="d.replacedBy" tone="neutral" data-tag="replaced">{{ t('broker.company.reissue.replacedBy', { no: d.replacedBy }) }}</ZTag>
+            <ZTag v-else-if="isDocumentEffective(d)" tone="done" data-tag="effective">{{ t('broker.company.effective') }}</ZTag>
             <ZTag :tone="statusTone(d.status)" data-tag="status">{{ t(`broker.company.status.${statusKey(d.status)}`) }}</ZTag>
             <ZTag v-if="d.isSingleUse" tone="submitted" data-tag="single">
               {{ t('broker.company.singleTag') }}{{ d.consumedByCaseId ? ` · ${t('broker.company.consumed')}` : '' }}
@@ -339,6 +351,15 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
             @click="renew(d)"
           >
             <PhArrowClockwise :size="16" aria-hidden="true" />{{ t('broker.company.renew') }}
+          </ZButton>
+          <ZButton
+            v-if="canReissue(d)"
+            variant="primary"
+            :class="actionBtn"
+            data-doc-reissue
+            @click="openReissue(d)"
+          >
+            <PhArrowClockwise :size="16" aria-hidden="true" />{{ t('broker.company.reissue.action') }}
           </ZButton>
           <ZButton
             v-if="isAdmin && d.status !== REVOKED"
@@ -391,5 +412,6 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
     </ul>
 
     <ClientSigexModal v-model:open="sigexOpen" :client-id="clientId" :doc-id="sigexDocId" :side="sigexSide" @signed="onSigned" />
+    <PoaReissueModal v-if="kind === 'poa'" v-model:open="reissueOpen" :client-id="clientId" :doc="reissueDoc" @reissued="refreshAfter()" />
   </section>
 </template>

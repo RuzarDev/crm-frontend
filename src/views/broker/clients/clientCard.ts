@@ -59,8 +59,10 @@ export const awaitingAqniet = (d: Pick<ClientCardDoc, 'kind' | 'status' | 'clien
   d.kind === 'contract' && d.status === 1 && d.clientSigned && !d.providerSigned
 
 /** Тег состояния документа: у действующего — «Истекает» (30 дней) и «Истёк» (срок прошёл), иначе как в «Клиентах». */
-export function docTag(d: Pick<ClientCardDoc, 'status' | 'daysLeft' | 'expiringSoon'>): { tone: ZTone; labelKey: string } {
+export function docTag(d: Pick<ClientCardDoc, 'status' | 'daysLeft' | 'expiringSoon'> & { replacedBy?: string | null }): { tone: ZTone; labelKey: string } {
   if (d.status === 2 && d.daysLeft !== null && d.daysLeft < 0) return { tone: 'danger', labelKey: 'admin.istek' }
+  // 02.11.2026 (пакет I): перевыпущенная доверенность подписана — прежняя ещё в сроке, но текущая уже новая.
+  if (d.status === 2 && d.replacedBy) return { tone: 'neutral', labelKey: 'broker.company.reissue.replaced' }
   if (d.status === 2 && d.expiringSoon) return { tone: 'wait', labelKey: 'broker.clientCard.doc.expiring' }
   return { tone: docStatusTone(d.status), labelKey: docStatusLabelKey(d.status) }
 }
@@ -90,7 +92,8 @@ export function nextPoaOf(docs: ClientCardDoc[], d: Pick<ClientCardDoc, 'id' | '
   return next.reduce<ClientCardDoc | null>((best, x) => (!best || x.validUntilUtc! < best.validUntilUtc! ? x : best), null)
 }
 
-const RANK = (d: ClientCardDoc): number => (d.status === 2 && !(d.daysLeft !== null && d.daysLeft < 0) ? 0 : d.status === 1 ? 1 : 2)
+// Заменённая перевыпуском доверенность (02.11.2026) — не «текущая», даже пока в сроке.
+const RANK = (d: ClientCardDoc): number => (d.status === 2 && !d.replacedBy && !(d.daysLeft !== null && d.daysLeft < 0) ? 0 : d.status === 1 ? 1 : 2)
 
 /**
  * Что показать в обзоре: по одному «текущему» документу каждого вида — действующий, иначе ждущий подписи,
