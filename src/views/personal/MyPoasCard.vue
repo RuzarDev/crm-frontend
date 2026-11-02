@@ -14,8 +14,9 @@ import { splitMyPoas } from './profileForms'
 
 // «Мои доверенности» (02.11.2026, F2): доверенности клиентов, где ИИН сотрудника из его профиля — среди представителей
 // (снимок на момент выпуска). Сначала действующие (и ждущие подписи), истекшие и отозванные — свёрнуты. «Скачать» —
-// подписанный файл (ЭЦП-контейнер), если он есть, иначе сформированный документ; у подписанной ещё «.docx» — документ
-// для печати. reloadKey меняется после сохранения профиля: ИИН мог появиться или поменяться.
+// документ .docx для печати (с QR подписантов): ЭЦП-контейнер .cms Word не открывает, а КПП на границе нужен читаемый
+// документ (ревью 02.11.2026); у подписанной рядом «Файл ЭЦП (.cms)». reloadKey меняется после сохранения профиля: ИИН
+// мог появиться или поменяться.
 const props = defineProps<{ reloadKey?: number }>()
 const { t } = useI18n()
 
@@ -50,7 +51,7 @@ const sub = (r: MyPoaRow) => {
 }
 
 const download = async (r: MyPoaRow, docx: boolean) => {
-  const key = `${r.id}:${docx ? 'docx' : 'main'}`
+  const key = `${r.id}:${docx ? 'docx' : 'cms'}`
   if (busy.value) return
   busy.value = key
   try {
@@ -85,8 +86,8 @@ const download = async (r: MyPoaRow, docx: boolean) => {
           </div>
           <ZTag :tone="docTag(r).tone" data-mypoa-status>{{ t(docTag(r).labelKey) }}</ZTag>
           <div class="flex gap-2">
-            <ZButton size="sm" class="max-sm:h-11 max-sm:px-4" :loading="busy === `${r.id}:main`" data-mypoa-download @click="download(r, false)">{{ t('personal.profile.mypoas.download') }}</ZButton>
-            <ZButton v-if="r.hasSignedFile" size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :loading="busy === `${r.id}:docx`" data-mypoa-docx @click="download(r, true)">{{ t('personal.profile.mypoas.docx') }}</ZButton>
+            <ZButton size="sm" class="max-sm:h-11 max-sm:px-4" :loading="busy === `${r.id}:docx`" data-mypoa-download @click="download(r, true)">{{ t('personal.profile.mypoas.download') }}</ZButton>
+            <ZButton v-if="r.hasSignedFile" size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :loading="busy === `${r.id}:cms`" data-mypoa-cms @click="download(r, false)">{{ t('personal.profile.mypoas.cms') }}</ZButton>
           </div>
         </li>
       </ul>
@@ -103,7 +104,7 @@ const download = async (r: MyPoaRow, docx: boolean) => {
               <p class="m-0 text-[12.5px] text-ink-3"><span class="tabular-nums">№ {{ number(r) }}</span> · {{ sub(r) }}</p>
             </div>
             <ZTag :tone="docTag(r).tone" data-mypoa-status>{{ t(docTag(r).labelKey) }}</ZTag>
-            <ZButton size="sm" class="max-sm:h-11 max-sm:px-4" :loading="busy === `${r.id}:main`" data-mypoa-download @click="download(r, false)">{{ t('personal.profile.mypoas.download') }}</ZButton>
+            <ZButton size="sm" class="max-sm:h-11 max-sm:px-4" :loading="busy === `${r.id}:docx`" data-mypoa-download @click="download(r, true)">{{ t('personal.profile.mypoas.download') }}</ZButton>
           </li>
         </ul>
       </div>

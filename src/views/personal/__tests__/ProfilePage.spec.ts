@@ -359,7 +359,7 @@ describe('ProfilePage: мои доверенности (02.11.2026)', () => {
     expect(current.get('[data-mypoa="p1"]').text()).toContain('31.12.2026')
     expect(current.get('[data-mypoa="p1"] [data-mypoa-status]').text()).toBe('Действует')
     expect(current.get('[data-mypoa="soon"] [data-mypoa-status]').text()).toBe('Истекает')
-    expect(current.find('[data-mypoa="soon"] [data-mypoa-docx]').exists()).toBe(false)
+    expect(current.find('[data-mypoa="soon"] [data-mypoa-cms]').exists()).toBe(false)
     expect(card('mypoas').find('[data-mypoas-past]').exists()).toBe(false)
 
     await card('mypoas').get('[data-mypoas-past-toggle]').trigger('click')
@@ -370,11 +370,12 @@ describe('ProfilePage: мои доверенности (02.11.2026)', () => {
 
     await current.get('[data-mypoa="p1"] [data-mypoa-download]').trigger('click')
     await flushPromises()
-    expect(api.myDownload).toHaveBeenCalledWith('p1', false)
-    expect(api.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Доверенность-ЭЦП.cms')
-    await current.get('[data-mypoa="p1"] [data-mypoa-docx]').trigger('click')
+    // «Скачать» — .docx для печати (ревью 02.11.2026), подписанный .cms — отдельной кнопкой.
+    expect(api.myDownload).toHaveBeenCalledWith('p1', true)
+    await current.get('[data-mypoa="p1"] [data-mypoa-cms]').trigger('click')
     await flushPromises()
-    expect(api.myDownload).toHaveBeenLastCalledWith('p1', true)
+    expect(api.myDownload).toHaveBeenLastCalledWith('p1', false)
+    expect(api.saveBlob).toHaveBeenLastCalledWith(expect.any(Blob), 'Доверенность-ЭЦП.cms')
   })
 
   it('пусто и нет ИИН — свои тексты', async () => {

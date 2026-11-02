@@ -6069,7 +6069,7 @@ export default {
         issued: 'dated {date}',
         until: 'until {date}',
         download: 'Download',
-        docx: '.docx',
+        cms: 'Signed file (.cms)',
         showPast: 'Expired and revoked ({n})',
         hidePast: 'Hide expired and revoked ({n})',
         downloadFailed: 'Could not download the power of attorney',

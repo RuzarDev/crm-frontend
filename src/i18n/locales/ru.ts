@@ -6074,7 +6074,7 @@ export default {
         issued: 'от {date}',
         until: 'до {date}',
         download: 'Скачать',
-        docx: '.docx',
+        cms: 'Файл ЭЦП (.cms)',
         showPast: 'Истекшие и отозванные ({n})',
         hidePast: 'Скрыть истекшие и отозванные ({n})',
         downloadFailed: 'Не удалось скачать доверенность',

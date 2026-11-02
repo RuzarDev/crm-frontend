@@ -6068,7 +6068,7 @@ export default {
         issued: '{date} бастап',
         until: '{date} дейін',
         download: 'Жүктеу',
-        docx: '.docx',
+        cms: 'ЭЦҚ файлы (.cms)',
         showPast: 'Мерзімі өткен және кері қайтарылған ({n})',
         hidePast: 'Мерзімі өткен және кері қайтарылғандарды жасыру ({n})',
         downloadFailed: 'Сенімхатты жүктеу мүмкін болмады',
