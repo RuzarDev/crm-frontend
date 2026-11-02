@@ -474,6 +474,33 @@ describe('StaffCompanyPage', () => {
     }
   })
 
+  // 02.11.2026 (пакет I): «Перевыпустить» доверенность — как «Продлить» (администратор или РОП), у текущей многоразовой.
+  it('«Перевыпустить»: у текущей доверенности администратору и РОП; декларанту, разовой, заменённой — нет', async () => {
+    const poa = (o: Partial<Import40DocumentDto>) => doc({ kind: 'poa', status: 2, clientSigned: true, validUntilUtc: '2099-12-31T23:59:59Z', ...o })
+    setDocs('c1', [], [
+      poa({ id: 'pn', number: '10', generatedAtUtc: at(2026, 11, 2) }),
+      poa({ id: 'pold', number: '7', generatedAtUtc: at(2026, 3, 1), replacedBy: '10/2026' }),
+      poa({ id: 'ps', number: '8', isSingleUse: true }),
+    ])
+    const reissuable = () => w.findAll('[data-doc-reissue]').map((b) => b.element.closest('[data-doc]')!.getAttribute('data-doc'))
+    await mountAt('/import-40/company?step=poa')
+    expect(reissuable()).toEqual(['pn'])
+    expect(w.get('[data-doc="pold"] [data-tag="replaced"]').text()).toBe('Заменена доверенностью № 10/2026')
+    expect(w.find('[data-doc="pold"] [data-tag="effective"]').exists()).toBe(false)
+    await w.get('[data-doc="pn"] [data-doc-reissue]').trigger('click')
+    await flushPromises()
+    expect($('[data-poa-reissue-modal]')).not.toBeNull()
+    w.unmount()
+    document.body.innerHTML = ''
+    as('Declarant', ['rop'])
+    await mountAt('/import-40/company?step=poa')
+    expect(reissuable()).toEqual(['pn'])
+    w.unmount()
+    as('Declarant', ['declarant'])
+    await mountAt('/import-40/company?step=poa')
+    expect(reissuable()).toEqual([])
+  })
+
   it('реквизиты неполные — рядом со статусом названо, чего не хватает', async () => {
     api.getProfile.mockImplementation((id: string) => Promise.resolve({ ...PROFILE, clientId: id, kbe: '', isComplete: false, missingFields: ['kbe'] }))
     await mountAt('/import-40/company?step=requisites')

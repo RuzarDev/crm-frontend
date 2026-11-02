@@ -62,10 +62,11 @@ export const issuerText = (choice: IssuerChoice | null, other: string | null | u
   choice === 'mvd' ? ISSUER_MVD : choice === 'mj' ? ISSUER_MJ : choice === 'other' ? ((other ?? '').trim() || null) : null
 
 // ---- «Мои доверенности» (02.11.2026, F2) ----
-type PoaState = { status: number; daysLeft: number | null }
+type PoaState = { status: number; daysLeft: number | null; replacedBy?: string | null }
 
-/** Истекла (статус или срок прошёл) либо отозвана — уходит в свёрнутый список. */
-export const poaIsPast = (r: PoaState): boolean => r.status === 3 || r.status === 4 || (r.status === 2 && r.daysLeft !== null && r.daysLeft < 0)
+/** Истекла (статус или срок прошёл), отозвана или заменена перевыпущенной (02.11.2026) — уходит в свёрнутый список. */
+export const poaIsPast = (r: PoaState): boolean =>
+  r.status === 3 || r.status === 4 || (r.status === 2 && ((r.daysLeft !== null && r.daysLeft < 0) || !!r.replacedBy))
 
 /** Сначала действующие (и ждущие подписи), потом истекшие и отозванные; порядок внутри — как пришёл с сервера. */
 export const splitMyPoas = <T extends PoaState>(items: T[]): { current: T[]; past: T[] } => ({

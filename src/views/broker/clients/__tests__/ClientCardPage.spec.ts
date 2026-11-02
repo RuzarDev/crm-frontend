@@ -35,7 +35,12 @@ const DropdownStub = {
   props: ['items'], emits: ['select'],
   template: '<div data-dropdown><slot /><button v-for="it in items" :key="it.key" type="button" :data-menu-item="it.key" @click="$emit(\'select\', it.key)">{{ it.label }}</button></div>',
 }
-const stubs = { ZDropdown: DropdownStub }
+// Окно перевыпуска доверенности (02.11.2026) — заглушка: окно проверяется своим тестом (PoaReissueModal.spec.ts).
+const ReissueStub = {
+  props: ['open', 'doc', 'clientId'], emits: ['reissued', 'update:open'],
+  template: '<div v-if="open" data-reissue-stub :data-doc="doc?.id" :data-client="clientId"><button type="button" data-reissue-done @click="$emit(\'reissued\', {})" /></div>',
+}
+const stubs = { ZDropdown: DropdownStub, PoaReissueModal: ReissueStub }
 
 const doc = (o: Partial<ClientCardDoc>): ClientCardDoc => ({
   id: 'd1', kind: 'contract', number: '14', year: 2026, status: 2, clientSigned: true, clientSignedAtUtc: '2026-03-13T08:00:00Z', clientSignMethod: 'egov',
@@ -726,5 +731,86 @@ describe('карточка клиента: реестр документов', (
     await mountAt('/clients/c1?tab=docs')
     expect(has('[data-client-registry]')).toBe(true)
     expect(has('[data-registry-add]')).toBe(false)
+  })
+})
+
+// 02.11.2026 (пакет I): «Перевыпустить» доверенность — как «Продлить» договор (администратор/руководитель), в любое время срока.
+describe('карточка клиента: «Перевыпустить» доверенность', () => {
+  const poa = (o: Partial<ClientCardDoc>) => doc({
+    id: 'dp', kind: 'poa', number: '7', providerSigned: false, providerSignedAtUtc: null, providerSignMethod: null,
+    validUntilUtc: '2026-12-31T23:59:59Z', daysLeft: 59, expiringSoon: false, generatedAtUtc: '2026-03-12T08:00:00Z', ...o,
+  })
+
+  it('видна руководителю и админу у текущей доверенности посреди года; декларанту — нет', async () => {
+    api.card.mockResolvedValue(card({ documents: [doc({ id: 'dc' }), poa({})] }))
+    as('manager', ALL, ['rop'])
+    await mountAt()
+    expect(has('[data-doc-card="poa"] [data-doc-reissue]')).toBe(true)
+    expect(has('[data-doc-card="contract"] [data-doc-reissue]')).toBe(false)
+    w.unmount()
+
+    as('administrator', ALL)
+    await mountAt()
+    expect(has('[data-doc-card="poa"] [data-doc-reissue]')).toBe(true)
+    w.unmount()
+
+    as('manager', ALL, ['declarant'])
+    await mountAt()
+    expect(has('[data-doc-reissue]')).toBe(false)
+  })
+
+  it('нет у разовой, у ждущей подписи и если после неё уже выпущена новая', async () => {
+    as('administrator', ALL)
+    for (const docs of [
+      [poa({ isSingleUse: true })],
+      [poa({ status: 1, clientSigned: false })],
+      [poa({}), poa({ id: 'dn', number: '10', status: 1, clientSigned: false, generatedAtUtc: '2026-11-02T08:00:00Z' })],
+    ]) {
+      api.card.mockResolvedValue(card({ documents: docs }))
+      await mountAt('/clients/c1?tab=docs')
+      expect(w.findAll('[data-row-primary]').map((b) => b.text())).not.toContain('Перевыпустить')
+      w.unmount()
+    }
+  })
+
+  it('кнопка открывает окно перевыпуска этой доверенности; после выпуска карточка перечитана', async () => {
+    api.card.mockResolvedValue(card({ documents: [poa({})] }))
+    as('manager', ALL, ['rop'])
+    await mountAt()
+    await w.get('[data-doc-reissue]').trigger('click')
+    await flushPromises()
+    expect(w.get('[data-reissue-stub]').attributes('data-doc')).toBe('dp')
+    expect(w.get('[data-reissue-stub]').attributes('data-client')).toBe('c1')
+    await w.get('[data-reissue-done]').trigger('click')
+    await flushPromises()
+    expect(api.card).toHaveBeenCalledTimes(2)
+  })
+
+  it('вкладка «Документы»: «Перевыпустить» — основное действие строки, бланк — в меню', async () => {
+    api.card.mockResolvedValue(card({ documents: [poa({})] }))
+    as('administrator', ALL)
+    await mountAt('/clients/c1?tab=docs')
+    const row = w.get('[data-docs-table] tbody tr')
+    expect(row.get('[data-row-primary]').text()).toBe('Перевыпустить')
+    await row.get('[data-row-primary]').trigger('click')
+    await flushPromises()
+    expect(w.get('[data-reissue-stub]').attributes('data-doc')).toBe('dp')
+  })
+
+  it('после подписи новой прежняя — «Заменена доверенностью № …», кнопка только у новой', async () => {
+    api.card.mockResolvedValue(card({
+      documents: [
+        poa({ id: 'dn', number: '10', generatedAtUtc: '2026-11-02T08:00:00Z' }),
+        poa({ id: 'dp', replacedBy: '10/2026' }),
+      ],
+    }))
+    as('administrator', ALL)
+    await mountAt('/clients/c1?tab=docs')
+    const rows = w.findAll('[data-docs-table] tbody tr')
+    expect(rows[1].get('[data-doc-status]').text()).toBe('Заменена')
+    expect(rows[1].get('[data-doc-replaced]').text()).toBe('Заменена доверенностью № 10/2026')
+    expect(rows[0].get('[data-doc-status]').text()).toBe('Действует')
+    expect(rows[0].get('[data-row-primary]').text()).toBe('Перевыпустить')
+    expect(rows[1].get('[data-row-primary]').text()).toBe('Скачать бланк')
   })
 })
