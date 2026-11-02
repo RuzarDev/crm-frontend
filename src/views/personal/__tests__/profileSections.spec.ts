@@ -13,24 +13,35 @@ const access = (over: Partial<ProfileAccess> & { permissions?: string[] } = {}):
 }
 
 describe('profileSections: какие карточки кому', () => {
-  it('сотрудник без особых прав: личные данные, язык, пароль', () => {
+  it('сотрудник без особых прав (бухгалтер, продажи): личные данные с именем и телефоном, язык, пароль', () => {
     const s = profileSections(access())
     expect(s.cards).toEqual(['personal', 'language', 'password'])
     expect(s.companyFields).toBe(false)
+    expect(s.nameFields).toBe(true)
     expect(s.locked).toBe(false)
   })
 
-  it('декларант по праву: карточка декларанта, даже если основная роль другая', () => {
+  it('декларант по праву: карточка декларанта и «Мои доверенности»; «Личных данных» нет — ФИО и телефон в карточке (02.11.2026)', () => {
     const s = profileSections(access({ permissions: ['import40.declarant', 'import40.kpp'] }))
-    expect(s.cards).toEqual(['personal', 'declarant', 'language', 'password'])
+    expect(s.cards).toEqual(['declarant', 'mypoas', 'language', 'password'])
+    expect(s.nameFields).toBe(false)
+  })
+
+  it('брокер с правом декларанта: в «Личных данных» остаются только компания и БИН', () => {
+    const s = profileSections(access({ role: 'broker', permissions: ['import40.declarant'] }))
+    expect(s.cards).toEqual(['personal', 'declarant', 'mypoas', 'language', 'password'])
+    expect(s.nameFields).toBe(false)
+    expect(s.companyFields).toBe(true)
   })
 
   it('без прав import40.declarant и import40.kpp карточки декларанта нет', () => {
-    expect(profileSections(access({ permissions: ['import40.read'] })).cards).not.toContain('declarant')
+    const cards = profileSections(access({ permissions: ['import40.read'] })).cards
+    expect(cards).not.toContain('declarant')
+    expect(cards).not.toContain('mypoas')
   })
 
   it('КПП: карточка есть — из неё берутся данные для доверенности (30.10.2026)', () => {
-    expect(profileSections(access({ permissions: ['import40.kpp'] })).cards).toEqual(['personal', 'declarant', 'language', 'password'])
+    expect(profileSections(access({ permissions: ['import40.kpp'] })).cards).toEqual(['declarant', 'mypoas', 'language', 'password'])
   })
 
   it('брокер и экспедитор: в личных данных есть компания и БИН', () => {
@@ -41,7 +52,7 @@ describe('profileSections: какие карточки кому', () => {
 
   it('администратор: все права, карточка декларанта есть, компании в личных данных нет', () => {
     const s = profileSections(access({ role: 'administrator', hasPermission: () => true }))
-    expect(s.cards).toEqual(['personal', 'declarant', 'language', 'password'])
+    expect(s.cards).toEqual(['declarant', 'mypoas', 'language', 'password'])
     expect(s.companyFields).toBe(false)
   })
 
@@ -58,7 +69,7 @@ describe('profileSections: какие карточки кому', () => {
 
   it('временный пароль: пароль первым, остальные закрыты', () => {
     const s = profileSections(access({ permissions: ['import40.declarant'], mustChangePassword: true }))
-    expect(s.cards).toEqual(['password', 'personal', 'declarant', 'language'])
+    expect(s.cards).toEqual(['password', 'declarant', 'mypoas', 'language'])
     expect(s.locked).toBe(true)
   })
 

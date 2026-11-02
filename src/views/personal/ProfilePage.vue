@@ -13,6 +13,7 @@ import { setLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
 import DeclarantCard from './DeclarantCard.vue'
+import MyPoasCard from './MyPoasCard.vue'
 import PasswordCard from './PasswordCard.vue'
 import PersonalCard from './PersonalCard.vue'
 import ProfileCard from './ProfileCard.vue'
@@ -70,6 +71,8 @@ const langOptions = computed(() => SUPPORTED_LOCALES.map((l) => ({ value: l, lab
 const onLocale = (v: unknown) => { if (typeof v === 'string') void setLocale(v as AppLocale) }
 
 const cardTitle = (c: CardKey) => t(`personal.profile.${c}.title`)
+// Профиль декларанта сохранён — «Мои доверенности» перечитывают список (ИИН мог появиться или поменяться).
+const poasReload = ref(0)
 </script>
 
 <template>
@@ -105,7 +108,7 @@ const cardTitle = (c: CardKey) => t(`personal.profile.${c}.title`)
         <h2 class="m-0 text-base font-semibold text-ink">{{ cardTitle(c) }}</h2>
         <p class="m-0 mt-1 text-sm text-muted">{{ t('personal.profile.locked') }}</p>
       </section>
-      <PersonalCard v-else-if="c === 'personal'" :company-fields="sections.companyFields" />
+      <PersonalCard v-else-if="c === 'personal'" :company-fields="sections.companyFields" :name-fields="sections.nameFields" />
       <ProfileCard v-else-if="c === 'company'" :title="cardTitle('company')" data-profile-card="company">
         <p class="m-0 text-sm text-ink-2">{{ t('personal.profile.company.hint') }}</p>
         <div>
@@ -113,7 +116,8 @@ const cardTitle = (c: CardKey) => t(`personal.profile.${c}.title`)
         </div>
       </ProfileCard>
       <TelegramCard v-else-if="c === 'telegram'" />
-      <DeclarantCard v-else-if="c === 'declarant'" :poa-only="!auth.hasPermission('import40.declarant')" />
+      <DeclarantCard v-else-if="c === 'declarant'" :poa-only="!auth.hasPermission('import40.declarant')" @saved="poasReload++" />
+      <MyPoasCard v-else-if="c === 'mypoas'" :reload-key="poasReload" />
       <ProfileCard v-else-if="c === 'language'" :title="cardTitle('language')" data-profile-card="language">
         <!-- Подпись слева, переключатель справа (на телефоне — под подписью): сегмент не растягивается на всю карточку. -->
         <ZField :label="t('personal.profile.language.label')" class="items-start sm:flex-row sm:items-center sm:gap-4 sm:[&>label]:shrink-0" data-language-field>
