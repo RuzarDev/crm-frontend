@@ -22,6 +22,7 @@ import CarrierModal from './CarrierModal.vue'
 import InvoiceModal from './InvoiceModal.vue'
 import { CONTRACT_TONE, KZ_CODE, carrierFieldsOf, invoiceFieldsOf, invoiceTotals } from './carriers'
 import { contractHint } from './contractHint'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Карточка перевозчика клиента (очередь 4, задача 2): реквизиты и контакты, договор перевозки (из реестра документов,
 // срок и статус), счета перевозчика (фрахт) — сумма в валюте и ≈ в тенге по курсу НБ РК на дату счёта, оплачен или нет,
@@ -287,7 +288,7 @@ const iconBtn = 'inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-cen
                 <ZUpload
                   v-if="editable"
                   :accept="ACCEPT"
-                  :max-size-mb="25"
+                  :max-size-mb="DOC_MAX_MB"
                   :loading="busy === i.id"
                   button-variant="ghost"
                   button-size="sm"

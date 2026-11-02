@@ -8,6 +8,7 @@ import type { Import40DeclarationDto } from '@/api/import40'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import { condRelDate, condRelDoc, isCondRelOpen } from '@/utils/conditionalRelease'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Карточка поставки клиента (17.10): по каждой ДТ с незакрытым условным выпуском — красный блок «до ДД.ММ загрузите …»
 // с загрузкой файла. Загрузил — декларант получает уведомление и подтверждает закрытие; до этого можно заменить файл.
@@ -82,7 +83,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full [&>button]:h-[42px] [&>button]:rou
     <ZUpload
       :accept="ACCEPT"
       convert-heic
-      :max-size-mb="25"
+      :max-size-mb="DOC_MAX_MB"
       :loading="uploading === d.id"
       :disabled="!!uploading && uploading !== d.id"
       :button-variant="c.uploadedAtUtc ? 'secondary' : 'primary'"

@@ -173,4 +173,17 @@ describe('useDocsIntoDt', () => {
     expect(ctl.summaryOpen.value).toBe(false)
     w.unmount()
   })
+
+  // 02.11.2026: Zircon AI не принял пакет по размеру (422 AiExtraction.PackageTooLarge) — «уберите крупные сканы».
+  it('пакет больше предела распознавания — понятный текст вместо «не удалось распознать»', async () => {
+    const w = mount()
+    await ctl.open()
+    api.extractBatch.mockRejectedValueOnce({ response: { status: 422, data: { title: 'AiExtraction.PackageTooLarge', limitMb: 64, filesSaved: false } } })
+    await ctl.submit({ fileIds: ['new'], uploads: [] })
+    expect(msg.error).toHaveBeenCalledWith(
+      'Пакет слишком большой для распознавания — уберите крупные сканы (каждый файл — не больше 64 МБ) или сожмите их и повторите')
+    expect(msg.error).not.toHaveBeenCalledWith('Не удалось распознать пакет документов')
+    expect(ctl.summaryOpen.value).toBe(false)
+    w.unmount()
+  })
 })

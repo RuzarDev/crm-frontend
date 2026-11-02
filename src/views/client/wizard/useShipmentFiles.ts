@@ -1,6 +1,7 @@
 import { computed, reactive, ref, type Ref } from 'vue'
 import { import40Api, type Import40FileDto } from '@/api/import40'
 import { heicErrorName, heicForUpload, heicRetryable, isHeic } from '@/utils/heic'
+import { DOC_MAX_MB, isDocTooBig } from '@/utils/uploadLimits'
 import { guessDocKind, isDocKind, type DocKind, type DocKindDef } from '@/views/client/docKinds'
 
 // Документы черновика в мастере (шаг «Документы»): список файлов раздела documents, загрузки и удаления в пути,
@@ -12,7 +13,8 @@ import { guessDocKind, isDocKind, type DocKind, type DocKindDef } from '@/views/
 export type RowKind = DocKindDef['key'] | 'other'
 
 export const DOC_ACCEPT = ['.pdf', '.jpg', '.jpeg', '.png', '.docx', '.xlsx']
-export const DOC_MAX_MB = 25
+// Лимит файла — общий для всех загрузок документов (utils/uploadLimits, 02.11.2026: 100 МБ).
+export { DOC_MAX_MB }
 
 /** Вид файла для раскладки: без вида (старый мастер) и неизвестный — в «Других документах». */
 export const rowOf = (f: Pick<Import40FileDto, 'docKind'>): RowKind => {
@@ -48,7 +50,7 @@ const serverReason = (e: unknown): string | null => {
 /** Причина отказа на клиенте или null — файл можно слать. HEIC, который браузер не перевёл сам, переведёт сервер. */
 export const rejectReason = (f: File): 'type' | 'size' | null => {
   if (!DOC_ACCEPT.some((ext) => f.name.toLowerCase().endsWith(ext)) && !isHeic(f)) return 'type'
-  if (f.size > DOC_MAX_MB * 1024 * 1024) return 'size'
+  if (isDocTooBig(f)) return 'size'
   return null
 }
 

@@ -185,10 +185,10 @@ describe('ClientInvoicesView', () => {
     expect(groupTitles()[0]).toBe('К оплате · 2')
   })
 
-  it('чек больше 25 МБ не отправляется', async () => {
+  it('чек больше 100 МБ не отправляется', async () => {
     await mountAt('/billing?id=i2')
     const big = new File(['x'], 'big.pdf', { type: 'application/pdf' })
-    Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 })
+    Object.defineProperty(big, 'size', { value: 100 * 1024 * 1024 + 1 })
     const input = w.get('[data-invoice-panel] input[type="file"]')
     Object.defineProperty(input.element, 'files', { value: [big], configurable: true })
     await input.trigger('change')

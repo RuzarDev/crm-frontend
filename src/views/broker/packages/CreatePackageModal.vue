@@ -10,6 +10,7 @@ import ZUpload from '@/components/z/ZUpload.vue'
 import { documentPackagesApi } from '@/api/documentPackages'
 import type { DocumentPackageDto } from '@/types/api'
 import { formatFileSize, parseContainerNumbers } from './packages'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Окно «Новый пакет документов»: поезд, комментарий, номера контейнеров (по одному в строке), файлы.
 // Создание — пакет, затем файлы по одному. Пакет создаётся один раз: если файл не загрузился, окно всё равно
@@ -107,12 +108,12 @@ const submit = async () => {
           @update:value="draft.containers = $event"
         />
       </ZField>
-      <ZField :label="t('broker.packages.create.files')" :extra="t('broker.packages.create.filesHint')">
+      <ZField :label="t('broker.packages.create.files')" :extra="t('broker.packages.create.filesHint', { mb: DOC_MAX_MB })">
         <div class="flex flex-col gap-2">
           <ZUpload
             multiple
             accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-            :max-size-mb="25"
+            :max-size-mb="DOC_MAX_MB"
             data-create-upload
             @select="addFiles"
           >{{ t('broker.packages.create.addFiles') }}</ZUpload>

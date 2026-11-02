@@ -13,6 +13,7 @@ import { saveBlob } from '@/ui/download'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Панель выбранного счёта (доска Invoices): сумма, реквизиты и назначение платежа с копированием,
 // загрузка чека, PDF. Реквизиты — общий блок экрана (один запрос), здесь только показ и «Повторить».
@@ -228,7 +229,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       <ZUpload
         v-if="payable"
         accept=".pdf,.jpg,.jpeg,.png"
-        :max-size-mb="25"
+        :max-size-mb="DOC_MAX_MB"
         button-variant="primary"
         :loading="uploading"
         :custom-request="upload"

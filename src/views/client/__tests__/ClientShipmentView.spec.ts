@@ -378,10 +378,10 @@ describe('ClientShipmentView', () => {
     expect(big!.attributes('aria-hidden')).toBeUndefined()
   })
 
-  it('чек больше 25 МБ или не того формата не уходит на сервер', async () => {
+  it('чек больше 100 МБ или не того формата не уходит на сервер', async () => {
     await mountCard({ status: 6, svhInvoiceAmount: 312400 })
     const big = new File(['x'], 'check.pdf', { type: 'application/pdf' })
-    Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 })
+    Object.defineProperty(big, 'size', { value: 100 * 1024 * 1024 + 1 })
     await pickFile('[data-ask="paySvh"]', big)
     await pickFile('[data-ask="paySvh"]', new File(['x'], 'check.exe', { type: 'application/octet-stream' }))
     expect(api.uploadFile).not.toHaveBeenCalled()

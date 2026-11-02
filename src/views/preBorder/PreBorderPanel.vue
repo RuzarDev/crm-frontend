@@ -21,6 +21,7 @@ import { cn } from '@/ui/cn'
 import { dayMonth, missingText } from '@/utils/preBorder'
 import PreBorderModal from './PreBorderModal.vue'
 import SerialsModal from './SerialsModal.vue'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // «Поставка до границы» (очередь 4, задача 1) — в карточке поставки клиента и в карточке заявки сотрудника:
 // оплата поставщику → погрузка (дата, место, пломбы, фото, серийные номера / IMEI) → в пути (перевозчик, номера,
@@ -251,7 +252,7 @@ const linkBtn = 'inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-
               accept=".jpg,.jpeg,.png"
               convert-heic
               multiple
-              :max-size-mb="25"
+              :max-size-mb="DOC_MAX_MB"
               :loading="photoBusy"
               button-size="sm"
               class="max-sm:w-full"

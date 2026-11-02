@@ -8,6 +8,7 @@ import type { ZOption } from '@/ui/options'
 import FileRow from './FileRow.vue'
 import { useWorkspaceDnd } from './useWorkspace'
 import { fileCounts, fileTarget, filterFiles, targetLabel, type FileFilter } from './workspace'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Панель «Входящие файлы» (доска Workspace): счётчик, «не распределено: n», сегменты «Все / Свободные / Привязаны»
 // со счётчиками, строки файлов и зона загрузки (несколько файлов; тип и размер — как на сервере, проверка до отправки).
@@ -31,9 +32,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const dnd = useWorkspaceDnd()
 
-/** Разрешённые типы и размер — как на сервере (DocumentPackageEndpoints: pdf, jpg, jpeg, png, docx, xlsx; 25 МБ). */
+/** Разрешённые типы и размер — как на сервере (DocumentPackageEndpoints: pdf, jpg, jpeg, png, docx, xlsx; 100 МБ — DOC_MAX_MB). */
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
-const MAX_MB = 25
 
 const filter = ref<FileFilter>('all')
 const counts = computed(() => fileCounts(props.pkg.files))
@@ -109,14 +109,14 @@ const busy = (f: DocumentPackageFileDto) => props.isPending(`link:${f.id}`) || p
       type="drag"
       multiple
       :accept="ACCEPT"
-      :max-size-mb="MAX_MB"
+      :max-size-mb="DOC_MAX_MB"
       :loading="uploading"
       class="mt-1.5 [&>[role=button]]:gap-1 [&>[role=button]]:p-4"
       data-ws-upload
       @select="emit('upload', $event)"
     >
       <span class="block text-ink-2">{{ uploading ? t('broker.packageWorkspace.files.uploading') : t('broker.packageWorkspace.files.drop') }}</span>
-      <span class="block text-xs text-muted">{{ t('broker.packageWorkspace.files.dropHint') }}</span>
+      <span class="block text-xs text-muted">{{ t('broker.packageWorkspace.files.dropHint', { mb: DOC_MAX_MB }) }}</span>
     </ZUpload>
   </section>
 </template>

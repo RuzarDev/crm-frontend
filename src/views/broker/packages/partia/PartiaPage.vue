@@ -33,6 +33,7 @@ import PartyModal from './PartyModal.vue'
 import TransitDrawer from './TransitDrawer.vue'
 import { PARTIA_LIMITS, transitFilled } from './partiaModel'
 import { NEW_PARTIA_ID, usePartia } from './usePartia'
+import { DOC_MAX_MB, isDocTooBig } from '@/utils/uploadLimits'
 
 // Редактор партии — /document-packages/:id/partia/:partiaId (new?container=… — новая), редизайн волны 4в, доска
 // PartiaEditor. Слева форма: клиент, станция, пломба, таможня назначения, отправитель и получатель (карточки → окно),
@@ -159,7 +160,6 @@ const onImported = (items: ReestrGoodsItemInput[], mode: 'replace' | 'append') =
 
 // ---- Инвойсы ----
 const INVOICE_ACCEPT = '.pdf,.xlsx,.jpg,.jpeg,.png'
-const MAX_BYTES = 10 * 1024 * 1024
 const invoiceInput = ref<HTMLInputElement | null>(null)
 const invoiceFiles = computed(() => (pkg.value && partia.value ? partiaFiles(pkg.value, partia.value.id).filter((f) => f.documentType === 'invoice') : []))
 const pickInvoice = () => {
@@ -182,8 +182,9 @@ const onInvoiceFile = (e: Event) => {
     message.error(t('broker.partia.invoices.badType'))
     return
   }
-  if (file.size > MAX_BYTES) {
-    message.error(t('broker.partia.invoices.tooBig'))
+  // Файл инвойса партии — вложение пакета (DocumentPackageEndpoints, 100 МБ), не разбор: общий лимит документов (02.11.2026).
+  if (isDocTooBig(file)) {
+    message.error(t('broker.partia.invoices.tooBig', { mb: DOC_MAX_MB }))
     return
   }
   // Новая партия — в очередь: загрузятся и привяжутся после создания (usePartia).

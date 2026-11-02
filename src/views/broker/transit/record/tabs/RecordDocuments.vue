@@ -5,6 +5,7 @@ import { PhLock } from '@phosphor-icons/vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { reestrApi } from '@/api/reestr'
+import { DOC_MAX_MB, isDocTooBig } from '@/utils/uploadLimits'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import {
@@ -21,7 +22,6 @@ import { isBrokerSectionClosed, useRecordPermissions } from './recordPermissions
 // Список грузится при монтировании и сообщает длину (count): страница держит вкладку смонтированной скрытой
 // (v-show), чтобы счётчик «Документы n» был виден до перехода во вкладку. reload() — для страницы.
 const ALLOWED = ['.pdf', '.jpg', '.jpeg', '.png', '.docx', '.xlsx']
-const MAX_BYTES = 10 * 1024 * 1024
 
 const props = defineProps<{ reestrId: string; status: ReestrEntryStatus; dirty: boolean }>()
 const emit = defineEmits<{ applied: [count: number]; count: [n: number] }>()
@@ -83,8 +83,10 @@ const validFile = (f: File): boolean => {
     message.error(t('transit.dopustimyPdfJpgPng'))
     return false
   }
-  if (f.size > MAX_BYTES) {
-    message.error(t('transit.razmerFaylaNeDolzhen'))
+  // Документы записи транзита — общий лимит документов (02.11.2026: было 10 МБ, сервер — 100 МБ; разбора здесь нет —
+  // инвойс на разбор грузит «Заполнить из инвойса», там свой предел 10 МБ).
+  if (isDocTooBig(f)) {
+    message.error(t('z.uploadTooBig', { mb: DOC_MAX_MB, name: f.name }))
     return false
   }
   return true

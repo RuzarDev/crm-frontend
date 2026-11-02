@@ -10,6 +10,7 @@ import { documentChecksApi } from '@/api/documentChecks'
 import { import40Api, type Import40CaseDto, type Import40DeclarationDto, type Import40ExtractionResult, type Import40FileDto } from '@/api/import40'
 import { message } from '@/ui/message'
 import { formatMoney } from '@/ui/number'
+import { uploadTooLargeText } from '@/utils/uploadLimits'
 import { prepareDocumentsDeclaration, type DocumentsDeclaration } from '@/views/broker/case/steps/documentsImport'
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from '@/views/broker/case/steps/documentsSources'
 import type { DtFormState } from '../dtPayload'
@@ -105,7 +106,10 @@ export function useDocsIntoDt(o: UseDocsIntoDtOptions) {
       summaryOpen.value = true
     } catch (e) {
       console.error(`docs-into-dt: ${stage}`, e)
-      message.error(stage === 'extract' ? t('broker.case.declaring.batch.failedExtract') : tx('failedPrepare'))
+      // Пакет больше предела распознавания (02.11.2026) — понятный текст «уберите крупные сканы», а не «не удалось распознать».
+      message.error(stage === 'extract'
+        ? uploadTooLargeText(e, t) ?? t('broker.case.declaring.batch.failedExtract')
+        : tx('failedPrepare'))
     } finally {
       busy.value = false
     }

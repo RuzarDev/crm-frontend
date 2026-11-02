@@ -12,6 +12,7 @@ import { import40Api } from '@/api/import40'
 import { defaultUploadKind, docKindName, dueDateLabel, dueTimeLabel, isActive, isOverdue, stageOf } from '@/utils/customsRequests'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // «Нужно от вас · ответ таможне» в карточке поставки клиента (волна 17.10, задача 5; макет этапов — жёлтый блок).
 // Ждёт ответа — gold-панель: что запросила таможня, документы, срок; «Загрузить документ» (файл нужного вида сразу уходит
@@ -24,9 +25,8 @@ const uid = useId()
 
 const shown = computed(() => props.requests.filter(isActive))
 
-// Форматы и размер — как проверяет сервер (ReestrDocumentRules, 25 МБ), как в ShipmentAskPanel.
+// Форматы и размер — как проверяет сервер (ReestrDocumentRules, 100 МБ — DOC_MAX_MB), как в ShipmentAskPanel.
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
-const MAX_MB = 25
 
 // Состояние по запросу: вид документа для загрузки, раскрыт ли ответ и его текст.
 const kindOf = reactive<Record<string, string>>({})
@@ -141,7 +141,7 @@ const uploadMain = 'max-sm:block max-sm:w-full [&>button]:h-[42px] [&>button]:ro
           <ZUpload
             :accept="ACCEPT"
             convert-heic
-            :max-size-mb="MAX_MB"
+            :max-size-mb="DOC_MAX_MB"
             :loading="busy === `upload:${r.id}`"
             :disabled="!!busy && busy !== `upload:${r.id}`"
             button-variant="primary"
@@ -203,7 +203,7 @@ const uploadMain = 'max-sm:block max-sm:w-full [&>button]:h-[42px] [&>button]:ro
             <ZUpload
               :accept="ACCEPT"
               convert-heic
-              :max-size-mb="MAX_MB"
+              :max-size-mb="DOC_MAX_MB"
               :loading="busy === `upload:${r.id}`"
               :disabled="!!busy && busy !== `upload:${r.id}`"
               button-variant="secondary"

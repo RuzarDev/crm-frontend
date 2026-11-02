@@ -17,6 +17,7 @@ import { formatDateText } from '@/ui/date'
 import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import { briefOf, condRelKindName, isCondRelOpen } from '@/utils/conditionalRelease'
+import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Блок «Условный выпуск» на странице ДТ (17.10): отметить (вид недостающего документа + основание + срок, по умолчанию
 // выпуск + 60 дней), изменить, снять, загрузить за клиента, подтвердить закрытие. Свои запросы, без автосейва ДТ:
@@ -237,7 +238,7 @@ const uploadBtn = 'max-sm:block max-sm:w-full max-sm:[&>button]:h-11 max-sm:[&>b
             <ZButton variant="primary" :loading="busy === 'resolve'" :disabled="!!busy && busy !== 'resolve'" :class="btn" data-condrel-resolve @click="resolve">{{ t('condRel.dt.resolve') }}</ZButton>
             <ZUpload
               :accept="ACCEPT"
-              :max-size-mb="25"
+              :max-size-mb="DOC_MAX_MB"
               :loading="busy === 'upload'"
               :disabled="!!busy && busy !== 'upload'"
               :class="uploadBtn"
