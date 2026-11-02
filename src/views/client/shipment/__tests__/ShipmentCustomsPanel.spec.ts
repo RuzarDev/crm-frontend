@@ -31,6 +31,9 @@ afterEach(() => {
 
 describe('ShipmentCustomsPanel', () => {
   it('ждёт ответа — gold «Нужно от вас · ответ таможне» с текстом, документами и сроком; закрытые не показываются', () => {
+    // «Сегодня» — до срока 20.10.2026: без фиксированной даты тест падал после 20.10 (02.11.2026).
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-18T09:00:00'))
     mountIt([req(), req({ id: 'r2', status: 'closed' })])
     expect(w.findAll('[data-customs-ask]')).toHaveLength(1)
     const p = w.get('[data-customs-ask]')
@@ -39,6 +42,7 @@ describe('ShipmentCustomsPanel', () => {
     expect(p.get('[data-customs-ask-text]').text()).toContain('Нужен сертификат соответствия')
     expect(p.get('[data-customs-ask-docs]').text()).toContain('Сертификат или декларация соответствия ЕАЭС')
     expect(p.get('[data-customs-ask-due]').text()).toBe('Ответьте до 20.10.2026')
+    vi.useRealTimers()
   })
 
   it('момент запроса и пояснение: при проверке ДТ — правило 4 часов; срок со временем крупно', () => {
