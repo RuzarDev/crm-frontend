@@ -7874,6 +7874,7 @@ export default {
     scope: { documents: 'Between documents', case: 'Documents vs request', declaration: 'Documents vs declaration' },
     source: { case: 'Request', dt: 'Declaration {n}', documents: 'Documents', document: 'Document', goodsTable: 'main document (goods table)' },
     field: {
+      railTransport: 'Wagons and containers',
       contract: 'Contract number', invoice: 'Invoice number', invoiceDate: 'Invoice date', transport: 'Transport',
       transportDoc: 'Transport document', tractor: 'Truck plate', trailer: 'Trailer plate', sender: 'Consignor',
       receiver: 'Consignee', currency: 'Currency', incoterms: 'Delivery terms', origin: 'Country of origin',
