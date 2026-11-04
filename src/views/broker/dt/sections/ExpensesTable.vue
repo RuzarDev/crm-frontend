@@ -8,7 +8,8 @@ import ZSelect from '@/components/z/ZSelect.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import type { ZOption } from '@/ui/options'
 import { withCurrent } from '../dtOptions'
-import type { DtFormState } from '../dtPayload'
+import { missingExpenseFields, type DtFormState } from '../dtPayload'
+import type { Import40DeclarationExpense } from '@/types/api'
 
 // Расходы для распределения на таможенную стоимость: статья, сумма, валюта, база распределения (по весу брутто /
 // по стоимости — из справочника статей) и признак «вычет». Строки правятся прямо в form.expenses (форма реактивна и
@@ -31,6 +32,14 @@ const currencyFor = (code: string | null | undefined) => withCurrent(props.curre
 const baseLabel = (code: string | null | undefined) =>
   (code && props.distributionByCode?.[code] === 'GrossWeight' ? tf('byWeight') : tf('byValue'))
 const isDeduction = (code: string | null | undefined) => !!(code && props.deductionByCode?.[code])
+
+// Полностью пустая строка — ещё не начатая, подсказка нужна только начатой.
+const incompleteText = (e: Import40DeclarationExpense) => {
+  const missing = missingExpenseFields(e)
+  if (props.readonly || missing.length === 0 || missing.length === 3) return null
+  const names = { type: tf('expMissingType'), amount: tf('expMissingAmount'), currency: tf('expMissingCurrency') }
+  return tf('expIncomplete', { fields: missing.map((m) => names[m]).join(', ') })
+}
 
 const add = () => {
   props.form.expenses = [...(props.form.expenses ?? []), { expenseTypeCode: null, amount: null, currencyCode: null }]
@@ -90,6 +99,9 @@ const cols = '@2xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0
       >
         <PhTrash :size="16" aria-hidden="true" />
       </ZButton>
+      <p v-if="incompleteText(e)" class="col-span-2 m-0 text-xs text-danger @2xl:col-span-5" role="status" data-expense-incomplete>
+        {{ incompleteText(e) }}
+      </p>
     </div>
     <p v-if="!rows.length" class="m-0 text-sm text-muted" data-expenses-empty>{{ tf('noExpenses') }}</p>
     <div v-if="!readonly">
