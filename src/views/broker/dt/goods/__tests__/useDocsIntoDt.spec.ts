@@ -174,6 +174,17 @@ describe('useDocsIntoDt', () => {
     w.unmount()
   })
 
+  // 04.11.2026: OCR занят другим пакетом (422 AiExtraction.Busy) — «повторите через N мин».
+  it('сервис занят — понятный текст с минутами вместо «не удалось распознать»', async () => {
+    const w = mount()
+    await ctl.open()
+    api.extractBatch.mockRejectedValueOnce({ response: { status: 422, data: { title: 'AiExtraction.Busy', retryAfterMin: 2, filesSaved: false } } })
+    await ctl.submit({ fileIds: ['new'], uploads: [] })
+    expect(msg.error).toHaveBeenCalledWith('Сервис занят разбором другого пакета, повторите через 2 мин')
+    expect(msg.error).not.toHaveBeenCalledWith('Не удалось распознать пакет документов')
+    w.unmount()
+  })
+
   // 02.11.2026: Zircon AI не принял пакет по размеру (422 AiExtraction.PackageTooLarge) — «уберите крупные сканы».
   it('пакет больше предела распознавания — понятный текст вместо «не удалось распознать»', async () => {
     const w = mount()

@@ -280,15 +280,20 @@ export function fixCyrillicLookalikes(text: string): string {
   return text.replace(/[\p{L}]+/gu, (w) => (/[а-яёәғқңөұүһі]/i.test(w) ? w.replace(/[AaBCcEeHKkMOoPpTXxYyΘθ]/g, (ch) => LOOKALIKE_TO_CYR[ch] ?? ch) : w))
 }
 
+/** Подпись свойства, а не название товара: «不锈钢板。марка 201J2» — описание китайское, «марка» его не переводит. */
+const ATTRIBUTE_WORD = /^(марк[аи]|модел[ьи]|артикул|размер|цвет|сорт|класс|диаметр|длина|ширина|высота|толщина|мощность|вес)$/iu
+
 /**
  * Русский текст, а не отдельные буквы в китайском описании (ревью 22.10: «螺丝 M6 1000шт/箱», «… марка 201J2», «… 号 с»):
- * хотя бы два русских слова от трёх букв и кириллица — не меньше 30% букв (иероглифы и кириллица).
+ * два русских слова от трёх букв или одно от четырёх («贴面板 Панель», 04.11.2026: Zircon AI отдаёт ячейку целиком через
+ * пробел), но не подпись свойства; кириллица — не меньше 30% букв (иероглифы и кириллица).
  */
 function hasRussianText(s: string): boolean {
   const words = s.match(/[а-яёәғқңөұүһі]{3,}/giu) ?? []
   const cyr = (s.match(/[а-яёәғқңөұүһі]/giu) ?? []).length
   const han = (s.match(/\p{Script=Han}/gu) ?? []).length
-  return words.length >= 2 && cyr >= 0.3 * (cyr + han)
+  const named = words.length >= 2 || words.some((w) => w.length >= 4 && !ATTRIBUTE_WORD.test(w))
+  return named && cyr >= 0.3 * (cyr + han)
 }
 
 /**
@@ -321,7 +326,9 @@ export function russianPart(text: string | null | undefined): string | null {
     if (hasHan(p)) {
       if (!CYR_RE.test(p)) return
       // в одном предложении и иероглифы, и кириллица — иероглифы с их знаками прочь
+      // и разделители по краям: «贴面板 / Панель» (04.11.2026)
       const ru = p.replace(/[\p{Script=Han}。，、；：！？（）“”「」『』【】]+/gu, ' ').replace(/\s+/g, ' ').trim()
+        .replace(/^[\s/\\|,;:\-–—]+|[\s/\\|,;:\-–—]+$/gu, '')
       if (ru) {
         kept.push(ru)
         ruStarted = true

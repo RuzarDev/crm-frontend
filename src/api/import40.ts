@@ -573,6 +573,11 @@ export interface Import40ExtractionPartySource {
   address?: string | null
   docType?: string | null
   fileName?: string | null
+  /** Вид документа (invoice, rail_waybill, cmr…), Zircon AI от 03.11; из старого разбора — нет. */
+  kind?: string | null
+  /** Страна стороны по документу: код ОКСМ и название, Zircon AI от 03.11. */
+  countryCode?: string | null
+  countryName?: string | null
 }
 
 /**
@@ -631,6 +636,8 @@ export interface Import40ExtractionConflict {
 export interface Import40ExtractionResult {
   declaration: Import40ExtractionPreview
   warnings: string[]
+  /** Часть warnings, где данные не получены и нужно действие (04.11.2026); показывается заметно. Старый сервер — поля нет. */
+  criticalWarnings?: string[]
   conflicts: Import40ExtractionConflict[]
   /** Сохранённая сверка документов этого разбора (17.10); после создания ДТ связываем её с ДТ. */
   documentCheckId?: string | null
@@ -1347,8 +1354,9 @@ export const import40Api = {
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
-        // Отказ по размеру (02.11.2026): 422 AiExtraction.PackageTooLarge (Zircon AI не принял пакет) и 413 (запрос больше
-        // предела) показывает вызывающий своим текстом — uploadTooLargeText, без второго тоста перехватчика.
+        // Отказ по размеру (02.11.2026): 422 AiExtraction.PackageTooLarge (Zircon AI не принял пакет), 413 (запрос больше
+        // предела) и «занят» (04.11.2026, 422 AiExtraction.Busy) показывает вызывающий своим текстом —
+        // extractionRefusalText, без второго тоста перехватчика.
         silentStatuses: [413, 422],
         // apiClient's default 30s timeout is fine for ordinary requests but too short
         // here: Zircon AI runs OCR over every scanned PDF and photo in the batch. Цепочка таймаутов (пакет «ocr»):

@@ -631,6 +631,22 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n9')
   })
 
+  // Важность error каталога флагов (04.11.2026): заметным блоком над остальными замечаниями, без повтора в общем списке.
+  it('замечания важности error — отдельным блоком', async () => {
+    api.extractBatch.mockResolvedValue(result({
+      warnings: ['Распознаны только первые страницы — повторите позже', 'Число со скана прочитано неуверенно — сверьте'],
+      criticalWarnings: ['Распознаны только первые страницы — повторите позже'],
+    }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n3' }))
+    mount(USERS.declarant)
+    await pick()
+    expect(w.get('[data-issues-critical]').text()).toContain('Данные не получены')
+    expect(w.get('[data-issues-critical]').text()).toContain('Распознаны только первые страницы')
+    const others = w.get('[data-issues-warnings]').text()
+    expect(others).toContain('Число со скана')
+    expect(others).not.toContain('Распознаны только первые страницы')
+  })
+
   it('с конфликтами — окно замечаний, переход к ДТ после его закрытия', async () => {
     api.extractBatch.mockResolvedValue(result({
       conflicts: [{ field: 'receiverBin', fieldLabel: 'БИН получателя', value: '160440012345', sourceDocument: 'inv.pdf', alternatives: [{ value: '160440099999', sourceDocument: 'cmr.jpg' }] }],

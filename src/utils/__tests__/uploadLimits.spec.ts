@@ -3,13 +3,39 @@ import { createI18n } from 'vue-i18n'
 import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
-import { AI_PACKAGE_TOO_LARGE, DOC_MAX_BYTES, DOC_MAX_MB, isDocTooBig, uploadTooLargeText } from '@/utils/uploadLimits'
+import { AI_BUSY, AI_PACKAGE_TOO_LARGE, aiBusyText, DOC_MAX_BYTES, DOC_MAX_MB, extractionRefusalText, isDocTooBig, uploadTooLargeText } from '@/utils/uploadLimits'
 import { DOC_MAX_MB as WIZARD_MAX_MB } from '@/views/client/wizard/useShipmentFiles'
 
 // Лимит загрузки документов 100 МБ (02.11.2026, владелец: «ограничение 25, больше файлы не даёт загрузить»).
 const i18n = createI18n({ legacy: false, locale: 'ru', messages: { ru, kk, en } })
 const t = i18n.global.t as unknown as (k: string, p?: Record<string, unknown>) => string
 const MB = 1024 * 1024
+
+describe('сервис занят (04.11.2026)', () => {
+  const busy = (data: Record<string, unknown>) => ({ response: { status: 422, data: { title: AI_BUSY, ...data } } })
+
+  it('текст с минутами на трёх языках; файлы сохранены — так и сказано', () => {
+    i18n.global.locale.value = 'ru'
+    expect(aiBusyText(busy({ retryAfterMin: 2, filesSaved: false }), t)).toBe('Сервис занят разбором другого пакета, повторите через 2 мин')
+    expect(aiBusyText(busy({ retryAfterMin: 2, filesSaved: true }), t)).toBe('Сервис занят разбором другого пакета, повторите через 2 мин. Загруженные файлы сохранены в заявке')
+    expect(aiBusyText(busy({}), t)).toContain('через 1 мин')
+    for (const locale of ['kk', 'en'] as const) {
+      i18n.global.locale.value = locale
+      expect(aiBusyText(busy({ retryAfterMin: 3 }), t)).toContain('3')
+      expect(aiBusyText(busy({ retryAfterMin: 3 }), t)).not.toContain('broker.case')
+    }
+    i18n.global.locale.value = 'ru'
+  })
+
+  it('другие отказы — не «занят»; extractionRefusalText объясняет оба случая', () => {
+    expect(aiBusyText({ response: { status: 422, data: { title: AI_PACKAGE_TOO_LARGE } } }, t)).toBeNull()
+    expect(aiBusyText({ response: { status: 502, data: { title: AI_BUSY } } }, t)).toBeNull()
+    expect(aiBusyText(new Error('x'), t)).toBeNull()
+    expect(extractionRefusalText(busy({ retryAfterMin: 1 }), t)).toContain('Сервис занят')
+    expect(extractionRefusalText({ response: { status: 422, data: { title: AI_PACKAGE_TOO_LARGE } } }, t)).toContain('слишком большой')
+    expect(extractionRefusalText({ response: { status: 502 } }, t)).toBeNull()
+  })
+})
 
 describe('лимит файла документа', () => {
   it('100 МБ — одна константа, мастер клиента берёт её же', () => {

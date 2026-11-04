@@ -10,6 +10,9 @@ export const isDocTooBig = (f: { size: number }): boolean => f.size > DOC_MAX_BY
 /** Код отказа сервера: пакет больше предела Zircon AI («Из документов», «Сверить заново»), 422 с title этого кода. */
 export const AI_PACKAGE_TOO_LARGE = 'AiExtraction.PackageTooLarge'
 
+/** Код отказа сервера: Zircon AI занят разбором другого пакета, 422 с title этого кода (04.11.2026). */
+export const AI_BUSY = 'AiExtraction.Busy'
+
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
 /**
@@ -27,3 +30,15 @@ export const uploadTooLargeText = (e: unknown, t: Translate): string | null => {
     : t('broker.case.declaring.batch.tooLargeForAi')
   return data.filesSaved === true ? `${text}. ${t('broker.case.declaring.batch.filesSaved')}` : text
 }
+
+/** Понятный текст «сервис занят, повторите через N мин» (422 AiExtraction.Busy); иначе — null. */
+export const aiBusyText = (e: unknown, t: Translate): string | null => {
+  const res = (e as { response?: { status?: number; data?: unknown } } | null)?.response
+  const data = (res?.data ?? {}) as { title?: unknown; retryAfterMin?: unknown; filesSaved?: unknown }
+  if (res?.status !== 422 || data.title !== AI_BUSY) return null
+  const text = t('broker.case.declaring.batch.aiBusy', { n: typeof data.retryAfterMin === 'number' ? data.retryAfterMin : 1 })
+  return data.filesSaved === true ? `${text}. ${t('broker.case.declaring.batch.filesSaved')}` : text
+}
+
+/** Отказ распознавания, который объясняем словами: пакет слишком большой или сервис занят. Иначе — null (общий текст). */
+export const extractionRefusalText = (e: unknown, t: Translate): string | null => uploadTooLargeText(e, t) ?? aiBusyText(e, t)

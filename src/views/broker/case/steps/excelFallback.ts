@@ -378,6 +378,11 @@ export interface HeaderDocsInput {
    * (правило декларанта 29.10.2026, когда гр. 44 идёт по перечню документов Zircon AI — один номер с ним, без дублей).
    */
   packingWithoutNumber?: 'invoice' | 'bn'
+  /**
+   * Свой номер упаковочного листа из перечня Zircon AI (declaration.packing_no, 04.11.2026): в шапке Excel его нет или там
+   * номер инвойса — строка 04131 сразу с ним, а не «Б/Н» плюс вторая строка из перечня.
+   */
+  aiPacking?: { number?: string | null; date?: string | null } | null
 }
 
 /**
@@ -405,7 +410,9 @@ export function headerDocs(i: HeaderDocsInput): Import40Doc44ItemInput[] {
   const packingHeader = headers.find((h) => h.kind === 'packing')
   if (packingHeader) {
     const own = i.packingWithoutNumber === 'bn' && sameDocNo(packingHeader.number, invoiceNo) ? null : packingHeader.number
-    out.push(docLine('04131', own ?? (i.packingWithoutNumber === 'bn' ? null : invoiceNo) ?? DOC_NO_NUMBER, packingHeader.date ?? invoiceDate, names))
+    const number = own ?? i.aiPacking?.number ?? (i.packingWithoutNumber === 'bn' ? null : invoiceNo) ?? DOC_NO_NUMBER
+    const date = (own ? null : i.aiPacking?.date) ?? packingHeader.date ?? invoiceDate
+    out.push(docLine('04131', number, date, names))
   }
   if (extras?.transportDocument) out.push(docLine(transportDocCode(i.transportMode, i.road), extras.transportDocument, null, names))
   // CMR в наборе, а номер не распознан (скан без текста) — строка CMR без номера: декларант впишет номер, сервер не
@@ -498,10 +505,12 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   // Гр. 44 (29.10.2026): есть перечень документов Zircon AI — строки шапок (прежний путь) и перечень сливаются одной
   // дедупликацией (doc44FromAiDocuments); перечня нет (старый Zircon AI) — как раньше.
   const aiDocs = extras?.documents?.length ? extras.documents : null
+  const aiPacking = aiDocs?.find((d) => d.kind === 'packing_list' && d.number?.trim()
+    && !d.flags?.includes('number_from_invoice') && !d.flags?.includes('referenced_only'))
   const fromHeaders = headerDocs({
     // ЖД: вагоны в гр. 18 — не «номера машины», транспортный документ — ЖД накладная 02013 (если в наборе нет самого CMR).
     headers, extras, transportMode: rail && !ctx.road ? 0 : ctx.transportMode, road: !!ctx.road || (!rail && !!arrival?.length), cmrInBatch: !!ctx.road,
-    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames, packingWithoutNumber: aiDocs ? 'bn' : 'invoice',
+    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames, packingWithoutNumber: aiDocs ? 'bn' : 'invoice', aiPacking,
   })
   let doc44Items = fromHeaders
   let doc44Notes: AiDoc44Remark[] = []
