@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount as mountModal, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import type { Import40CaseDto, Import40ExtractionResult } from '@/api/import40'
 import type { DeclarationReadiness } from '@/types/api'
+import { i18n } from '@/i18n'
 import { confirmState } from '@/ui/confirm'
 import { formatMoney } from '@/ui/number'
 import type { CaseAuth } from '../casePermissions'
@@ -621,6 +622,52 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n1')
   })
 
+  // Пять вагонов — пять ДТ (04.11.2026): каждый файл разбирается отдельно, инвойсы не смешиваются.
+  const pickPerFile = async (names: string[], fileIds: string[] = []) => {
+    const files = names.map((n) => new File(['x'], n))
+    w.findComponent(ExtractDocsModal).vm.$emit('submit', { fileIds, uploads: files, perFile: true })
+    await vi.waitFor(() => expect(w.find('[data-dt-from-docs]').attributes('disabled')).toBeUndefined())
+    for (let i = 0; i < 10; i++) await flushPromises()
+    return files
+  }
+
+  it('«Каждый файл — отдельная ДТ»: по разбору и по ДТ на файл, остаёмся в списке', async () => {
+    api.extractBatch.mockResolvedValue(result())
+    api.createDeclaration.mockResolvedValueOnce(declaration({ id: 'n1' })).mockResolvedValueOnce(declaration({ id: 'n2' }))
+    mount(USERS.declarant)
+    const before = router.currentRoute.value.path
+    const files = await pickPerFile(['w1.pdf', 'w2.pdf'])
+    expect(api.extractBatch).toHaveBeenCalledTimes(2)
+    expect(api.extractBatch).toHaveBeenNthCalledWith(1, 'c1', [files[0]], [])
+    expect(api.extractBatch).toHaveBeenNthCalledWith(2, 'c1', [files[1]], [])
+    expect(api.createDeclaration).toHaveBeenCalledTimes(2)
+    expect(msg.success).toHaveBeenCalledWith('Создано ДТ: 2 из 2')
+    expect(router.currentRoute.value.path).toBe(before)
+  })
+
+  it('сбой одного файла не останавливает остальные и виден с именем файла', async () => {
+    api.extractBatch.mockRejectedValueOnce(new Error('сеть')).mockResolvedValueOnce(result())
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
+    mount(USERS.declarant)
+    await pickPerFile(['w1.pdf', 'w2.pdf'])
+    expect(api.createDeclaration).toHaveBeenCalledTimes(1)
+    expect(msg.success).toHaveBeenCalledWith('Создано ДТ: 1 из 2')
+    expect(w.get('[data-issues-critical]').text()).toContain('w1.pdf: Не удалось распознать пакет документов')
+  })
+
+  it('несколько инвойсов в одной ДТ — заметное предупреждение с номерами', async () => {
+    api.extractBatch.mockResolvedValue(result({ extras: { documents: [
+      { kind: 'invoice', number: '2026102103' }, { kind: 'invoice', number: '2026102101' }, { kind: 'invoice', number: '2026102101' },
+      { kind: 'rail_waybill', number: '38451494' },
+    ] } as Import40ExtractionResult['extras'] }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
+    mount(USERS.declarant)
+    await pick()
+    const critical = w.get('[data-issues-critical]').text()
+    expect(critical).toContain('2 разных инвойсов (2026102103, 2026102101)')
+    expect(w.find('[data-issues-warnings]').exists()).toBe(false)
+  })
+
   it('сверка документов разбора привязывается к созданной ДТ; сбой привязки не мешает перейти к ДТ', async () => {
     api.extractBatch.mockResolvedValue(result({ documentCheckId: 'chk1' }))
     api.createDeclaration.mockResolvedValue(declaration({ id: 'n9' }))
@@ -835,5 +882,30 @@ describe('DeclarationsList: «Копировать ДТ»', () => {
     w.unmount()
     mount(USERS.declarant, { kase: { status: 3 } })
     expect(w.find('[data-dt-copy]').exists()).toBe(false)
+  })
+})
+
+describe('ExtractDocsModal: каждый файл — отдельная ДТ', () => {
+  const files = [{ id: 'a', section: 'documents', originalFileName: '1.pdf' }, { id: 'b', section: 'documents', originalFileName: '2.pdf' }]
+  const openModal = (defaultIds: string[], target?: 'existing') => mountModal(ExtractDocsModal, {
+    props: { open: true, files: files as never, target, defaultIds },
+    global: { plugins: [i18n], stubs: { ZModal: ModalStub } },
+  })
+
+  it('с одним документом отметки нет', () => {
+    expect(openModal(['a']).find('[data-extract-per-file]').exists()).toBe(false)
+  })
+
+  it('с двумя документами отметка есть и уходит в ответе окна', async () => {
+    const m = openModal(['a', 'b'])
+    await m.find('[data-extract-per-file] [role="checkbox"], [data-extract-per-file] input').trigger('click')
+    await flushPromises()
+    const modal = m.vm as unknown as { submit: () => void }
+    modal.submit()
+    expect(m.emitted('submit')?.[0]?.[0]).toMatchObject({ fileIds: ['a', 'b'], perFile: true })
+  })
+
+  it('в уже созданную ДТ отметки нет', () => {
+    expect(openModal(['a', 'b'], 'existing').find('[data-extract-per-file]').exists()).toBe(false)
   })
 })

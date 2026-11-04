@@ -1060,6 +1060,10 @@ export interface Import40CanCreateDto {
 
 export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'missing'
 
+/** Сколько браузер ждёт разбор пакета: 220 с на сервер плюс загрузка файлов из расчёта 1 Мбит/с (125 байт в мс). */
+export const extractBatchTimeoutMs = (files: readonly File[]): number =>
+  220000 + Math.ceil(files.reduce((sum, file) => sum + file.size, 0) / 125)
+
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {
     const response = await apiClient.get<Import40ListResponse>('/import40')
@@ -1362,7 +1366,8 @@ export const import40Api = {
         // here: Zircon AI runs OCR over every scanned PDF and photo in the batch. Цепочка таймаутов (пакет «ocr»):
         // Zircon AI заканчивает OCR пакета к 170 с → сервер CRM ждёт 200 с → nginx 210 с → здесь 220 с, чтобы
         // ответ сервера (или его 504) пришёл раньше, чем браузер оборвёт запрос.
-        timeout: 220000,
+        // Таймаут браузера считает и загрузку файлов (04.11.2026): 5 сканов на 160 МБ обрывались, хотя сервер успевал.
+        timeout: extractBatchTimeoutMs(files),
       },
     )
     return response.data

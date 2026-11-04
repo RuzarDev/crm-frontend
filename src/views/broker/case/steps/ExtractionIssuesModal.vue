@@ -1,14 +1,21 @@
+<script lang="ts">
+import type { Import40ExtractionResult } from '@/api/import40'
+
+/** Что показывает окно: один разбор или сводка по файлам («Каждый файл — отдельная ДТ»). */
+export type ExtractionIssues = Pick<Import40ExtractionResult, 'warnings' | 'criticalWarnings' | 'conflicts'>
+</script>
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZModal from '@/components/z/ZModal.vue'
-import type { Import40ExtractionConflict, Import40ExtractionResult } from '@/api/import40'
+import type { Import40ExtractionConflict } from '@/api/import40'
 
 // Замечания по пакету документов после автозаполнения ДТ (прежнее окно issues карточки): поля, где документы
 // разошлись (выбрано одно значение, остальные — для сверки), и прочие предупреждения.
 // Закрытие любым способом (кнопка, крестик, Escape, фон) — одно событие close: родитель переходит к созданной ДТ.
-const props = defineProps<{ open: boolean; issues: Import40ExtractionResult | null }>()
+const props = defineProps<{ open: boolean; issues: ExtractionIssues | null }>()
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 

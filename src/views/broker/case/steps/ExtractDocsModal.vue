@@ -26,13 +26,14 @@ const props = defineProps<{
   /** Дата создания ДТ известна — пояснение о «новых» документах. */
   sinceKnown?: boolean
 }>()
-const emit = defineEmits<{ 'update:open': [open: boolean]; submit: [payload: { fileIds: string[]; uploads: File[] }] }>()
+const emit = defineEmits<{ 'update:open': [open: boolean]; submit: [payload: { fileIds: string[]; uploads: File[]; perFile: boolean }] }>()
 const { t } = useI18n()
 const tx = (key: string, p?: Record<string, unknown>) => t(`broker.case.declaring.extract.${key}`, p ?? {})
 
 const caseFiles = computed(() => extractableCaseFiles(props.files))
 const selected = ref<Set<string>>(new Set())
 const uploads = ref<File[]>([])
+const perFile = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 // При каждом открытии — заново: отмечены инвойс и упаковочный лист (или defaultIds), файлов с компьютера нет.
@@ -40,6 +41,7 @@ watch(() => props.open, (open) => {
   if (!open) return
   selected.value = new Set(props.defaultIds ?? preselectedIds(caseFiles.value))
   uploads.value = []
+  perFile.value = false
 }, { immediate: true })
 const existing = computed(() => props.target === 'existing')
 const isNew = (f: Import40FileDto) => !!props.newIds?.includes(f.id)
@@ -67,9 +69,15 @@ const onPick = (e: Event) => {
 const removeUpload = (i: number) => { uploads.value = uploads.value.filter((_, j) => j !== i) }
 
 const count = computed(() => selected.value.size + uploads.value.length)
+// Несколько вагонов (04.11.2026): отметка видна, только когда есть что делить и создаётся новая ДТ.
+const canSplit = computed(() => !existing.value && count.value > 1)
 const submit = () => {
   if (!count.value || props.busy) return
-  emit('submit', { fileIds: caseFiles.value.filter((f) => selected.value.has(f.id)).map((f) => f.id), uploads: uploads.value })
+  emit('submit', {
+    fileIds: caseFiles.value.filter((f) => selected.value.has(f.id)).map((f) => f.id),
+    uploads: uploads.value,
+    perFile: canSplit.value && perFile.value,
+  })
 }
 </script>
 
@@ -110,6 +118,10 @@ const submit = () => {
           <PhFileArrowUp :size="15" aria-hidden="true" />{{ tx('add') }}
         </ZButton>
         <input ref="fileInput" type="file" multiple :accept="EXTRACT_ACCEPT" class="hidden" data-extract-input @change="onPick" />
+      </div>
+      <div v-if="canSplit" class="rounded-row bg-sunken px-3 py-2" data-extract-per-file>
+        <ZCheckbox v-model:checked="perFile" data-extract-per-file-check>{{ tx('perFile') }}</ZCheckbox>
+        <p class="m-0 mt-1 text-xs text-muted">{{ tx('perFileHint', { n: count }) }}</p>
       </div>
       <p class="m-0 text-xs text-muted">{{ tx('note') }}</p>
     </div>
