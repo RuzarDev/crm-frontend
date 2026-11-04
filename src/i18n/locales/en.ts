@@ -4157,6 +4157,7 @@ export default {
           severalInvoices: 'The package has {n} different invoices ({list}), but the declaration holds goods from only one: check the value and weight. If these are separate wagons, delete this declaration and recognise the files with “Each file is a separate declaration” ticked.',
           perFileDone: 'Declarations created: {n} of {total}',
           perFileFailed: 'No declaration was created',
+          perFileNoTransport: 'The wagon number was not found in the document: fill in box 18 by hand.',
           tooLargeForAi: 'The package is too large to recognise — remove the large scans or compress them and try again',
           tooLargeForAiMb: 'The package is too large to recognise — remove the large scans (each file up to {mb} MB) or compress them and try again',
           filesSaved: 'The uploaded files are saved in the request',
@@ -4184,6 +4185,7 @@ export default {
           // Гр. 2 «по поручению» (01.11.2026, правки 30.10 п.3).
           senderOnBehalf: 'Box 2: consignor per the waybill {consignor} “on behalf of” seller {seller}; the address is the waybill consignor’s — check it',
           senderOnBehalfLong: 'Box 2 is longer than {max} characters and was cut — check the name: {full}',
+          senderNameHan: 'The sender name is in Chinese only: enter it in Latin letters in box 2.',
           hanDropped: 'Bilingual description: {n} — only the Russian part is taken',
           modelFromDescription: 'Model taken from the description: {n}',
           placesAmbiguous: 'Places in text are ambiguous: {n} — enter places in the goods card: {list}',

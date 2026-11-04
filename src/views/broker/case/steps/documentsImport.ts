@@ -69,18 +69,43 @@ export function onBehalfSender(
   return seller ? { consignor, seller: seller.trim() } : null
 }
 
+/** Конец латинского названия компании в начале адреса: «… Co.,Ltd», «… Ltd.», «… LLC», «… Inc.». */
+const LATIN_COMPANY = /^([A-Za-z][A-Za-z0-9&'().\s,-]*?\b(?:Co\.?\s*,?\s*Ltd|Ltd|LLC|Inc|Corp)\b\.?)/i
+/** Хвост контактов и пометки перевозчика в адресе накладной: телефон, «КЖД». */
+const CONTACT_TAIL = /[\s,;]*(?:(?:Телефон|Tel\b|Phone)[\s\S]*|КЖД[\s\S]*)$/i
+
+/**
+ * СМГС: в гр. 1 наверху китайское название, а латинское — первой строкой адреса вместе с USCC (04.11.2026). Такое название
+ * нельзя подать в гр. 2, поэтому берём латинское, а из адреса убираем его, USCC, страну в начале и телефон.
+ * Название уже не на китайском или латинского в адресе нет — как есть.
+ */
+export function withLatinConsignor(source: Import40ExtractionPartySource): Import40ExtractionPartySource {
+  if (!hasHan(source.name) || !source.address) return source
+  const m = LATIN_COMPANY.exec(source.address.trim())
+  if (!m) return source
+  const address = source.address.trim().slice(m[0].length)
+    .replace(/^[\s.,;]*(?:USCC\s*:?\s*[A-Z0-9 ]*)?/i, '')
+    .replace(/^[\s.,;]*(?:CHINA|P\.?\s*R\.?\s*CHINA)\b[\s.,;]*/i, '')
+    .replace(CONTACT_TAIL, '')
+    .replace(/[\s,;]+$/, '')
+    .trim()
+  return { ...source, name: m[1].replace(/[\s,.]+$/, '').trim(), address: address || null }
+}
+
 /**
  * Гр. 2 «X ПО ПОРУЧЕНИЮ Y» (01.11.2026): адрес и страна — отправителя по накладной (справочник сторон или разбор адреса без
  * иероглифов, USCC и телефона). Длиннее колонки — обрезается с замечанием (не молча); краткое — до 120, как раньше.
  */
 export async function resolveOnBehalfSender(o: OnBehalfSender, notes: DocumentsNote[]): Promise<DocumentsBuilt['sender']> {
-  const consignor = upperRu(o.consignor.name)!
+  const source = withLatinConsignor(o.consignor)
+  if (hasHan(source.name)) notes.push({ key: 'senderNameHan' })
+  const consignor = upperRu(source.name)!
   const seller = upperRu(o.seller)!
   const full = `${consignor} ПО ПОРУЧЕНИЮ ${seller}`
   const name = full.length > SENDER_NAME_MAX ? full.slice(0, SENDER_NAME_MAX).trim() : full
   notes.push({ key: 'senderOnBehalf', params: { consignor, seller } })
   if (name !== full) notes.push({ key: 'senderOnBehalfLong', params: { max: SENDER_NAME_MAX, full } })
-  const resolved = await resolveSender(o.consignor.name, o.consignor.address ?? null, notes, o.consignor)
+  const resolved = await resolveSender(source.name, source.address ?? null, notes, source)
   if (!resolved) return null
   return { ...resolved, party: { ...resolved.party, name }, shortName: name.slice(0, SHORT_NAME_MAX) }
 }

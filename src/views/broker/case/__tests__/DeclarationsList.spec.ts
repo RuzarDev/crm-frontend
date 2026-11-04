@@ -641,6 +641,9 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(api.extractBatch).toHaveBeenNthCalledWith(1, 'c1', [files[0]], [])
     expect(api.extractBatch).toHaveBeenNthCalledWith(2, 'c1', [files[1]], [])
     expect(api.createDeclaration).toHaveBeenCalledTimes(2)
+    // Вагон заявки в ДТ не подставляется: у каждой ДТ свой; гр. 18 пуста — замечание с именем файла.
+    expect(api.createDeclaration.mock.calls[0][2]).toEqual({ skipCaseTransport: true })
+    expect(w.get('[data-issues-warnings]').text()).toContain('w1.pdf: Номер вагона в документе не найден')
     expect(msg.success).toHaveBeenCalledWith('Создано ДТ: 2 из 2')
     expect(router.currentRoute.value.path).toBe(before)
   })

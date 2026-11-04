@@ -13,7 +13,15 @@ const SECTIONS: ReadonlySet<string> = new Set(['documents', 'border-scans', 'ext
 
 /** Документы заявки, подходящие для распознавания (доверенности, счета СВХ, чеки и отметки — нет). */
 export function extractableCaseFiles(files: readonly Import40FileDto[]): Import40FileDto[] {
-  return files.filter((f) => SECTIONS.has(f.section) && EXTRACTABLE.test(f.originalFileName))
+  // Каждая неудачная попытка оставляет в заявке копии пакета (04.11.2026): одно имя и размер — один документ, остаётся новый.
+  const unique = new Map<string, Import40FileDto>()
+  for (const f of files) {
+    if (!SECTIONS.has(f.section) || !EXTRACTABLE.test(f.originalFileName)) continue
+    const key = `${f.originalFileName}\n${f.sizeBytes}`
+    const seen = unique.get(key)
+    if (!seen || f.createdAtUtc > seen.createdAtUtc) unique.set(key, f)
+  }
+  return [...unique.values()]
 }
 
 /** Что отметить сразу: инвойс и упаковочный лист из чек-листа; если таких нет — все Excel из документов клиента. */

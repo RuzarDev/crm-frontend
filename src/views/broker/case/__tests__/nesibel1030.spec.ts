@@ -6,7 +6,7 @@ import { caseIsRail, compositionMode, looksLikeWagons } from '@/utils/transportM
 import { chineseOnly, hasRussianPart, parseForeignAddress, russianPart, withoutPartyServiceParts } from '@/utils/importText'
 import { mergeImportDocs } from '@/views/broker/dt/goods/importMerge'
 import { emptyImportRow, type ImportDoc, type ImportRow } from '@/views/broker/dt/goods/importRows'
-import { onBehalfSender, resolveOnBehalfSender, type DocumentsNote } from '../steps/documentsImport'
+import { onBehalfSender, resolveOnBehalfSender, withLatinConsignor, type DocumentsNote } from '../steps/documentsImport'
 import { applyExcelFallback } from '../steps/excelFallback'
 
 const search = vi.fn()
@@ -200,5 +200,41 @@ describe('E3. Гр. 2: отправитель по накладной «по п�
     expect(a.apt).toBe('ROOM 11')
     // страна в конце — как раньше
     expect(parseForeignAddress('Room 1, Test City, China')!.countryText).toBe('China')
+  })
+})
+
+describe('гр. 2: китайское название накладной (04.11.2026)', () => {
+  const source = (name: string, address: string | null) => ({ name, address, docType: 'transport' }) as never
+
+  it('берёт латинское название из адреса и чистит адрес', () => {
+    const out = withLatinConsignor(source('测试货运有限公司',
+      'TeSt Forward Trading Co.,Ltd.USCC:91000000TEST0000 X1,China Room12,Floor 3,No.9 North Road, Test District, Chengdu'))
+    expect(out.name).toBe('TeSt Forward Trading Co.,Ltd')
+    expect(out.address).toBe('Room12,Floor 3,No.9 North Road, Test District, Chengdu')
+  })
+
+  it('пустой USCC, слитное «Co.Ltd», телефон и пометка перевозчика', () => {
+    const out = withLatinConsignor(source('测试货运有限公司', 'Test Forward Co.Ltd.USCC: ,China Room12, Chengdu Телефон:0000-111 КЖД'))
+    expect(out.name).toBe('Test Forward Co.Ltd')
+    expect(out.address).toBe('Room12, Chengdu')
+  })
+
+  it('латинское название не трогает, без латинского в адресе оставляет как есть', () => {
+    const latin = source('TEST TRADE LTD', 'Test Other Co.,Ltd.USCC:1,China Room1')
+    expect(withLatinConsignor(latin)).toBe(latin)
+    const chinese = source('测试货运有限公司', '四川省成都市')
+    expect(withLatinConsignor(chinese)).toBe(chinese)
+  })
+
+  it('гр. 2 «X ПО ПОРУЧЕНИЮ Y» с латинским X; только китайское — замечание', async () => {
+    const notes: DocumentsNote[] = []
+    const consignor = source('测试货运有限公司', 'Test Forward Co.,Ltd.USCC:1,China Room12, Chengdu')
+    const built = await resolveOnBehalfSender({ consignor, seller: 'TEST SELLER LTD' }, notes)
+    expect(built?.party.name).toBe('TEST FORWARD CO.,LTD ПО ПОРУЧЕНИЮ TEST SELLER LTD')
+    expect(notes.some((n) => n.key === 'senderNameHan')).toBe(false)
+
+    const han: DocumentsNote[] = []
+    await resolveOnBehalfSender({ consignor: source('测试货运有限公司', null), seller: 'TEST SELLER LTD' }, han)
+    expect(han.some((n) => n.key === 'senderNameHan')).toBe(true)
   })
 })

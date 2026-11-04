@@ -31,3 +31,16 @@ describe('«Из документов»: документы заявки для 
     expect(preselectedIds([f('x', 'documents', 'Инвойс.xls'), f('y', 'documents', 'cmr.pdf')])).toEqual(['x'])
   })
 })
+
+describe('extractableCaseFiles: копии неудачных попыток', () => {
+  const file = (id: string, name: string, size: number, at: string) =>
+    ({ id, section: 'extraction-batch', originalFileName: name, sizeBytes: size, createdAtUtc: at }) as never
+
+  it('одно имя и размер — один документ, остаётся новый; другой размер — отдельный', () => {
+    const list = [
+      file('old', '1.pdf', 100, '2026-11-04T08:00:29Z'), file('new', '1.pdf', 100, '2026-11-04T08:04:58Z'),
+      file('other', '1.pdf', 200, '2026-11-04T08:00:29Z'), file('two', '2.pdf', 100, '2026-11-04T08:00:29Z'),
+    ]
+    expect(extractableCaseFiles(list).map((f) => f.id).sort()).toEqual(['new', 'other', 'two'])
+  })
+})
