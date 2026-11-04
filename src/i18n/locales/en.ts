@@ -1326,6 +1326,8 @@ export default {
       authorizedBodyId: 'Body ID',
       formBlankNumber: 'Form number',
       deleteLabel: 'Delete document {n}',
+      copy: 'Copy',
+      copyLabel: 'Copy document {n}',
       goods: 'Items',
       goodsAll: 'All items',
       goodsAllShort: 'all items',

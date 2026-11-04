@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, toRaw, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhCaretDown, PhX } from '@phosphor-icons/vue'
+import { PhCaretDown, PhCopy, PhX } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZDate from '@/components/z/ZDate.vue'
@@ -32,6 +32,10 @@ import { dtDateFieldProps, dtDateIssue, dtDateWarning, validityBeforeStart } fro
 // + 10 лет, не раньше 2000 года; «действует по» раньше даты или «действует с». Предупреждение — золотая рамка даты и строка
 // под документом, видна и при свёрнутом «Ещё» (раскрыто — про «Действует с / по» текст под самими полями, без повтора).
 // В просмотре — нет (исправить нельзя; текст есть в готовности).
+// sortByCode — ДТ (правка декларанта 04.11.2026): строки на экране по возрастанию кода, как в печати и XML; без кода —
+// внизу, один код — в порядке ввода. Массив формы не переставляется: порядок сохраняет сервер, а строка на экране встаёт
+// на место сразу после выбора кода, и курсор уходит в «Номер» (ответ PUT форму не переписывает, см. useDtForm).
+// Копирование (04.11.2026) — кнопка в строке: копия со всеми полями сразу под исходной, курсор в «Номер».
 const props = withDefaults(defineProps<{
   items: Import40Doc44ItemInput[]
   readonly: boolean
@@ -40,7 +44,9 @@ const props = withDefaults(defineProps<{
   goodsOptions?: ZOption[]
   /** Проверять диапазон дат (ДТ). Запись транзита и партия пакета — пока без проверки (решение владельца). */
   checkDates?: boolean
-}>(), { extended: false, checkDates: false })
+  /** Показывать строки по возрастанию кода (ДТ). Запись транзита — как введено. */
+  sortByCode?: boolean
+}>(), { extended: false, checkDates: false, sortByCode: false })
 const { t } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.doc44.${key}`, p ?? {})
 
@@ -98,7 +104,19 @@ const newDoc = (): Import40Doc44ItemInput => {
   return props.extended ? { ...base, authorizedBody: null, authorizedBodyId: null, formBlankNumber: null } : base
 }
 
+const codeOf = (item: Import40Doc44ItemInput) => (item.docTypeCode ?? '').trim()
+const compareByCode = (a: Import40Doc44ItemInput, b: Import40Doc44ItemInput) => {
+  const [x, y] = [codeOf(a), codeOf(b)]
+  if (!x || !y) return Number(!x) - Number(!y)
+  return x < y ? -1 : x > y ? 1 : 0
+}
+const rows = computed(() => (props.sortByCode ? [...props.items].sort(compareByCode) : props.items))
+
 const listEl = ref<HTMLElement | null>(null)
+const focusNumber = async (item: Import40Doc44ItemInput) => {
+  await nextTick()
+  listEl.value?.querySelector<HTMLElement>(`[id="${domId(item, 'number')}"]`)?.focus()
+}
 const add = async () => {
   if (props.readonly) return
   props.items.push(newDoc())
@@ -107,6 +125,12 @@ const add = async () => {
   rowsEls?.[rowsEls.length - 1]?.querySelector<HTMLElement>('[data-f="docTypeCode"]')?.focus()
 }
 defineExpose({ add })
+const copy = (item: Import40Doc44ItemInput) => {
+  if (props.readonly) return
+  const twin = { ...toRaw(item) }
+  props.items.splice(props.items.indexOf(item) + 1, 0, twin)
+  void focusNumber(twin)
+}
 const remove = (item: Import40Doc44ItemInput) => {
   if (props.readonly) return
   const at = props.items.indexOf(item)
@@ -122,6 +146,7 @@ const onCode = (item: Import40Doc44ItemInput, v: unknown) => {
   item.docTypeCode = code
   const found = classifiers.cache['2009']?.find((c) => c.code === code)
   if (found) item.docTypeName = found.nameRu
+  if (code && props.sortByCode) void focusNumber(item)
 }
 
 // ---- Привязка к товарам ДТ ----
@@ -210,7 +235,9 @@ const cellLabel = 'text-xs leading-4 text-ink-3 @2xl:sr-only'
 const cell = 'flex min-w-0 flex-col gap-1'
 const ctl = 'max-sm:h-11'
 const boxCtl = 'max-sm:*:h-11'
-const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11'
+const iconBase = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden transition-colors focus-visible:shadow-focus max-sm:size-11'
+const iconBtn = `${iconBase} hover:bg-tone-danger-bg hover:text-tone-danger-fg`
+const copyBtn = `${iconBase} hover:bg-canvas hover:text-ink`
 </script>
 
 <template>
@@ -226,7 +253,7 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
       </div>
       <ul role="list" class="m-0 flex list-none flex-col p-0 @max-2xl:gap-2.5">
         <li
-          v-for="(item, index) in items"
+          v-for="(item, index) in rows"
           :key="keyOf(item)"
           class="flex min-w-0 flex-col @max-2xl:gap-3 @max-2xl:rounded-row @max-2xl:border @max-2xl:border-line @max-2xl:bg-surface @max-2xl:p-3 @2xl:border-t @2xl:border-line @2xl:first:border-t-0"
           data-doc44-row
@@ -296,13 +323,23 @@ const iconBtn = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify
                   >{{ extrasCount(item) }}</span>
                   <PhCaretDown :size="14" aria-hidden="true" class="transition-transform duration-150 motion-reduce:transition-none" :class="more.has(keyOf(item)) && 'rotate-180'" />
                 </ZButton>
-                <button
-                  type="button"
-                  :class="iconBtn"
-                  :aria-label="tr('deleteLabel', { n: index + 1 })"
-                  data-doc44-delete
-                  @click="remove(item)"
-                ><PhX :size="16" aria-hidden="true" /></button>
+                <span class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    :class="copyBtn"
+                    :aria-label="tr('copyLabel', { n: index + 1 })"
+                    :title="tr('copy')"
+                    data-doc44-copy
+                    @click="copy(item)"
+                  ><PhCopy :size="16" aria-hidden="true" /></button>
+                  <button
+                    type="button"
+                    :class="iconBtn"
+                    :aria-label="tr('deleteLabel', { n: index + 1 })"
+                    data-doc44-delete
+                    @click="remove(item)"
+                  ><PhX :size="16" aria-hidden="true" /></button>
+                </span>
               </div>
             </div>
 

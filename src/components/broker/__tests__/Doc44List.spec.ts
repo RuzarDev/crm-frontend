@@ -28,12 +28,12 @@ const doc = (o: Partial<Import40Doc44ItemInput> = {}): Import40Doc44ItemInput =>
 
 let w: VueWrapper
 let items: Import40Doc44ItemInput[]
-const mount = async (list: Import40Doc44ItemInput[], o: { readonly?: boolean; goodsOptions?: typeof goods | null; extended?: boolean; checkDates?: boolean } = {}) => {
+const mount = async (list: Import40Doc44ItemInput[], o: { readonly?: boolean; goodsOptions?: typeof goods | null; extended?: boolean; checkDates?: boolean; sortByCode?: boolean } = {}) => {
   items = reactive(list)
   w = mountWithI18n(Doc44List, {
     props: {
       items, readonly: o.readonly ?? false, ...(o.goodsOptions === null ? {} : { goodsOptions: o.goodsOptions ?? goods }), ...(o.extended ? { extended: true } : {}),
-      ...(o.checkDates ? { checkDates: true } : {}),
+      ...(o.checkDates ? { checkDates: true } : {}), ...(o.sortByCode ? { sortByCode: true } : {}),
     },
     attachTo: document.body,
     global: { plugins: [createPinia()], stubs: { ZSelect: SelectStub } },
@@ -208,5 +208,80 @@ describe('Doc44List — диапазон дат (№14б, check-dates)', () => {
     w.unmount()
     await mount([doc({ docDate: '2202-09-10' })], { checkDates: true, readonly: true })
     expect(w.find('[data-doc44-date-warn]').exists()).toBe(false)
+  })
+})
+
+describe('Doc44List — порядок по коду (ДТ, sort-by-code)', () => {
+  const numbers = () => rows().map((r) => (r.get('[data-f="docNumber"]').element as HTMLInputElement).value)
+
+  it('строки идут по возрастанию кода, без кода — внизу; массив формы не переставляется', async () => {
+    await mount([doc({ docNumber: 'пусто' }), doc({ docTypeCode: '11004', docNumber: 'дов' }), doc({ docTypeCode: '04021', docNumber: 'инв' })], { sortByCode: true })
+    expect(numbers()).toEqual(['инв', 'дов', 'пусто'])
+    expect(items.map((i) => i.docNumber)).toEqual(['пусто', 'дов', 'инв'])
+  })
+
+  it('документы с одним кодом сохраняют порядок ввода', async () => {
+    await mount([doc({ docTypeCode: '04021', docNumber: '2' }), doc({ docTypeCode: '02015', docNumber: 'м' }), doc({ docTypeCode: '04021', docNumber: '1' })], { sortByCode: true })
+    expect(numbers()).toEqual(['м', '2', '1'])
+  })
+
+  it('выбран код: строка встаёт на своё место, курсор — в «Номер» этой строки', async () => {
+    await mount([doc({ docTypeCode: '04021', docNumber: 'инв' }), doc({ docNumber: 'новый' })], { sortByCode: true })
+    await rows()[1].get('[data-option="02015"]').trigger('click')
+    await flushPromises()
+    expect(numbers()).toEqual(['новый', 'инв'])
+    expect(document.activeElement).toBe(rows()[0].get('[data-f="docNumber"]').element)
+  })
+
+  it('без sort-by-code (запись транзита) порядок — как в массиве', async () => {
+    await mount([doc({ docTypeCode: '11004', docNumber: 'дов' }), doc({ docTypeCode: '04021', docNumber: 'инв' })], { goodsOptions: null, extended: true })
+    expect(numbers()).toEqual(['дов', 'инв'])
+  })
+})
+
+describe('Doc44List — копирование документа', () => {
+  const copyBtn = (i = 0) => rows()[i].get('[data-doc44-copy]')
+
+  it('копия со всеми полями встаёт сразу под исходной, курсор — в её «Номер»', async () => {
+    const source = doc({
+      docTypeCode: '04021', docTypeName: 'Инвойс', docNumber: 'INV-1', docDate: '2026-11-01', appliesToAll: false, goodsItemIndexes: '0,1',
+      docStartDate: '2026-11-02', docValidityDate: '2026-12-01', issueCountryCode: 'CN', presentKindCode: '1',
+    })
+    await mount([source, doc({ docTypeCode: '11002', docNumber: 'дог' })])
+    await copyBtn().trigger('click')
+    await flushPromises()
+    expect(items).toHaveLength(3)
+    expect(items.map((i) => i.docNumber)).toEqual(['INV-1', 'INV-1', 'дог'])
+    expect({ ...items[1] }).toEqual({ ...items[0] })
+    expect(document.activeElement).toBe(f('docNumber', 1).element)
+  })
+
+  it('правка копии не меняет исходный документ', async () => {
+    await mount([doc({ docTypeCode: '04021', docNumber: 'INV-1' })])
+    await copyBtn().trigger('click')
+    await flushPromises()
+    await f('docNumber', 1).setValue('INV-2')
+    expect(items.map((i) => i.docNumber)).toEqual(['INV-1', 'INV-2'])
+  })
+
+  it('при sort-by-code копия остаётся рядом с исходной', async () => {
+    await mount([doc({ docTypeCode: '04021', docNumber: 'INV-1' }), doc({ docTypeCode: '02015', docNumber: 'м' }), doc({ docTypeCode: '04021', docNumber: 'INV-9' })], { sortByCode: true })
+    await copyBtn(1).trigger('click')
+    await flushPromises()
+    expect(rows().map((r) => (r.get('[data-f="docNumber"]').element as HTMLInputElement).value)).toEqual(['м', 'INV-1', 'INV-1', 'INV-9'])
+    expect(document.activeElement).toBe(f('docNumber', 2).element)
+  })
+
+  it('запись транзита: копируются её поля (уполномоченный орган)', async () => {
+    await mount([{ docTypeCode: '04021', docTypeName: 'Инвойс', docNumber: '1', docDate: null, authorizedBody: 'Орган', authorizedBodyId: '7', formBlankNumber: 'Б-1' }], { goodsOptions: null, extended: true })
+    await copyBtn().trigger('click')
+    await flushPromises()
+    expect(items[1].authorizedBody).toBe('Орган')
+    expect(items[1].formBlankNumber).toBe('Б-1')
+  })
+
+  it('в просмотре копирования нет', async () => {
+    await mount([doc({ docTypeCode: '04021' })], { readonly: true })
+    expect(w.find('[data-doc44-copy]').exists()).toBe(false)
   })
 })
