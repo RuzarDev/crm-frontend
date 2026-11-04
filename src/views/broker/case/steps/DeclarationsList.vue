@@ -235,7 +235,9 @@ interface BatchOutcome {
 }
 
 /** Один разбор в новую ДТ. Ошибка не бросается: { failed } — текст с этапом, на котором остановились. */
-const extractIntoDt = async (files: File[], fileIds: readonly string[]): Promise<BatchOutcome | { failed: string }> => {
+const extractIntoDt = async (
+  files: File[], fileIds: readonly string[], perFile = false,
+): Promise<BatchOutcome | { failed: string }> => {
   const caseId = kase.value.id
   let stage: 'extract' | 'create' = 'extract'
   let extractError: unknown = null
@@ -256,10 +258,15 @@ const extractIntoDt = async (files: File[], fileIds: readonly string[]): Promise
       docKindNames, cmrInBatch: cmrInBatch(files, fileIds, props.ctx.files),
     })
     stage = 'create'
-    const created = await import40Api.createDeclaration(caseId, prepared.body)
+    const created = perFile
+      ? await import40Api.createDeclaration(caseId, prepared.body, { skipCaseTransport: true })
+      : await import40Api.createDeclaration(caseId, prepared.body)
     // Сервер взял адрес получателя из профиля компании клиента — «адрес из реестра по БИН» не показываем (ревью 22.10).
     const profileAddress = receiverAddressReplaced(prepared.body, created)
     const warnings = prepared.notes.filter((n) => !(profileAddress && n.key === 'receiverByBin')).map(noteText)
+    if (perFile && !created.arrivalTransportNumbers?.some((m) => m.number?.trim())) {
+      warnings.push(t('broker.case.declaring.batch.perFileNoTransport'))
+    }
     // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить. Тем же
     // правилом, что сервер (БИН, без БИН — название); нет профиля клиента — не с чем сравнить, без предупреждения.
     if (prepared.receiverName && receiverIsClient(created) === false) {
@@ -332,7 +339,7 @@ const runPerFile = async (files: File[], fileIds: readonly string[]) => {
   await props.ctx.actions.mutate('dt-batch', async () => {
     for (const [i, unit] of units.entries()) {
       perFileProgress.value = { done: i, total: units.length }
-      const out = await extractIntoDt(unit.files, unit.fileIds)
+      const out = await extractIntoDt(unit.files, unit.fileIds, true)
       const named = (text: string) => `${unit.name}: ${text}`
       if ('failed' in out) {
         merged.criticalWarnings!.push(named(out.failed))

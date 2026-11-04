@@ -1168,10 +1168,13 @@ export const import40Api = {
   createDeclaration: async (
     caseId: string,
     data: Import40DeclarationUpsert,
+    // Вагоны и машины заявки в гр.18 не подставлять: режим «Каждый файл — отдельная ДТ» (04.11.2026).
+    opts?: { skipCaseTransport?: boolean },
   ): Promise<Import40DeclarationDto> => {
     const response = await apiClient.post<Import40DeclarationDto>(
       `/import40/${encodeURIComponent(caseId)}/declarations`,
       data,
+      opts?.skipCaseTransport ? { params: { skipCaseTransport: true } } : undefined,
     )
     return response.data
   },

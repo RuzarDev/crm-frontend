@@ -129,7 +129,7 @@ export function useDocsIntoDt(o: UseDocsIntoDtOptions) {
     // Замечания про отправителя и получателя — только если их графы заполняются из документов (иначе стороны ДТ не меняются).
     const party: Record<string, 'sender' | 'receiver'> = {
       senderFromRefs: 'sender', senderAddressHan: 'sender', senderAddressClipped: 'sender', receiverByBin: 'receiver',
-      senderOnBehalf: 'sender', senderOnBehalfLong: 'sender',
+      senderOnBehalf: 'sender', senderOnBehalfLong: 'sender', senderNameHan: 'sender',
     }
     const notes = pd.prepared.notes.filter((n) => !party[n.key] || p.header.groups.includes(party[n.key])).map((n) => documentsNoteText(n, t))
     return [...own, ...notes, ...pd.result.warnings]
