@@ -1326,6 +1326,8 @@ export default {
       authorizedBodyId: 'Орган ИД',
       formBlankNumber: 'Бланк нөмірі',
       deleteLabel: '{n}-құжатты жою',
+      copy: 'Көшіру',
+      copyLabel: '{n}-құжатты көшіру',
       goods: 'Тауарлар',
       goodsAll: 'Барлық тауарға',
       goodsAllShort: 'барлық тауар',

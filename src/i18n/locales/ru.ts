@@ -1330,6 +1330,8 @@ export default {
       authorizedBodyId: 'ИД органа',
       formBlankNumber: 'Номер бланка',
       deleteLabel: 'Удалить документ {n}',
+      copy: 'Копировать',
+      copyLabel: 'Копировать документ {n}',
       goods: 'Товары',
       goodsAll: 'На все товары',
       goodsAllShort: 'все товары',
