@@ -32,9 +32,8 @@ import { dtDateFieldProps, dtDateIssue, dtDateWarning, validityBeforeStart } fro
 // + 10 лет, не раньше 2000 года; «действует по» раньше даты или «действует с». Предупреждение — золотая рамка даты и строка
 // под документом, видна и при свёрнутом «Ещё» (раскрыто — про «Действует с / по» текст под самими полями, без повтора).
 // В просмотре — нет (исправить нельзя; текст есть в готовности).
-// sortByCode — ДТ (правка декларанта 04.11.2026): строки на экране по возрастанию кода, как в печати и XML; без кода —
-// внизу, один код — в порядке ввода. Массив формы не переставляется: порядок сохраняет сервер, а строка на экране встаёт
-// на место сразу после выбора кода, и курсор уходит в «Номер» (ответ PUT форму не переписывает, см. useDtForm).
+// sortByCode — ДТ (правка декларанта 04.11.2026): после выбора кода курсор уходит в «Номер». Порядок меняет декларант кнопкой
+// (sort() снаружи, 04.11.2026): новая строка стоит внизу, пока не нажали; без кода — внизу, один код — в порядке ввода.
 // Копирование (04.11.2026) — кнопка в строке: копия со всеми полями сразу под исходной, курсор в «Номер».
 const props = withDefaults(defineProps<{
   items: Import40Doc44ItemInput[]
@@ -44,7 +43,7 @@ const props = withDefaults(defineProps<{
   goodsOptions?: ZOption[]
   /** Проверять диапазон дат (ДТ). Запись транзита и партия пакета — пока без проверки (решение владельца). */
   checkDates?: boolean
-  /** Показывать строки по возрастанию кода (ДТ). Запись транзита — как введено. */
+  /** ДТ: после выбора кода — курсор в «Номер». Запись транзита — нет. */
   sortByCode?: boolean
 }>(), { extended: false, checkDates: false, sortByCode: false })
 const { t } = useI18n()
@@ -110,7 +109,13 @@ const compareByCode = (a: Import40Doc44ItemInput, b: Import40Doc44ItemInput) => 
   if (!x || !y) return Number(!x) - Number(!y)
   return x < y ? -1 : x > y ? 1 : 0
 }
-const rows = computed(() => (props.sortByCode ? [...props.items].sort(compareByCode) : props.items))
+/** Строки уже по порядку: кнопке «Отсортировать» нечего делать. */
+const isSorted = computed(() => props.items.every((item, i) => i === 0 || compareByCode(props.items[i - 1]!, item) <= 0))
+const sort = () => {
+  if (props.readonly) return
+  const sorted = [...props.items].sort(compareByCode)
+  props.items.splice(0, props.items.length, ...sorted)
+}
 
 const listEl = ref<HTMLElement | null>(null)
 const focusNumber = async (item: Import40Doc44ItemInput) => {
@@ -124,7 +129,7 @@ const add = async () => {
   const rowsEls = listEl.value?.querySelectorAll<HTMLElement>('[data-doc44-row]')
   rowsEls?.[rowsEls.length - 1]?.querySelector<HTMLElement>('[data-f="docTypeCode"]')?.focus()
 }
-defineExpose({ add })
+defineExpose({ add, sort, isSorted })
 const copy = (item: Import40Doc44ItemInput) => {
   if (props.readonly) return
   const twin = { ...toRaw(item) }
@@ -253,7 +258,7 @@ const copyBtn = `${iconBase} hover:bg-canvas hover:text-ink`
       </div>
       <ul role="list" class="m-0 flex list-none flex-col p-0 @max-2xl:gap-2.5">
         <li
-          v-for="(item, index) in rows"
+          v-for="(item, index) in items"
           :key="keyOf(item)"
           class="flex min-w-0 flex-col @max-2xl:gap-3 @max-2xl:rounded-row @max-2xl:border @max-2xl:border-line @max-2xl:bg-surface @max-2xl:p-3 @2xl:border-t @2xl:border-line @2xl:first:border-t-0"
           data-doc44-row

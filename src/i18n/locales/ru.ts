@@ -1848,6 +1848,7 @@ export default {
         prevTitle: 'Предшествующие документы',
         doc44Title: 'Представленные документы',
         doc44Add: 'Добавить документ',
+        doc44Sort: 'Отсортировать',
         goodsOption: 'Товар {n} · {text}',
         goodsOptionBare: 'Товар {n}',
         prev: {

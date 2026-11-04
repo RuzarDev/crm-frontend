@@ -1844,6 +1844,7 @@ export default {
         prevTitle: 'Алдыңғы құжаттар',
         doc44Title: 'Ұсынылған құжаттар',
         doc44Add: 'Құжат қосу',
+        doc44Sort: 'Сұрыптау',
         goodsOption: '{n}-тауар · {text}',
         goodsOptionBare: '{n}-тауар',
         prev: {

@@ -211,31 +211,41 @@ describe('Doc44List — диапазон дат (№14б, check-dates)', () => {
   })
 })
 
-describe('Doc44List — порядок по коду (ДТ, sort-by-code)', () => {
+describe('Doc44List — сортировка кнопкой (ДТ)', () => {
   const numbers = () => rows().map((r) => (r.get('[data-f="docNumber"]').element as HTMLInputElement).value)
+  type Exposed = { sort: () => void; isSorted: boolean }
+  const list = () => w.vm as unknown as Exposed
 
-  it('строки идут по возрастанию кода, без кода — внизу; массив формы не переставляется', async () => {
-    await mount([doc({ docNumber: 'пусто' }), doc({ docTypeCode: '11004', docNumber: 'дов' }), doc({ docTypeCode: '04021', docNumber: 'инв' })], { sortByCode: true })
-    expect(numbers()).toEqual(['инв', 'дов', 'пусто'])
-    expect(items.map((i) => i.docNumber)).toEqual(['пусто', 'дов', 'инв'])
+  it('без нажатия строки стоят как введены, новая строка — внизу', async () => {
+    await mount([doc({ docTypeCode: '11004', docNumber: 'дов' }), doc({ docTypeCode: '04021', docNumber: 'инв' })], { sortByCode: true })
+    expect(numbers()).toEqual(['дов', 'инв'])
+    expect(list().isSorted).toBe(false)
   })
 
-  it('документы с одним кодом сохраняют порядок ввода', async () => {
-    await mount([doc({ docTypeCode: '04021', docNumber: '2' }), doc({ docTypeCode: '02015', docNumber: 'м' }), doc({ docTypeCode: '04021', docNumber: '1' })], { sortByCode: true })
-    expect(numbers()).toEqual(['м', '2', '1'])
+  it('sort(): по возрастанию кода, без кода внизу, один код в порядке ввода', async () => {
+    await mount([
+      doc({ docNumber: 'пусто' }), doc({ docTypeCode: '04021', docNumber: '2' }), doc({ docTypeCode: '02015', docNumber: 'м' }),
+      doc({ docTypeCode: '04021', docNumber: '1' }),
+    ], { sortByCode: true })
+    list().sort()
+    await flushPromises()
+    expect(numbers()).toEqual(['м', '2', '1', 'пусто'])
+    expect(items.map((i) => i.docNumber)).toEqual(['м', '2', '1', 'пусто'])
+    expect(list().isSorted).toBe(true)
   })
 
-  it('выбран код: строка встаёт на своё место, курсор — в «Номер» этой строки', async () => {
+  it('в просмотре sort() ничего не меняет', async () => {
+    await mount([doc({ docTypeCode: '11004', docNumber: 'дов' }), doc({ docTypeCode: '04021', docNumber: 'инв' })], { sortByCode: true, readonly: true })
+    list().sort()
+    expect(items.map((i) => i.docNumber)).toEqual(['дов', 'инв'])
+  })
+
+  it('выбран код: строка остаётся на месте, курсор — в «Номер» этой строки', async () => {
     await mount([doc({ docTypeCode: '04021', docNumber: 'инв' }), doc({ docNumber: 'новый' })], { sortByCode: true })
     await rows()[1].get('[data-option="02015"]').trigger('click')
     await flushPromises()
-    expect(numbers()).toEqual(['новый', 'инв'])
-    expect(document.activeElement).toBe(rows()[0].get('[data-f="docNumber"]').element)
-  })
-
-  it('без sort-by-code (запись транзита) порядок — как в массиве', async () => {
-    await mount([doc({ docTypeCode: '11004', docNumber: 'дов' }), doc({ docTypeCode: '04021', docNumber: 'инв' })], { goodsOptions: null, extended: true })
-    expect(numbers()).toEqual(['дов', 'инв'])
+    expect(numbers()).toEqual(['инв', 'новый'])
+    expect(document.activeElement).toBe(rows()[1].get('[data-f="docNumber"]').element)
   })
 })
 
@@ -264,12 +274,12 @@ describe('Doc44List — копирование документа', () => {
     expect(items.map((i) => i.docNumber)).toEqual(['INV-1', 'INV-2'])
   })
 
-  it('при sort-by-code копия остаётся рядом с исходной', async () => {
+  it('в ДТ копия остаётся рядом с исходной', async () => {
     await mount([doc({ docTypeCode: '04021', docNumber: 'INV-1' }), doc({ docTypeCode: '02015', docNumber: 'м' }), doc({ docTypeCode: '04021', docNumber: 'INV-9' })], { sortByCode: true })
-    await copyBtn(1).trigger('click')
+    await copyBtn(0).trigger('click')
     await flushPromises()
-    expect(rows().map((r) => (r.get('[data-f="docNumber"]').element as HTMLInputElement).value)).toEqual(['м', 'INV-1', 'INV-1', 'INV-9'])
-    expect(document.activeElement).toBe(f('docNumber', 2).element)
+    expect(rows().map((r) => (r.get('[data-f="docNumber"]').element as HTMLInputElement).value)).toEqual(['INV-1', 'INV-1', 'м', 'INV-9'])
+    expect(document.activeElement).toBe(f('docNumber', 1).element)
   })
 
   it('запись транзита: копируются её поля (уполномоченный орган)', async () => {
