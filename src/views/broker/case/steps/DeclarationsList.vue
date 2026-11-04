@@ -26,8 +26,9 @@ import {
   dtListActive, dtPath, dtRowActions, filterDeclarations, groupDeclarations, hasSplitParts, isLiveSplitPart, missingPreview,
   splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
-import ExtractionIssuesModal from './ExtractionIssuesModal.vue'
+import ExtractionIssuesModal, { type ExtractionIssues } from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
+import { invoiceNumbers } from './extractDocs'
 import CopyDtModal from './CopyDtModal.vue'
 import { prepareDocumentsDeclaration, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from './documentsSources'
@@ -212,34 +213,34 @@ const exportBatch = async () => {
 // «Из документов»: пакет файлов → извлечение (Aqniet) → создание ДТ → переход к ней; при конфликтах/замечаниях —
 // сначала окно замечаний, переход — при его закрытии. Ошибка — тост с этапом, на котором остановились.
 // 19.10.2026: сначала окно выбора — документы заявки (уже загруженные, без повторной загрузки) и/или файлы с диска.
-const issues = ref<Import40ExtractionResult | null>(null)
+const issues = ref<ExtractionIssues | null>(null)
 const issuesOpen = ref(false)
 const pickOpen = ref(false)
 let pendingDt: string | null = null
 
 const pickBatch = () => { if (!busy()) pickOpen.value = true }
-const onPicked = async ({ fileIds, uploads }: { fileIds: string[]; uploads: File[] }) => {
+const onPicked = async ({ fileIds, uploads, perFile }: { fileIds: string[]; uploads: File[]; perFile?: boolean }) => {
   pickOpen.value = false
-  await runBatch(uploads, fileIds)
+  await (perFile ? runPerFile(uploads, fileIds) : runBatch(uploads, fileIds))
 }
 /** Замечание конвейера импорта → текст окна замечаний (Excel набора и справочники — documentsSources, 29.10.2026). */
 const noteText = (n: DocumentsNote): string => documentsNoteText(n, t)
 
-/**
- * Разбор в новую ДТ: files — с диска (сохраняются в заявку), fileIds — уже загруженные документы заявки (выбранные в
- * окне или сканы с границы, StepDeclaring) — их сервер берёт из хранилища.
- */
-const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
-  if ((!files.length && !fileIds.length) || busy()) return
+interface BatchOutcome {
+  dtId: string
+  extracted: Import40ExtractionResult
+  warnings: string[]
+  critical: string[]
+  usedExcel: boolean
+}
+
+/** Один разбор в новую ДТ. Ошибка не бросается: { failed } — текст с этапом, на котором остановились. */
+const extractIntoDt = async (files: File[], fileIds: readonly string[]): Promise<BatchOutcome | { failed: string }> => {
   const caseId = kase.value.id
   let stage: 'extract' | 'create' = 'extract'
-  let result: Import40ExtractionResult | null = null
-  let createdId: string | null = null
-  let usedExcel = false
-  let extraWarnings: string[] = []
   let extractError: unknown = null
-  const ok = await props.ctx.actions.mutate('dt-batch', async () => {
-    result = await import40Api.extractBatch(caseId, files, fileIds).catch((e: unknown) => {
+  try {
+    const result = await import40Api.extractBatch(caseId, files, fileIds).catch((e: unknown) => {
       extractError = e
       throw e
     })
@@ -254,42 +255,107 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
     const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, {
       docKindNames, cmrInBatch: cmrInBatch(files, fileIds, props.ctx.files),
     })
-    usedExcel = prepared.usedExcelGoods
     stage = 'create'
     const created = await import40Api.createDeclaration(caseId, prepared.body)
-    createdId = created.id
     // Сервер взял адрес получателя из профиля компании клиента — «адрес из реестра по БИН» не показываем (ревью 22.10).
     const profileAddress = receiverAddressReplaced(prepared.body, created)
-    extraWarnings = prepared.notes.filter((n) => !(profileAddress && n.key === 'receiverByBin')).map(noteText)
+    const warnings = prepared.notes.filter((n) => !(profileAddress && n.key === 'receiverByBin')).map(noteText)
     // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить. Тем же
     // правилом, что сервер (БИН, без БИН — название); нет профиля клиента — не с чем сравнить, без предупреждения.
     if (prepared.receiverName && receiverIsClient(created) === false) {
-      extraWarnings.push(t('broker.case.declaring.batch.receiverMismatch', { name: prepared.receiverName }))
+      warnings.push(t('broker.case.declaring.batch.receiverMismatch', { name: prepared.receiverName }))
     }
     // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто не привязана к ДТ.
     if (result.documentCheckId) {
       await documentChecksApi.link(caseId, result.documentCheckId, created.id).catch(() => undefined)
     }
-  }, { reload: false })
-  const extracted = result as Import40ExtractionResult | null
-  const dtId = createdId as string | null
-  if (!ok || !extracted || !dtId) {
+    // Zircon AI берёт товары одного инвойса (04.11.2026): без предупреждения стоимость ДТ занижена без следов.
+    const invoices = invoiceNumbers(result.extras?.documents)
+    const critical = invoices.length > 1
+      ? [t('broker.case.declaring.batch.severalInvoices', { n: invoices.length, list: invoices.join(', ') })]
+      : []
+    return { dtId: created.id, extracted: result, warnings, critical, usedExcel: prepared.usedExcelGoods }
+  } catch {
     // Пакет больше предела распознавания (02.11.2026) или сервис занят (04.11.2026) — понятный текст, а не «не удалось распознать».
     const refusal = stage === 'extract' ? extractionRefusalText(extractError, t) : null
-    message.error(refusal ?? t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate'))
+    return { failed: refusal ?? t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate') }
+  }
+}
+
+/**
+ * Разбор в новую ДТ: files — с диска (сохраняются в заявку), fileIds — уже загруженные документы заявки (выбранные в
+ * окне или сканы с границы, StepDeclaring) — их сервер берёт из хранилища.
+ */
+const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
+  if ((!files.length && !fileIds.length) || busy()) return
+  const caseId = kase.value.id
+  let outcome: BatchOutcome | { failed: string } | null = null
+  await props.ctx.actions.mutate('dt-batch', async () => { outcome = await extractIntoDt(files, fileIds) }, { reload: false })
+  const out = outcome as BatchOutcome | { failed: string } | null
+  if (!out) return
+  if ('failed' in out) {
+    message.error(out.failed)
     return
   }
-  message.success(t(usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))
-  const warnings = [...extracted.warnings, ...extraWarnings]
-  if (extracted.conflicts.length || warnings.length) {
-    issues.value = { ...extracted, warnings }
-    pendingDt = dtId
+  message.success(t(out.usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))
+  const warnings = [...out.extracted.warnings, ...out.warnings, ...out.critical]
+  if (out.extracted.conflicts.length || warnings.length) {
+    issues.value = {
+      ...out.extracted, warnings, criticalWarnings: [...(out.extracted.criticalWarnings ?? []), ...out.critical],
+    }
+    pendingDt = out.dtId
     issuesOpen.value = true
     return
   }
-  await router.push(dtPath(caseId, dtId))
+  await router.push(dtPath(caseId, out.dtId))
 }
 defineExpose({ runBatch })
+
+// Каждый файл — своя ДТ (04.11.2026): вагоны идут отдельными ДТ, в файле своя накладная и свой инвойс. Файлы разбираются
+// по очереди, сбой одного не останавливает остальные; остаёмся в списке ДТ.
+const perFileProgress = ref<{ done: number; total: number } | null>(null)
+const fromDocsBusyText = computed(() => perFileProgress.value
+  ? t('broker.case.declaring.list.fromDocsProgress', { n: perFileProgress.value.done + 1, total: perFileProgress.value.total })
+  : t('broker.case.declaring.list.fromDocsBusy'))
+
+const runPerFile = async (files: File[], fileIds: readonly string[]) => {
+  if ((!files.length && !fileIds.length) || busy()) return
+  const units = [
+    ...fileIds.map((id) => ({
+      name: props.ctx.files.find((f) => f.id === id)?.originalFileName ?? id, files: [] as File[], fileIds: [id],
+    })),
+    ...files.map((f) => ({ name: f.name, files: [f], fileIds: [] as string[] })),
+  ]
+  const merged: ExtractionIssues = { warnings: [], criticalWarnings: [], conflicts: [] }
+  let created = 0
+  perFileProgress.value = { done: 0, total: units.length }
+  await props.ctx.actions.mutate('dt-batch', async () => {
+    for (const [i, unit] of units.entries()) {
+      perFileProgress.value = { done: i, total: units.length }
+      const out = await extractIntoDt(unit.files, unit.fileIds)
+      const named = (text: string) => `${unit.name}: ${text}`
+      if ('failed' in out) {
+        merged.criticalWarnings!.push(named(out.failed))
+        continue
+      }
+      created += 1
+      const critical = [...(out.extracted.criticalWarnings ?? []), ...out.critical].map(named)
+      merged.criticalWarnings!.push(...critical)
+      merged.warnings.push(...critical, ...[...out.extracted.warnings, ...out.warnings]
+        .filter((w) => !out.extracted.criticalWarnings?.includes(w)).map(named))
+      merged.conflicts.push(...out.extracted.conflicts.map((c) => ({ ...c, fieldLabel: named(c.fieldLabel) })))
+    }
+  })
+  perFileProgress.value = null
+  if (created) message.success(t('broker.case.declaring.batch.perFileDone', { n: created, total: units.length }))
+  else message.error(t('broker.case.declaring.batch.perFileFailed'))
+  merged.warnings.push(...merged.criticalWarnings!.filter((w) => !merged.warnings.includes(w)))
+  if (merged.conflicts.length || merged.warnings.length) {
+    issues.value = merged
+    pendingDt = null
+    issuesOpen.value = true
+  }
+}
 const closeIssues = () => {
   issuesOpen.value = false
   const dtId = pendingDt
@@ -345,7 +411,7 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
           <ZTooltip :title="declHint || t('broker.case.declaring.list.fromDocsHint')">
             <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
               <ZButton variant="ghost" size="sm" :class="toolBtn" :disabled="blocked('dt-batch')" :loading="pending('dt-batch')" data-dt-from-docs @click="pickBatch">
-                <PhSparkle :size="15" aria-hidden="true" />{{ pending('dt-batch') ? t('broker.case.declaring.list.fromDocsBusy') : t('broker.case.declaring.list.fromDocs') }}
+                <PhSparkle :size="15" aria-hidden="true" />{{ pending('dt-batch') ? fromDocsBusyText : t('broker.case.declaring.list.fromDocs') }}
               </ZButton>
             </span>
           </ZTooltip>

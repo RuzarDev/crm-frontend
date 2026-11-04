@@ -1,5 +1,5 @@
 // «Из документов» (19.10.2026): какие документы заявки можно отдать в распознавание и какие отметить сразу.
-import type { Import40FileDto } from '@/api/import40'
+import type { Import40ExtractionDocument, Import40FileDto } from '@/api/import40'
 
 /**
  * Форматы «Из документов»: как прежний выбор файлов с диска и ещё Excel .xls (пакет импорта 21.10) — его читает разбор в
@@ -22,3 +22,11 @@ export function preselectedIds(files: readonly Import40FileDto[]): string[] {
   if (byKind.length) return byKind.map((f) => f.id)
   return files.filter((f) => f.section === 'documents' && /\.xlsx?$/i.test(f.originalFileName)).map((f) => f.id)
 }
+
+/** Разные номера инвойсов пакета (без учёта порядка документов). */
+export const invoiceNumbers = (documents?: readonly Import40ExtractionDocument[] | null): string[] => [...new Set(
+  (documents ?? [])
+    .filter((d) => d.kind === 'invoice')
+    .map((d) => d.number?.trim() ?? '')
+    .filter(Boolean),
+)]
