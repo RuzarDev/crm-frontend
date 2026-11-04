@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhPlus } from '@phosphor-icons/vue'
+import { PhPlus, PhSortAscending } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import Doc44List from '@/components/broker/Doc44List.vue'
 import type { ZOption } from '@/ui/options'
@@ -73,10 +73,22 @@ const addBtn = 'self-start max-sm:h-11'
         :readonly="readonly"
       />
       <Doc44List ref="doc44" :items="form.doc44Items" :readonly="readonly" :goods-options="goodsOptions" check-dates sort-by-code />
-      <ZButton v-if="!readonly" :class="addBtn" data-doc44-add @click="doc44?.add()">
-        <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
-        {{ td('doc44Add') }}
-      </ZButton>
+      <div v-if="!readonly" class="flex flex-wrap gap-2">
+        <ZButton :class="addBtn" data-doc44-add @click="doc44?.add()">
+          <template #icon><PhPlus :size="16" aria-hidden="true" /></template>
+          {{ td('doc44Add') }}
+        </ZButton>
+        <ZButton
+          v-if="form.doc44Items.length > 1"
+          :class="addBtn"
+          :disabled="doc44?.isSorted"
+          data-doc44-sort
+          @click="doc44?.sort()"
+        >
+          <template #icon><PhSortAscending :size="16" aria-hidden="true" /></template>
+          {{ td('doc44Sort') }}
+        </ZButton>
+      </div>
     </div>
   </section>
 </template>

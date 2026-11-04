@@ -1844,6 +1844,7 @@ export default {
         prevTitle: 'Previous documents',
         doc44Title: 'Submitted documents',
         doc44Add: 'Add document',
+        doc44Sort: 'Sort by code',
         goodsOption: 'Item {n} · {text}',
         goodsOptionBare: 'Item {n}',
         prev: {

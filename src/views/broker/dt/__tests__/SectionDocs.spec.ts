@@ -168,3 +168,28 @@ describe('SectionDocs — гр. 44', () => {
     expect(JSON.stringify(form)).toBe(before)
   })
 })
+
+describe('SectionDocs: кнопка «Отсортировать» в гр. 44 (04.11.2026)', () => {
+  const doc = (docTypeCode: string, docNumber: string) => ({
+    docTypeCode, docTypeName: null, docNumber, docDate: null, goodsItemIndex: null, appliesToAll: false, goodsItemIndexes: null,
+    docStartDate: null, docValidityDate: null, issueCountryCode: null, presentKindCode: '0',
+  })
+  const button = () => w.find('[data-doc44-sort]')
+
+  it('сортирует строки по коду и после этого неактивна', async () => {
+    await mount({ doc44Items: [doc('11004', 'дов'), doc('04021', 'инв')] })
+    expect(button().attributes('disabled')).toBeUndefined()
+    await button().trigger('click')
+    await flushPromises()
+    expect(form.doc44Items.map((d) => d.docNumber)).toEqual(['инв', 'дов'])
+    expect(button().attributes('disabled')).toBeDefined()
+  })
+
+  it('с одним документом и в просмотре кнопки нет', async () => {
+    await mount({ doc44Items: [doc('04021', 'инв')] })
+    expect(button().exists()).toBe(false)
+    w.unmount()
+    await mount({ doc44Items: [doc('11004', 'дов'), doc('04021', 'инв')] }, { readonly: true })
+    expect(button().exists()).toBe(false)
+  })
+})
