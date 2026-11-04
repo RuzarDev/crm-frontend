@@ -158,6 +158,16 @@ describe('«Из документов» (applyExcelFallback): перечень �
     expect(cols(r.doc44Items).filter(([c]) => c === '04021')).toEqual([['04021', 'TEST-INV-1', '2026-03-01']])
   })
 
+  // L6 (04.11.2026): declaration.packing_no — в перечне это свой номер листа, без number_from_invoice.
+  it('свой номер упаковочного: в гр. 44 он, а не «Б/Н»; шапка Excel с номером инвойса не даёт второй строки', () => {
+    const own = { ...packing, number: 'PL-7', date: '2026-03-02', flags: [], sourceFiles: ['book.xlsx'] }
+    expect(cols(doc44FromAiDocuments([], [invoice, own]).rows)).toEqual([['04021', 'TEST-INV-1', '2026-03-01'], ['04131', 'PL-7', '2026-03-02']])
+    const header = (kind: 'invoice' | 'packing'): ExcelDoc['header'] => ({ kind, number: 'TEST-INV-1', date: '2026-03-01' } as never)
+    const docs: ExcelDoc[] = [{ fileName: 'book.xlsx', goods: [], header: header('invoice') }, { fileName: 'book.xlsx', goods: [], header: header('packing') }]
+    const r = applyExcelFallback(preview, docs, { extras: { ...extras, documents: [invoice, own] } })
+    expect(cols(r.doc44Items).filter(([c]) => c === '04131')).toEqual([['04131', 'PL-7', '2026-03-02']])
+  })
+
   it('номер инвойса шапки Excel главнее Zircon AI — инвойс перечня из того же файла не даёт второй строки', () => {
     const header = { kind: 'invoice', number: 'INV-EXCEL-3', numberLabeled: true, date: '2026-03-01' } as never
     const docs: ExcelDoc[] = [{ fileName: 'inv.xlsx', goods: [], header }]

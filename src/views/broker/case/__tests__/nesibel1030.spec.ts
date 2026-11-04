@@ -48,6 +48,38 @@ describe('E1. Гр. 31: русская часть описания', () => {
   })
 })
 
+describe('L3. Описание целиком через пробел (Zircon AI от 03.11)', () => {
+  it('одно русское слово от 4 букв — китайская часть уходит', () => {
+    expect(russianPart('贴面板 Панель')).toBe('Панель')
+    expect(hasRussianPart('贴面板 Панель')).toBe(true)
+    expect(chineseOnly('贴面板 Панель')).toBe(false)
+    expect(russianPart('贴面板 / Панель')).toBe('Панель')
+  })
+
+  it('«贴面板 Подвесная панель HS 6811890009»: код остаётся текстом, иероглифы уходят', () => {
+    expect(russianPart('贴面板 Подвесная панель')).toBe('Подвесная панель')
+    expect(russianPart('贴面板 Подвесная панель HS 6811890009')).toBe('Подвесная панель HS 6811890009')
+  })
+
+  it('латинские бренды и модели не теряются', () => {
+    expect(russianPart('贴面板 Панель BrandX RC-100')).toBe('Панель BrandX RC-100')
+    expect(russianPart('BrandX 贴面板 Панель')).toBe('BrandX Панель')
+    expect(russianPart('贴面板 Панель 型号 RC-100')).toBe('Панель RC-100')
+  })
+
+  it('подпись свойства или короткое слово — не перевод: описание остаётся китайским', () => {
+    expect(russianPart('不锈钢板，冷轧。марка 201J2')).toBe('不锈钢板，冷轧。марка 201J2')
+    expect(russianPart('贴面板 Модель RC-100')).toBe('贴面板 Модель RC-100')
+    expect(russianPart('贴面板 шт')).toBe('贴面板 шт')
+    expect(chineseOnly('贴面板 Модель RC-100')).toBe(true)
+  })
+
+  it('одно русское слово при длинном китайском описании (меньше 30% букв) — как раньше, не обрезается', () => {
+    const long = '用于标记各类产品的台式激光打标机主机外壳支架 Панель'
+    expect(russianPart(long)).toBe(long)
+  })
+})
+
 describe('E2. ЖД: вагоны, а не тягач с прицепом', () => {
   const h = (number: string) => ({ number, typeCode: null, isTrailer: false, headNumber: null })
   const t = (number: string, head: string) => ({ number, typeCode: null, isTrailer: true, headNumber: head })
@@ -82,6 +114,22 @@ describe('E2. ЖД: вагоны, а не тягач с прицепом', () =>
   })
 })
 
+describe('L7. Сцепка с двумя прицепами', () => {
+  const means = [
+    { number: '184AFR19', typeCode: null, isTrailer: false, headNumber: null },
+    { number: '48AEU19', typeCode: null, isTrailer: true, headNumber: '184AFR19' },
+    { number: '49AEU19', typeCode: null, isTrailer: true, headNumber: '184AFR19' },
+  ]
+
+  it('гр. 18 от сервера не теряется по пути в ДТ, состав — 32', () => {
+    const preview: Import40ExtractionPreview = { goodsItems: [], arrivalTransportNumbers: means, borderTransportNumbers: [means[0]] }
+    const res = applyExcelFallback(preview, [], { extras: { hintCodes: [], goods: [] }, transportMode: 1 })
+    expect(res.preview.arrivalTransportNumbers).toEqual(means)
+    expect(res.preview.borderTransportNumbers).toEqual([means[0]])
+    expect(compositionMode(means)).toBe('32')
+  })
+})
+
 describe('E3. Гр. 2: отправитель по накладной «по поручению» продавца', () => {
   const seller: Import40ExtractionPartySource = { name: 'Test Seller Co.,Ltd', address: 'No.1 Test Road, Test City, China', docType: 'invoice_packing', fileName: 'invoice.pdf' }
   const forwarder: Import40ExtractionPartySource = {
@@ -111,6 +159,25 @@ describe('E3. Гр. 2: отправитель по накладной «по п�
     expect(s.party.street).toContain('CHENGDU')
     expect(JSON.stringify(s)).not.toMatch(/USCC|91000000|1234567|测试|ТЕЛЕФОН/)
     expect(notes.map((n) => n.key)).toContain('senderOnBehalf')
+  })
+
+  // L2 (04.11.2026): единый PDF «ЖДН + инвойс» — отправители из documents[]: вид документа, чистый адрес, страна.
+  it('страна из документа не теряется: в адресе её нет', async () => {
+    const consignor: Import40ExtractionPartySource = {
+      name: 'Test Rail Logistics', address: 'Test Road 1, Urumqi', docType: 'transport', kind: 'rail_waybill', fileName: 'a.pdf#p1', countryCode: '156', countryName: 'China',
+    }
+    const s = (await resolveOnBehalfSender({ consignor, seller: seller.name }, []))!
+    expect(s.party.countryCode).toBe('156')
+    expect(s.party.street).toContain('TEST ROAD 1')
+    // кода нет — по названию страны
+    const byName = (await resolveOnBehalfSender({ consignor: { ...consignor, countryCode: null }, seller: seller.name }, []))!
+    expect(byName.party.countryCode).toBe('156')
+  })
+
+  it('разбор взял отправителем накладную — продавец из инвойса, а не из другого документа', () => {
+    const contract: Import40ExtractionPartySource = { name: 'Test Other Party', docType: 'contract', kind: 'contract' }
+    const invoice: Import40ExtractionPartySource = { ...seller, kind: 'invoice' }
+    expect(onBehalfSender([forwarder, contract, invoice], forwarder.name)?.seller).toBe(seller.name)
   })
 
   it('длиннее 200 знаков — обрезается с замечанием, не молча', async () => {

@@ -13,6 +13,8 @@ const props = defineProps<{
   open: boolean
   plan: DocsIntoDtPlan | null
   remarks: readonly string[]
+  /** Часть remarks, где данные не получены (04.11.2026): показывается заметно, над остальными. */
+  critical?: readonly string[]
   conflicts: readonly Import40ExtractionConflict[]
   /** «Дополнить совпавшие» / «Добавить все как новые» (ревью 29.10, I1); выбор — только когда в ДТ уже есть товары. */
   mode: 'fill' | 'append'
@@ -44,6 +46,8 @@ const conflictLines = computed(() => (props.plan?.goods.conflicts ?? []).map((c)
 const quoted = (value: string | null | undefined, source: string | null | undefined) => `«${value ?? '—'}»${source ? ` (${source})` : ''}`
 const extractionLines = computed(() => props.conflicts.map((c) =>
   `${c.fieldLabel}: ${quoted(c.value, c.sourceDocument)} — ${c.alternatives.map((a) => quoted(a.value, a.sourceDocument)).join(', ')}`))
+
+const otherRemarks = computed(() => props.remarks.filter((r) => !props.critical?.includes(r)))
 
 const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
 </script>
@@ -89,11 +93,17 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
         </ul>
       </details>
 
-      <section v-if="remarks.length || extractionLines.length" data-docs-into-remarks>
+      <section v-if="critical?.length" class="rounded-row bg-tone-danger-bg px-3 py-2 text-tone-danger-fg" data-docs-into-critical>
+        <p class="m-0 mb-1.5 font-medium">{{ t('import40Case.criticalIntro') }}</p>
+        <ul class="m-0 flex list-disc flex-col gap-1 pl-5">
+          <li v-for="(r, i) in critical" :key="`e${i}`" class="[overflow-wrap:anywhere]">{{ r }}</li>
+        </ul>
+      </section>
+      <section v-if="otherRemarks.length || extractionLines.length" data-docs-into-remarks>
         <p class="m-0 mb-1.5 text-xs text-ink-3">{{ tx('remarks') }}</p>
         <ul class="m-0 flex list-disc flex-col gap-1 pl-5">
           <li v-for="(l, i) in extractionLines" :key="`c${i}`" class="[overflow-wrap:anywhere]">{{ l }}</li>
-          <li v-for="(r, i) in remarks" :key="`r${i}`" class="[overflow-wrap:anywhere]">{{ r }}</li>
+          <li v-for="(r, i) in otherRemarks" :key="`r${i}`" class="[overflow-wrap:anywhere]">{{ r }}</li>
         </ul>
       </section>
       <p class="m-0 text-xs text-ink-3">{{ tx('note') }}</p>

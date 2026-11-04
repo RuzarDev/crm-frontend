@@ -33,7 +33,7 @@ import { prepareDocumentsDeclaration, receiverAddressReplaced, receiverIsClient,
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from './documentsSources'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
-import { uploadTooLargeText } from '@/utils/uploadLimits'
+import { extractionRefusalText } from '@/utils/uploadLimits'
 import QuoteImportModal from './QuoteImportModal.vue'
 
 // Список ДТ шага 3 (доска Case): полоса «Декларации · N» с действиями, поиск при N > 1, строки ДТ.
@@ -274,9 +274,9 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   const extracted = result as Import40ExtractionResult | null
   const dtId = createdId as string | null
   if (!ok || !extracted || !dtId) {
-    // Пакет больше предела распознавания или запроса (02.11.2026) — «уберите крупные сканы», а не «не удалось распознать».
-    const tooLarge = stage === 'extract' ? uploadTooLargeText(extractError, t) : null
-    message.error(tooLarge ?? t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate'))
+    // Пакет больше предела распознавания (02.11.2026) или сервис занят (04.11.2026) — понятный текст, а не «не удалось распознать».
+    const refusal = stage === 'extract' ? extractionRefusalText(extractError, t) : null
+    message.error(refusal ?? t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate'))
     return
   }
   message.success(t(usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))

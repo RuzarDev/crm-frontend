@@ -376,6 +376,7 @@ export default {
     issuesOk: 'Got it, I will check in the form',
     conflictsIntro: 'Sources gave different values — one was chosen, verify manually:',
     warningsIntro: 'Other remarks on the package:',
+    criticalIntro: 'Data was not received — action is needed:',
     splitTooltip: 'Split part of the original declaration “{num}”',
     splitReplaced: 'Split',
     splitReplacedTooltip: 'Replaced by ETT/VTO declarations after the split — not exported and excluded from readiness',
@@ -4151,6 +4152,7 @@ export default {
           tooLargeForAi: 'The package is too large to recognise — remove the large scans or compress them and try again',
           tooLargeForAiMb: 'The package is too large to recognise — remove the large scans (each file up to {mb} MB) or compress them and try again',
           filesSaved: 'The uploaded files are saved in the request',
+          aiBusy: 'The service is busy with another package, try again in {n} min',
           failedCreate: 'The package was recognised, but the DT was not created',
           codesRejected: 'Code {code} not imported: {reason}',
           reason: {
