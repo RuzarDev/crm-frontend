@@ -248,6 +248,19 @@ describe('dtPayload — пустые значения', () => {
   })
 })
 
+describe('dtPayload — незаполненные строки расходов', () => {
+  it('на сервер уходят только полностью заполненные строки', () => {
+    const f = emptyDtForm()
+    f.expenses = [
+      { expenseTypeCode: null, amount: null, currencyCode: null },
+      { expenseTypeCode: '17', amount: null, currencyCode: null },
+      { expenseTypeCode: '17', amount: 0, currencyCode: 'USD' },
+    ]
+    expect(formToPayload(f, null).expenses).toEqual([{ expenseTypeCode: '17', amount: 0, currencyCode: 'USD' }])
+    expect(f.expenses).toHaveLength(3)
+  })
+})
+
 describe('prefillFromClientCase — только пустые графы', () => {
   const bare = () => dtoToForm({
     id: 'dt2', caseId: 'c', declarationNumber: '', corridor: 'green', procedureCode: '',

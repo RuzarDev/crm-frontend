@@ -242,6 +242,18 @@ describe('SectionFinance — расходы и пересчёт гр. 45', () =>
     expect(form.expenses![1].expenseTypeCode).toBe('17')
   })
 
+  it('неполная строка предупреждает, что не сохранится; пустая и заполненная — нет', () => {
+    mount({ expenses: [
+      { expenseTypeCode: '17', amount: null, currencyCode: null },
+      { expenseTypeCode: null, amount: null, currencyCode: null },
+      { expenseTypeCode: '17', amount: 300, currencyCode: 'USD' },
+    ] })
+    const rows = w.findAll('[data-expense-row]')
+    expect(rows[0].get('[data-expense-incomplete]').text()).toBe('Строка не сохранится: укажите сумму, валюту')
+    expect(rows[1].find('[data-expense-incomplete]').exists()).toBe(false)
+    expect(rows[2].find('[data-expense-incomplete]').exists()).toBe(false)
+  })
+
   it('добавить и удалить расход; пусто — «Расходов нет»', async () => {
     mount({ expenses: [] })
     expect(w.get('[data-expenses-empty]').text()).toBe('Расходов нет')

@@ -19,7 +19,7 @@ import type {
   Import40Party,
   Import40PrevDocItem,
 } from '@/api/import40'
-import type { Import40Doc44ItemInput, Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
+import type { Import40DeclarationExpense, Import40Doc44ItemInput, Import40FactPayment, Import40GoodsItemInput } from '@/types/api'
 import { cloneGoodsExtras, type Import40GoodsExtras } from '@/types/api'
 import { cloneCharacteristics, rowsFromLegacy } from './goods/editor/characteristics'
 import { placesOfGoods } from '@/utils/goodsPlaces'
@@ -451,6 +451,17 @@ export function prefillFromClientCase(form: DtFormState, c: Import40CaseDto | nu
 }
 
 /** Тело PUT /import40/{caseId}/declarations/{id}: все графы шапки, пустое — null. */
+export type ExpenseField = 'type' | 'amount' | 'currency'
+
+/** Чего не хватает строке расходов, чтобы её можно было сохранить. */
+export function missingExpenseFields(e: Import40DeclarationExpense): ExpenseField[] {
+  const missing: ExpenseField[] = []
+  if (!e.expenseTypeCode) missing.push('type')
+  if (e.amount == null) missing.push('amount')
+  if (!e.currencyCode) missing.push('currency')
+  return missing
+}
+
 export function formToPayload(form: DtFormState, expectedUpdatedAtUtc: string | null): Import40DeclarationUpsert {
   const offices = borderOfficesPayload(form.borderCustomsOffices)
   return {
@@ -579,6 +590,7 @@ export function formToPayload(form: DtFormState, expectedUpdatedAtUtc: string | 
     }),
     doc44Items: form.doc44Items ?? [],
     prevDocItems: form.prevDocItems ?? [],
-    expenses: form.expenses ?? [],
+    // Незаполненную строку не отправляем: она остаётся в форме с подсказкой и не мешает сохранить ДТ.
+    expenses: (form.expenses ?? []).filter((e) => missingExpenseFields(e).length === 0),
   }
 }
