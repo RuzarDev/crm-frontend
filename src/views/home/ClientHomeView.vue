@@ -155,7 +155,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             <RouterLink
               :to="askHref(a)"
               :aria-describedby="askRowId(i)"
-              class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-[359px]:ml-auto"
+              class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11 max-[359px]:ml-auto"
             >{{ askAction(a) }}</RouterLink>
           </li>
         </ul>
