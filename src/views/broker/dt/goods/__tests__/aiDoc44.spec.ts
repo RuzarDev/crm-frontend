@@ -137,7 +137,7 @@ describe('«Из документов» (applyExcelFallback): перечень �
     ]
     const r = applyExcelFallback(preview, [], { extras: { ...extras, documents }, transportMode: 1 })
     expect(cols(r.doc44Items)).toEqual([
-      ['04021', 'TEST-INV-1', '2026-03-01'], ['02015', 'TEST-CMR-5', null], ['03011', 'TEST-CTR-9', '2026-01-10'],
+      ['04021', 'TEST-INV-1', '2026-03-01'], ['02015', 'TEST-CMR-5', '2026-03-04'], ['03011', 'TEST-CTR-9', '2026-01-10'],
       ['04131', 'Б/Н', '2026-03-01'], ['01207', 'PH-12', '2026-03-02'],
     ])
     expect(r.doc44Notes.map((n) => n.key)).toEqual(['doc44NoScan', 'doc44NoCode'])
