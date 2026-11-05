@@ -179,3 +179,20 @@ describe('ревью 22.10: стороны и страна', () => {
     expect(receiverAddressReplaced(sent, { receiver: { ...sent.receiver, city: 'АЛМАТЫ', street: 'АБАЯ 1' } })).toBe(true)
   })
 })
+
+describe('headerDocs: транспортный документ из перечня Zircon AI', () => {
+  it('ТТН: код 02016 и дата документа, а не CMR по виду заявки', () => {
+    const docs = headerDocs({
+      headers: [], extras: { transportDocument: '18JY0808' } as never, transportMode: 1, road: true, cmrInBatch: true,
+      hasCaseContract: true, aiTransport: { code: '02016', date: '2026-08-14' },
+    })
+    expect(docs.find((d) => d.docNumber === '18JY0808')).toMatchObject({ docTypeCode: '02016', docDate: '2026-08-14' })
+  })
+
+  it('перечня нет — код по виду заявки, как раньше', () => {
+    const docs = headerDocs({
+      headers: [], extras: { transportDocument: '18JY0808' } as never, transportMode: 1, road: true, hasCaseContract: true,
+    })
+    expect(docs.find((d) => d.docNumber === '18JY0808')?.docTypeCode).toBe('02015')
+  })
+})

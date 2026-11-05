@@ -383,6 +383,8 @@ export interface HeaderDocsInput {
    * номер инвойса — строка 04131 сразу с ним, а не «Б/Н» плюс вторая строка из перечня.
    */
   aiPacking?: { number?: string | null; date?: string | null } | null
+  /** Транспортный документ из перечня Zircon AI с тем же номером. */
+  aiTransport?: { code?: string | null; date?: string | null } | null
 }
 
 /**
@@ -414,7 +416,10 @@ export function headerDocs(i: HeaderDocsInput): Import40Doc44ItemInput[] {
     const date = (own ? null : i.aiPacking?.date) ?? packingHeader.date ?? invoiceDate
     out.push(docLine('04131', number, date, names))
   }
-  if (extras?.transportDocument) out.push(docLine(transportDocCode(i.transportMode, i.road), extras.transportDocument, null, names))
+  // Код и дату накладной определил Zircon AI (ТТН 02016 — не CMR 02015): вид заявки — запасной путь
+  if (extras?.transportDocument) {
+    out.push(docLine(i.aiTransport?.code ?? transportDocCode(i.transportMode, i.road), extras.transportDocument, i.aiTransport?.date ?? null, names))
+  }
   // CMR в наборе, а номер не распознан (скан без текста) — строка CMR без номера: декларант впишет номер, сервер не
   // добавит транспортный документ по виду транспорта заявки.
   else if (i.road && i.cmrInBatch) out.push(docLine('02015', null, null, names))
@@ -507,10 +512,12 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   const aiDocs = extras?.documents?.length ? extras.documents : null
   const aiPacking = aiDocs?.find((d) => d.kind === 'packing_list' && d.number?.trim()
     && !d.flags?.includes('number_from_invoice') && !d.flags?.includes('referenced_only'))
+  const aiTransport = aiDocs?.find((d) => d.code?.startsWith('020') && d.number?.trim() === extras?.transportDocument?.trim()
+    && !d.flags?.includes('referenced_only'))
   const fromHeaders = headerDocs({
     // ЖД: вагоны в гр. 18 — не «номера машины», транспортный документ — ЖД накладная 02013 (если в наборе нет самого CMR).
     headers, extras, transportMode: rail && !ctx.road ? 0 : ctx.transportMode, road: !!ctx.road || (!rail && !!arrival?.length), cmrInBatch: !!ctx.road,
-    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames, packingWithoutNumber: aiDocs ? 'bn' : 'invoice', aiPacking,
+    hasCaseContract: ctx.hasCaseContract, docKindNames: ctx.docKindNames, packingWithoutNumber: aiDocs ? 'bn' : 'invoice', aiPacking, aiTransport,
   })
   let doc44Items = fromHeaders
   let doc44Notes: AiDoc44Remark[] = []

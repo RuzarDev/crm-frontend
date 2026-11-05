@@ -129,7 +129,7 @@ const digits = (s: string | null | undefined) => (s ?? '').replace(/\D/g, '')
 
 /** Zircon AI нашёл в пакете сам CMR, а не упоминание о нём в другом документе (05.11.2026): как на сервере RoadWaybillIn. */
 export function aiFoundCmr(documents: readonly { code?: string | null; flags?: string[] }[] | null | undefined): boolean {
-  return !!documents?.some((d) => d.code === '02015' && !d.flags?.includes('referenced_only'))
+  return !!documents?.some((d) => (d.code === '02015' || d.code === '02016') && !d.flags?.includes('referenced_only'))
 }
 
 /** В гр. 44 ЖД накладная без номера: сервер поставил её по виду заявки, в документах накладной нет (05.11.2026). */
