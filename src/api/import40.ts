@@ -1063,9 +1063,11 @@ export interface Import40CanCreateDto {
   /** Для revoked (05.11.2026): какой документ отозван и когда. */
   revokedDocNumber?: string | null
   revokedAtUtc?: string | null
+  /** Для renewWindow (05.11.2026): до какого дня сотрудник может продлить истёкший договор. */
+  renewUntilUtc?: string | null
 }
 
-export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'revoked' | 'missing'
+export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'renewWindow' | 'revoked' | 'missing'
 
 /** Сколько браузер ждёт разбор пакета: 220 с на сервер плюс загрузка файлов из расчёта 1 Мбит/с (125 байт в мс). */
 export const extractBatchTimeoutMs = (files: readonly File[]): number =>

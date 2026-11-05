@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 
-const api = vi.hoisted(() => ({ homeBadge: vi.fn() }))
+const api = vi.hoisted(() => ({ homeBadge: vi.fn(), shipments: vi.fn() }))
 vi.mock('@/api/dashboard', () => ({ dashboardApi: { homeBadge: api.homeBadge } }))
+vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.shipments } }))
 
-import { HOME_BADGE_POLL_MS, homeBadgeFromHome, startHomeBadgePolling, stopHomeBadgePolling } from '@/shell/homeBadge'
+import {
+  CLIENT_BADGE_NAV_MS, HOME_BADGE_POLL_MS, clientBadgeOnNavigate, homeBadgeFromClientHome, homeBadgeFromHome,
+  startClientHomeBadgePolling, startHomeBadgePolling, stopHomeBadgePolling,
+} from '@/shell/homeBadge'
 import { homeAttention, homeAttentionTone, resetHomeAttention, setStaffHomeBadge } from '@/shell/attention'
 
 // Пакет G (02.11.2026): значок «Главной» сотрудника — красный «Срочно», иначе жёлтый «Ждут вас», иначе нет;
@@ -27,6 +31,58 @@ describe('setStaffHomeBadge', () => {
     expect([homeAttention.value, homeAttentionTone.value]).toEqual([5, 'gold'])
     setStaffHomeBadge({ urgent: 0, awaitingMe: 0 })
     expect(homeAttention.value).toBe(0)
+  })
+})
+
+// 05.11.2026: значок клиента считается и без открытия Главной: вход по ссылке из письма не оставляет его пустым.
+describe('значок клиента', () => {
+  const ask = { id: 'a', status: 0, updatedAtUtc: '2026-11-01T00:00:00Z' }
+  const quiet = { id: 'b', status: 2, updatedAtUtc: '2026-11-01T00:00:00Z' }
+
+  it('при старте — число «Нужно от вас» жёлтым, тихим запросом; ошибка значок не трогает', async () => {
+    api.shipments.mockResolvedValue([ask, quiet])
+    startClientHomeBadgePolling()
+    await flushPromises()
+    expect(api.shipments).toHaveBeenCalledWith({ silent: true })
+    expect([homeAttention.value, homeAttentionTone.value]).toEqual([1, 'gold'])
+    expect(api.homeBadge).not.toHaveBeenCalled()
+
+    api.shipments.mockRejectedValue(new Error('сеть'))
+    vi.useFakeTimers()
+    stopHomeBadgePolling()
+    startClientHomeBadgePolling()
+    await flushPromises()
+    expect(homeAttention.value).toBe(1)
+  })
+
+  it('переход на другой экран перечитывает значок, но не чаще раза в полминуты', async () => {
+    vi.useFakeTimers()
+    api.shipments.mockResolvedValue([ask])
+    clientBadgeOnNavigate()
+    expect(api.shipments).not.toHaveBeenCalled() // опрос не запущен — не клиент
+
+    startClientHomeBadgePolling()
+    await flushPromises()
+    expect(api.shipments).toHaveBeenCalledTimes(1)
+    clientBadgeOnNavigate()
+    expect(api.shipments).toHaveBeenCalledTimes(1)
+
+    api.shipments.mockResolvedValue([])
+    vi.advanceTimersByTime(CLIENT_BADGE_NAV_MS)
+    clientBadgeOnNavigate()
+    await flushPromises()
+    expect(api.shipments).toHaveBeenCalledTimes(2)
+    expect(homeAttention.value).toBe(0)
+  })
+
+  it('Главная записала свежее число — ответ идущего запроса его не перебивает', async () => {
+    let finish: (v: unknown[]) => void = () => {}
+    api.shipments.mockReturnValue(new Promise((r) => { finish = r }))
+    startClientHomeBadgePolling()
+    homeBadgeFromClientHome(4)
+    finish([ask])
+    await flushPromises()
+    expect(homeAttention.value).toBe(4)
   })
 })
 

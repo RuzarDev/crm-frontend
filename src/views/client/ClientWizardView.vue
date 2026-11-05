@@ -43,7 +43,7 @@ const { confirm } = useConfirm()
 const uid = useId()
 
 const shipment = useShipmentDraft()
-const { draft, caseId, number, saving, savedAt, saveError, returnReason, reworkRequested, reworkOpen } = shipment
+const { draft, caseId, number, saving, savedAt, saveError, returnReason, reworkRequested, reworkOpen, declarantName } = shipment
 
 // ---- Пункты доработки (01.11.2026, правки 30.10 п.4) ----
 // Текущий возврат перечитываем при открытии и после каждой загрузки / смены вида файла: файл нужного вида закрывает
@@ -429,6 +429,12 @@ const close = () => (caseId.value ? finishLater() : router.push('/import-40'))
 // держал разовый договор/доверенность и слал напоминания «заявка не отправлена». Только для черновика, который ещё
 // не отправляли: возвращённую на доработку поставку AQNIET уже вёл — её отменяет менеджер. Сервер требует причину.
 const canDiscard = computed(() => !!caseId.value && !submittedId.value && !returnReason.value && !reworkRequested.value)
+// Возвращённую поставку отменяет менеджер: кнопки нет, поэтому говорим, к кому идти (05.11.2026).
+const cancelNote = computed(() => {
+  if (canDiscard.value || !caseId.value || submittedId.value) return ''
+  const name = declarantName.value.trim()
+  return name ? t('client.card.draft.cancelByManagerName', { name }) : t('client.card.draft.cancelByManager')
+})
 const discarding = ref(false)
 const discard = async () => {
   const id = caseId.value
@@ -725,10 +731,12 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
           <ZAskBanner
             v-if="returnedText"
             :title="t('client.ask.returned.title')"
-            :description="returnedText"
             class="[overflow-wrap:anywhere]"
             data-wz-returned
-          />
+          >
+            <span class="block">{{ returnedText }}</span>
+            <span v-if="cancelNote" class="mt-1 block" data-wz-cancel-note>{{ cancelNote }}</span>
+          </ZAskBanner>
           <div ref="stepHost">
             <StepCargo v-if="step === 0" :draft="draft" :post-options="postOptions" :posts-loading="postsLoading" />
             <StepTransport v-else-if="step === 1" :draft="draft" />

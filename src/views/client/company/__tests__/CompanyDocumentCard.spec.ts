@@ -35,7 +35,7 @@ const ACTIVE = doc({ id: 'c0', status: 2, clientSigned: true, providerSigned: tr
 
 let w: VueWrapper
 const refresh = vi.fn()
-const mountCard = async (props: Partial<{ kind: 'contract' | 'poa'; docs: Import40DocumentDto[]; profileComplete: boolean; needNew: boolean; needNewReason: string | null }>) => {
+const mountCard = async (props: Partial<{ kind: 'contract' | 'poa'; docs: Import40DocumentDto[]; profileComplete: boolean; needNew: boolean; needNewReason: string | null; renewHint: string | null }>) => {
   refresh.mockResolvedValue(undefined)
   w = mountWithI18n(CompanyDocumentCard, {
     attachTo: document.body,
@@ -58,6 +58,21 @@ describe('CompanyDocumentCard', () => {
     await flushPromises()
     expect(w.get('[data-generate-error]').text()).toContain('Уже есть действующий договор')
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('окно продления: подсказка вместо «сформируйте новый», кнопка выпуска не главная', async () => {
+    await mountCard({ docs: [], renewHint: 'Договор продлит менеджер' })
+    expect(w.get('[data-doc-empty-hint]').text()).toBe('Договор продлит менеджер')
+    expect(w.get('[data-doc-generate]').classes()).not.toContain('bg-navy')
+  })
+
+  it('подсказка подписи на телефоне — без NCALayer и QR', async () => {
+    await mountCard({ docs: [doc({})] })
+    const phone = w.get('[data-sign-hint-phone]')
+    expect(phone.classes()).toContain('sm:hidden')
+    expect(phone.text()).toContain('eGov Mobile')
+    expect(phone.text()).not.toContain('NCALayer')
+    expect(phone.text()).not.toContain('QR')
   })
 
   it('разовый и срок из details уходят в generateDocument', async () => {

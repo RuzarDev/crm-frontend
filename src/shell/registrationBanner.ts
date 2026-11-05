@@ -30,7 +30,7 @@ export function registrationBannerState(reg: RegistrationSnapshot, path: string)
   if (!reg.isClient || !reg.loaded || reg.complete) return null
   if (path.startsWith(COMPANY)) return null
   // Регистрация пройдена, документ отозван, истёк или занят (05.11.2026): называем причину, а не «завершите регистрацию».
-  if (reg.blockReason === 'revoked' || reg.blockReason === 'renew' || reg.blockReason === 'busy') {
+  if (reg.blockReason === 'revoked' || reg.blockReason === 'renew' || reg.blockReason === 'renewWindow' || reg.blockReason === 'busy') {
     return { kind: 'block', code: reg.blockReason, to: reg.needNew ? `${COMPANY}?step=${reg.needNew}` : COMPANY }
   }
   if (!reg.nextStep) return { kind: 'waiting' }
@@ -64,6 +64,8 @@ export function registrationBlock(code: RegistrationBlockCode | null, needNew?: 
     }
     case 'renew':
       return { title: 'client.wizard.gate.renew.title', text: 'client.wizard.gate.renew.text', companyAction: true }
+    case 'renewWindow':
+      return { title: 'client.wizard.gate.renewWindow.title', text: 'client.wizard.gate.renewWindow.text', companyAction: true }
     default:
       return { title: 'client.wizard.gate.title', text: 'client.wizard.gate.text', companyAction: false }
   }

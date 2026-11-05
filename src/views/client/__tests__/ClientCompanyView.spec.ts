@@ -193,8 +193,59 @@ describe('ClientCompanyView', () => {
     // Карточка показывает настоящий статус документа и объяснение от сервера.
     expect(w.get('[data-doc-title]').text()).toBe('Договор № 12/2026 на таможенное оформление')
     expect(w.text()).toContain('Действует')
-    expect(w.get('[data-need-new]').text()).toContain('уже используются в открытой заявке')
+    expect(w.get('[data-need-new]').text()).toContain('Этот договор уже используется в открытой поставке')
     expect(w.get('[data-doc-generate-new]').text()).toBe('Сформировать')
+  })
+
+  it('причина «нужен новый» — из словаря по коду сервера, а не его русский текст', async () => {
+    setDocs([ACTIVE_CONTRACT], [ACTIVE_POA])
+    imp.canCreate.mockResolvedValue({
+      ...DONE, canCreate: false, contractOk: false, needNew: 'contract', reason: 'Текст сервера про заявку',
+      reasonCode: 'busy', busyCaseNumber: 'ИМ-2026-0007',
+    })
+    await mountAt()
+    expect(w.get('[data-need-new]').text()).toContain('уже используется в поставке ИМ-2026-0007')
+    expect(w.text()).not.toContain('Текст сервера')
+  })
+
+  it('договор в окне продления: «Продлит менеджер», новый договор не главное действие', async () => {
+    setDocs([], [ACTIVE_POA])
+    imp.canCreate.mockResolvedValue({
+      ...DONE, canCreate: false, contractOk: false, needNew: 'contract', reason: 'x',
+      reasonCode: 'renewWindow', renewUntilUtc: '2027-01-30T23:59:59Z',
+    })
+    await mountAt()
+    expect(stepState('contract')).toBe('Продлит менеджер')
+    expect(stepTone('contract')).toBe('waiting')
+    expect(subtitle()).toContain('дождаться продления договора')
+    expect(w.get('[data-doc-empty-hint]').text()).toContain('до 30.01.2027')
+    expect(w.get('[data-doc-generate]').classes()).toContain('bg-sunken')
+  })
+
+  it('поставки идут, а реквизиты неполные: шаг не отмечен, текст объясняет, «Оформить поставку» есть', async () => {
+    setDocs([ACTIVE_CONTRACT], [ACTIVE_POA])
+    imp.canCreate.mockResolvedValue(DONE)
+    api.getProfile.mockResolvedValue({ ...PROFILE, bank: '', isComplete: false, updatedAtUtc: '2026-10-30T08:00:00Z', missingFields: ['bank'] })
+    await mountAt()
+    expect(stepState('profile')).toBe('Нужно заполнить')
+    expect(stepTone('profile')).toBe('action')
+    expect(stepTone('contract')).toBe('done')
+    expect(subtitle()).toContain('поставки оформлять можно. Дополните реквизиты')
+    expect(w.find('[data-company-new]').exists()).toBe(true)
+  })
+
+  it('регистрация завершена — кнопка ведёт в мастер; не завершена — кнопки нет', async () => {
+    setDocs([ACTIVE_CONTRACT], [ACTIVE_POA])
+    imp.canCreate.mockResolvedValue(DONE)
+    await mountAt()
+    await w.get('[data-company-new]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/import-40/new')
+    w.unmount()
+
+    imp.canCreate.mockResolvedValue({ ...DONE, canCreate: false, contractOk: false, needNew: 'contract', reason: 'x' })
+    await mountAt()
+    expect(w.find('[data-company-new]').exists()).toBe(false)
   })
 
   it('всё готово по can-create: «Компания зарегистрирована», галочки; карточка шага меняет ?step= через replace', async () => {

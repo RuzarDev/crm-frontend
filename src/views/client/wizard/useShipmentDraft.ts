@@ -121,6 +121,8 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
   const returnReason = ref('')
   // Возврат по чек-листу документов (17.10): признак и открытые пункты — для баннера на языке клиента.
   const reworkRequested = ref(false)
+  /** Декларант поставки: возвращённую отменяет менеджер, клиенту называем, к кому обратиться. */
+  const declarantName = ref('')
   const reworkOpen = shallowRef<ReworkBrief[]>([])
   const saving = ref(false)
   const savedAt = ref<Date | null>(null)
@@ -356,6 +358,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     status.value = c.status
     returnReason.value = c.returnReason ?? ''
     reworkRequested.value = !!c.reworkRequested
+    declarantName.value = c.assignedDeclarantName ?? ''
     reworkOpen.value = c.openReworkItems ?? []
     savedKey.value = payloadKey()
     savedAt.value = null
@@ -371,6 +374,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     status.value = null
     returnReason.value = ''
     reworkRequested.value = false
+    declarantName.value = ''
     reworkOpen.value = []
     savedKey.value = null
     clearServer()
@@ -385,6 +389,7 @@ export function useShipmentDraft(initialCaseId?: Ref<string | null>) {
     status,
     returnReason,
     reworkRequested,
+    declarantName,
     reworkOpen,
     saving,
     savedAt,

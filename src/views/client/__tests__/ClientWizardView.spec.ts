@@ -467,6 +467,8 @@ describe('ClientWizardView', () => {
     server = caseDto({ id: 'c1', status: 0, cargo: 'Станки', returnReason: 'Приложите инвойс' })
     await mountAt('/import-40/new/c1')
     expect(w.find('[data-wz-discard]').exists()).toBe(false)
+    expect(w.get('[data-wz-cancel-note]').text()).toBe('Отменить эту поставку может только менеджер.')
+    expect(w.get('[data-wz-returned]').text()).toContain('Приложите инвойс')
     w.unmount()
 
     await mountAt('/import-40/new')

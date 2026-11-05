@@ -11,9 +11,9 @@ import ZTag from '@/components/z/ZTag.vue'
 import type { ZTone } from '@/components/z/ZTag.vue'
 import { clientDocumentsApi, type ClientCaseFile } from '@/api/clientDocuments'
 import { import40Api } from '@/api/import40'
-import type { Import40DocumentDto } from '@/api/import40Contract'
+import { import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 import { useAuthStore } from '@/stores/auth'
-import { localDate, validDate, type DocKind } from '@/views/client/company/company'
+import { isOpen, localDate, validDate, type DocKind } from '@/views/client/company/company'
 import {
   companyCard, consumedStatus, FILE_FILTERS, fileKindKey, isFileFilter, normSearch, passesFilter, sortFiles,
   type CompanyCardReg, type CompanyCardStatus, type FileFilter,
@@ -71,7 +71,9 @@ const companyCards = computed(() => COMPANY_KINDS.map((kind) => {
   const used = caseId ? usedBy[caseId] : undefined
   const status = consumedStatus(card.status, used?.status)
   const busyCase = status === 'busy' && caseId && used ? { to: `/import-40/${encodeURIComponent(caseId)}`, number: used.number } : null
-  return { kind, ...card, status, busyCase, title: cardTitle(kind, card.doc), meta: cardMeta(kind, card.doc) }
+  // Ждёт подписи клиента — сам документ или новый рядом с действующим: подпись живёт в «Моей компании».
+  const needSign = (docs.data?.company ?? []).some((d) => d.kind === kind && isOpen(d) && !d.clientSigned)
+  return { kind, ...card, status, busyCase, needSign, title: cardTitle(kind, card.doc), meta: cardMeta(kind, card.doc) }
 }))
 function cardTitle(kind: DocKind, d: Import40DocumentDto | null) {
   return d ? t(`client.documents.company.${kind}No`, { no: `${d.number}/${d.year}` }) : t(`client.documents.company.${kind}`)
@@ -86,6 +88,20 @@ function cardMeta(kind: DocKind, d: Import40DocumentDto | null) {
 const statusText = (s: CompanyCardStatus) =>
   s === 'none' ? t('client.documents.company.none') : t(`client.company.doc.status.${s}`)
 const companyTo = (kind: DocKind) => ({ path: '/import-40/company', query: { step: kind } })
+
+// Скачать договор или доверенность прямо отсюда, как файлы поставок ниже (05.11.2026).
+const companyBusyId = ref<string | null>(null)
+const downloadCompany = async (kind: DocKind, d: Import40DocumentDto) => {
+  if (companyBusyId.value || !auth.userId) return
+  companyBusyId.value = d.id
+  try {
+    saveBlob(await import40ContractApi.downloadDocument(auth.userId, d.id), `${t(`client.company.${kind}.file`)}-${d.number}-${d.year}.docx`)
+  } catch (e: unknown) {
+    if (!(e as { response?: unknown })?.response) message.error(t('client.company.doc.downloadError'))
+  } finally {
+    companyBusyId.value = null
+  }
+}
 
 // ---- Поиск (?q=, replace) ----
 const queryQ = () => (typeof route.query.q === 'string' ? route.query.q : '')
@@ -153,6 +169,7 @@ const TABLE_SKELETON = ['52%', '64%', '44%', '58%', '48%']
 const card = 'flex min-w-0 items-center gap-3.5 rounded-panel border border-line bg-surface px-[18px] py-4'
 const th = 'border-0 border-b border-solid border-line px-[18px] py-3 text-left text-[12.5px] leading-5 font-semibold text-ink-3'
 const td = 'border-0 border-t border-solid border-sunken px-[18px] py-3 align-middle'
+const companyAction = 'inline-flex h-7 items-center rounded-field text-xs font-semibold no-underline outline-hidden focus-visible:shadow-focus transition-colors duration-150 ease-out motion-reduce:transition-none max-sm:h-11 max-sm:text-sm'
 const caseLink = 'rounded-[4px] font-mono text-[13.5px] text-zircon-ink no-underline outline-hidden hover:text-ink hover:underline focus-visible:shadow-focus'
 // «Повторить» — sm на компьютере, на телефоне — палец (44px).
 const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
@@ -244,13 +261,33 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
               </span>
               <ZTag :tone="STATUS_TONE[c.status]" class="flex-none" data-company-tag>{{ statusText(c.status) }}</ZTag>
             </RouterLink>
-            <!-- Ссылка на поставку — рядом с карточкой, а не внутри (карточка сама ссылка) -->
-            <RouterLink
-              v-if="c.busyCase"
-              :to="c.busyCase.to"
-              class="w-fit rounded-[4px] px-1 text-[13px] font-medium text-zircon-ink no-underline outline-hidden hover:text-ink hover:underline focus-visible:shadow-focus max-sm:min-h-11 max-sm:content-center"
-              :data-company-busy-case="c.kind"
-            >{{ t('client.documents.company.busyCase', { number: c.busyCase.number }) }}</RouterLink>
+            <!-- Действия и ссылка на поставку — рядом с карточкой, а не внутри (карточка сама ссылка) -->
+            <div v-if="c.doc || c.needSign || c.busyCase" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 max-sm:gap-x-2">
+              <RouterLink
+                v-if="c.needSign"
+                :to="companyTo(c.kind)"
+                :class="cn(companyAction, 'bg-navy px-3 text-white hover:bg-navy-hover')"
+                :data-company-sign="c.kind"
+              >{{ t('client.documents.company.sign') }}</RouterLink>
+              <ZButton
+                v-if="c.doc"
+                variant="ghost"
+                size="sm"
+                :loading="companyBusyId === c.doc.id"
+                class="px-2 max-sm:h-11 max-sm:text-sm"
+                :data-company-download="c.kind"
+                @click="downloadCompany(c.kind, c.doc)"
+              >
+                <template #icon><PhDownloadSimple :size="14" aria-hidden="true" /></template>
+                {{ t('client.company.doc.download') }}
+              </ZButton>
+              <RouterLink
+                v-if="c.busyCase"
+                :to="c.busyCase.to"
+                class="w-fit rounded-[4px] px-1 text-[13px] font-medium text-zircon-ink no-underline outline-hidden hover:text-ink hover:underline focus-visible:shadow-focus max-sm:min-h-11 max-sm:content-center"
+                :data-company-busy-case="c.kind"
+              >{{ t('client.documents.company.busyCase', { number: c.busyCase.number }) }}</RouterLink>
+            </div>
           </div>
         </div>
       </section>

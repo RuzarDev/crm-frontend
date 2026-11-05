@@ -77,22 +77,19 @@ describe('ClientHomeView', () => {
 
     // Отображаемое имя клиента = название компании — приветствие без имени.
     expect(w.get('h1').text()).not.toContain('ТОО')
-    expect(w.text()).toContain('ТОО «Казахмыс Трейд» · в работе: 2')
+    // Число и карточки — как вкладка «В работе» списка: проблемная поставка ждёт клиента и стоит в «Нужно от вас».
+    expect(w.text()).toContain('ТОО «Казахмыс Трейд» · в работе: 1')
 
     const cards = w.findAll('[data-client-shipment]')
-    expect(cards).toHaveLength(2)
+    expect(cards).toHaveLength(1)
     expect(w.text()).not.toContain('И40-100')
-    const problem = cards.find((c) => c.text().includes('И40-190'))!
-    expect(problem.attributes('href')).toBe('/import-40/c2')
-    expect(problem.get('.bg-tone-danger-bg').text()).toBe('Нужен ответ')
+    const plain = cards[0]
+    expect(plain.attributes('href')).toBe('/import-40/c1')
     // Полоска — картинка, скрытая от чтения с экрана; этап озвучивается текстом.
-    expect(problem.get('[data-seg]').element.parentElement!.getAttribute('aria-hidden')).toBe('true')
-    expect(problem.get('[data-step-label]').text()).toBe('Этап 3 из 6 · Оформление декларации и выпуск')
-    expect(problem.get('[data-step-label]').classes()).toContain('sr-only')
-    expect(problem.findAll('[data-seg].bg-danger')).toHaveLength(1)
-    expect(problem.text()).toContain('Нужен ваш ответ')
+    expect(plain.get('[data-seg]').element.parentElement!.getAttribute('aria-hidden')).toBe('true')
+    expect(plain.get('[data-step-label]').text()).toBe('Этап 3 из 6 · Оформление декларации и выпуск')
+    expect(plain.get('[data-step-label]').classes()).toContain('sr-only')
     // Штатный статус сотрудника клиенту не показываем — только словарь клиента.
-    const plain = cards.find((c) => c.text().includes('И40-182'))!
     expect(plain.text()).toContain('Оформляем')
     expect(plain.text()).toContain('Оформление декларации и выпуск')
     expect(plain.text()).not.toContain('Декларирование')
@@ -135,7 +132,10 @@ describe('ClientHomeView', () => {
     const ask = w.get('[data-client-ask]')
     expect(ask.text()).toContain('И40-200 · Черновик не отправлен')
     expect(ask.text()).toContain('Заполните оставшееся и отправьте на оформление')
-    expect(w.get('[data-client-shipment]').attributes('href')).toBe('/import-40/new/d1')
+    // Черновик — только здесь: в блоке «Поставки в работе» его нет, «в работе поставок нет» не пишем.
+    expect(w.find('[data-client-shipment]').exists()).toBe(false)
+    expect(w.text()).not.toContain('Сейчас в работе поставок нет')
+    expect(w.get('[data-client-all]').attributes('href')).toBe('/import-40')
     const go = ask.get('a')
     expect(go.text()).toBe('Продолжить')
     expect(go.attributes('href')).toBe('/import-40/new/d1')
@@ -152,9 +152,7 @@ describe('ClientHomeView', () => {
     expect(ask.text()).toContain('Приложите инвойс')
     expect(ask.get('a').text()).toBe('Продолжить')
     expect(ask.get('a').attributes('href')).toBe('/import-40/new/r1')
-    const card = w.get('[data-client-shipment]')
-    expect(card.attributes('href')).toBe('/import-40/r1')
-    expect(card.get('.bg-tone-wait-bg').text()).toBe('Вернули на доработку')
+    expect(w.find('[data-client-shipment]').exists()).toBe(false)
   })
 
   it('черновик с вопросом AQNIET — «Открыть» ведёт на карточку (правило askHref)', async () => {
@@ -181,8 +179,7 @@ describe('ClientHomeView', () => {
     const reviewed = w.findAll('[data-client-shipment]').find((c) => c.text().includes('И40-211'))!
     expect(reviewed.text()).toContain('Чек на проверке')
     expect(reviewed.findAll('[data-seg].bg-gold')).toHaveLength(0)
-    const pay = w.findAll('[data-client-shipment]').find((c) => c.text().includes('И40-210'))!
-    expect(pay.findAll('[data-seg].bg-gold')).toHaveLength(1)
+    expect(w.findAll('[data-client-shipment]').some((c) => c.text().includes('И40-210'))).toBe(false)
   })
 
   it('больше трёх вопросов — одна панель, три строки, счётчик и «Ещё N»', async () => {
@@ -202,10 +199,27 @@ describe('ClientHomeView', () => {
     expect(rows[1].text()).toContain('И40-302 · Оплатите склад')
     expect(rows[1].text()).toContain('Счёт склада выставлен')
     expect(rows.map((r) => r.get('a').attributes('href'))).toEqual(['/import-40/p1', '/import-40/v1', '/import-40/new/d1'])
-    const more = panel.get('[data-client-asks-more]')
-    expect(more.text()).toBe('Ещё 2 — в списке поставок')
-    expect(more.attributes('href')).toBe('/import-40?tab=waiting')
+    // Скрыты черновики: ссылка на их вкладку, а не на «Ждут вас», где их нет.
+    expect(panel.find('[data-client-asks-more]').exists()).toBe(false)
+    const more = panel.get('[data-client-asks-more-drafts]')
+    expect(more.text()).toBe('Ещё черновиков: 2')
+    expect(more.attributes('href')).toBe('/import-40?tab=drafts')
     expect(homeAttention.value).toBe(5)
+  })
+
+  it('скрыты и ждущие клиента, и черновики — две ссылки на свои вкладки', async () => {
+    api.list.mockResolvedValue([
+      kase({ id: 'p1', number: 'И40-301', isProblem: true, status: 3 }),
+      kase({ id: 'p2', number: 'И40-302', isProblem: true, status: 3 }),
+      kase({ id: 'p3', number: 'И40-303', isProblem: true, status: 3 }),
+      kase({ id: 'v1', number: 'И40-304', status: 6 }),
+      kase({ id: 'd1', number: 'И40-305', status: 0 }),
+    ])
+    await mountIt()
+    const panel = w.get('[data-client-asks]')
+    expect(panel.get('[data-client-asks-more]').attributes('href')).toBe('/import-40?tab=waiting')
+    expect(panel.get('[data-client-asks-more]').text()).toBe('Ещё 1 — в списке поставок')
+    expect(panel.get('[data-client-asks-more-drafts]').attributes('href')).toBe('/import-40?tab=drafts')
   })
 
   it('«Оформить новую поставку» не выключается: причину блокировки показывает мастер', async () => {
@@ -286,7 +300,7 @@ describe('ClientHomeView', () => {
     await w.findAll('button').find((b) => b.text() === 'Повторить')!.trigger('click')
     await flushPromises()
     expect(api.list).toHaveBeenCalledTimes(2)
-    expect(w.findAll('[data-client-shipment]')).toHaveLength(2)
+    expect(w.findAll('[data-client-shipment]')).toHaveLength(1)
   })
 
   it('клиент только транзита — плитки разделов, без запросов импорта', async () => {

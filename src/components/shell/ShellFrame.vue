@@ -13,7 +13,7 @@ import UserMenu from '@/components/shell/UserMenu.vue'
 import CommandPalette from '@/components/shell/CommandPalette.vue'
 import { allSections, isSectionPage, navPathOf, resolveActive, type NavModel } from '@/shell/navModel'
 import { homeAttention, homeAttentionTone } from '@/shell/attention'
-import { startHomeBadgePolling, stopHomeBadgePolling } from '@/shell/homeBadge'
+import { clientBadgeOnNavigate, startClientHomeBadgePolling, startHomeBadgePolling, stopHomeBadgePolling } from '@/shell/homeBadge'
 import { installPaletteHotkey, useCommandPalette, type PaletteDestination } from '@/shell/useCommandPalette'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useProfileStore } from '@/stores/profile'
@@ -85,6 +85,7 @@ const destinations = computed<PaletteDestination[]>(() =>
 // ---- Ящик меню (ниже lg) ----
 const drawerOpen = ref(false)
 watch(() => route.fullPath, () => { drawerOpen.value = false })
+watch(() => route.path, () => { if (props.client) clientBadgeOnNavigate() })
 
 // «К содержимому»: фокус в <main> без смены адреса (ссылка #main сменила бы URL и прошла через роутер).
 const mainEl = ref<HTMLElement | null>(null)
@@ -110,8 +111,9 @@ let offHotkey: (() => void) | null = null
 onMounted(() => {
   void notifStore.fetch()
   notifStore.startPolling()
-  // Значок «Главной» сотрудника — сам по себе, без открытия Главной (пакет G, 02.11.2026). У клиента его пишет Главная.
+  // Значок «Главной» — сам по себе, без открытия Главной (сотрудник — пакет G, 02.11.2026; клиент Импорта 40 — 05.11.2026).
   if (!props.client) startHomeBadgePolling()
+  else if (authStore.clientHasModule('import40')) startClientHomeBadgePolling()
   offHotkey = installPaletteHotkey()
   measureHeader()
   if (headerEl.value && typeof ResizeObserver !== 'undefined') {
@@ -132,14 +134,14 @@ onMounted(() => {
 })
 onUnmounted(() => {
   notifStore.stopPolling()
-  if (!props.client) stopHomeBadgePolling()
+  stopHomeBadgePolling()
   offHotkey?.()
   offHotkey = null
   headerObserver?.disconnect()
   headerObserver = null
 })
 
-const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
+const iconButton = 'flex size-[34px] max-sm:size-11 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
 </script>
 
 <template>
@@ -181,13 +183,13 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
           compact ? 'relative' : 'sticky top-0 z-10',
         )"
       >
-        <div class="flex items-center gap-2 lg:hidden">
+        <div class="flex items-center gap-2 max-sm:gap-1 lg:hidden">
           <button
             type="button"
             :aria-label="t('shell.menu')"
             :aria-expanded="drawerOpen"
             aria-haspopup="dialog"
-            :class="cn(iconButton, '-ml-1.5')"
+            :class="cn(iconButton, '-ml-1.5 max-sm:-ml-3')"
             @click="drawerOpen = true"
           >
             <PhList :size="20" aria-hidden="true" />
@@ -208,7 +210,7 @@ const iconButton = 'flex size-[34px] shrink-0 cursor-pointer items-center justif
         </div>
         <span v-else-if="isHome" class="hidden text-[13px] text-muted lg:block">{{ today }}</span>
 
-        <div class="ml-auto flex items-center gap-1.5">
+        <div class="ml-auto flex items-center gap-1.5 max-sm:gap-0 max-sm:-mr-2">
           <button
             type="button"
             :aria-label="t('shell.search.open')"

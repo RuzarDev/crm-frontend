@@ -12,13 +12,13 @@ import { clientShipmentsApi, type ClientShipment } from '@/api/clientShipments'
 import { billingApi } from '@/api/billing'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
-import { homeAttention } from '@/shell/attention'
+import { homeBadgeFromClientHome } from '@/shell/homeBadge'
 import { allSections, buildClientNav, navAccessFromStore, sectionHref } from '@/shell/navModel'
 import { NAV_ICONS } from '@/components/shell/navIcons'
 import { formatMoney } from '@/ui/number'
 import { cn } from '@/ui/cn'
 import {
-  activeShipments, clientAsks, clientGreetingName, dayMonth, hasPaymentCheck, moreToPay, unpaidInvoices,
+  activeShipments, clientAsks, clientGreetingName, dayMonth, hasPaymentCheck, hiddenAsks, moreToPay, unpaidInvoices,
 } from '@/views/home/clientHome'
 import { askFor, askHref, segments, shipmentHref, shipmentTag, tabCounts } from '@/views/client/shipment'
 import { useShipmentText } from '@/views/client/useShipmentText'
@@ -58,8 +58,9 @@ const newShipment = () => router.push('/import-40/new')
 const MAX_ASKS = 3
 const asks = computed(() => clientAsks(cases.data ?? []))
 const shownAsks = computed(() => asks.value.slice(0, MAX_ASKS))
+const moreAsks = computed(() => hiddenAsks(asks.value, MAX_ASKS))
 watchEffect(() => {
-  if (imp && cases.data) homeAttention.value = asks.value.length
+  if (imp && cases.data) homeBadgeFromClientHome(asks.value.length)
 })
 // Куда ведёт строка — общее правило askHref: черновик и возврат — в мастер («Продолжить»), остальное — карточка.
 const askAction = (s: ClientShipment) => t(askHref(s).startsWith('/import-40/new/') ? 'clientHome.ask.continue' : 'clientHome.ask.open')
@@ -70,6 +71,8 @@ const askRowId = (i: number) => `${ids.asks}-r${i}`
 const MAX_CARDS = 6
 const active = computed(() => activeShipments(cases.data ?? []))
 const cards = computed(() => active.value.slice(0, MAX_CARDS))
+// Все идущие поставки ждут клиента и уже показаны в «Нужно от вас»: «в работе поставок нет» было бы неправдой.
+const onlyAsks = computed(() => !cards.value.length && !!asks.value.length)
 // Отменённые не в счёт: «Поставок пока нет» — только если клиент ещё ничего не оформлял.
 const hasAny = computed(() => (cases.data ?? []).some((c) => c.status !== 9))
 // 02.11.2026, пакет K (владелец: «заявка при закрытии исчезает»): завершённые не пропадают — рядом с «Все поставки»
@@ -95,6 +98,7 @@ const goSections = computed(() =>
 const grid = 'grid gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]'
 const card = 'rounded-[16px] border border-line bg-surface px-5 py-[18px]'
 const link = 'rounded-[4px] text-sm font-medium text-zircon-ink no-underline outline-hidden transition-colors duration-150 hover:text-ink focus-visible:shadow-focus motion-reduce:transition-none'
+const moreLink = 'text-gold-ink hover:text-ink max-sm:inline-flex max-sm:min-h-11 max-sm:items-center'
 const cta = 'h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:h-11 max-sm:w-full'
 // «Повторить» — sm на компьютере, на телефоне — палец (44px).
 const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
@@ -159,17 +163,20 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             >{{ askAction(a) }}</RouterLink>
           </li>
         </ul>
-        <div v-if="asks.length > MAX_ASKS" class="border-t border-gold-line px-4 py-2.5">
-          <!-- C-12 (30.10.2026): «ещё N» — на вкладку «Ждут вас», где эти поставки и лежат. -->
-          <RouterLink to="/import-40?tab=waiting" :class="cn(link, 'text-gold-ink hover:text-ink')" data-client-asks-more>
-            {{ t('clientHome.ask.more', { n: asks.length - MAX_ASKS }) }}
+        <div v-if="asks.length > MAX_ASKS" class="flex flex-wrap gap-x-4 border-t border-gold-line px-4 py-2.5 max-sm:py-0">
+          <!-- C-12 (30.10.2026): «ещё N» — на ту вкладку, где эти поставки лежат: черновики — отдельной ссылкой (05.11.2026). -->
+          <RouterLink v-if="moreAsks.waiting" to="/import-40?tab=waiting" :class="cn(link, moreLink)" data-client-asks-more>
+            {{ t('clientHome.ask.more', { n: moreAsks.waiting }) }}
+          </RouterLink>
+          <RouterLink v-if="moreAsks.drafts" to="/import-40?tab=drafts" :class="cn(link, moreLink)" data-client-asks-more-drafts>
+            {{ t('clientHome.ask.moreDrafts', { n: moreAsks.drafts }) }}
           </RouterLink>
         </div>
       </section>
 
       <section :aria-labelledby="ids.ships" :aria-busy="cases.loading || undefined" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 :id="ids.ships" class="m-0 text-sm font-semibold text-ink-2">{{ t('clientHome.shipments') }}</h2>
+          <h2 :id="ids.ships" :class="cn('m-0 text-sm font-semibold text-ink-2', onlyAsks && 'sr-only')">{{ t('clientHome.shipments') }}</h2>
           <!-- «Все поставки» — всегда, когда они есть: список с вкладками, в том числе завершённые (пакет K). -->
           <span v-if="!cases.loading && !cases.error && hasAny" class="ml-auto flex items-baseline gap-x-3 max-sm:min-h-11 max-sm:items-center">
             <RouterLink
@@ -202,6 +209,8 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           <p class="m-0 min-w-0 flex-1 text-base text-ink-2">{{ t('clientHome.loadError') }}</p>
           <ZButton size="sm" :class="retry" @click="cases.load()">{{ t('home.retry') }}</ZButton>
         </div>
+
+        <template v-else-if="onlyAsks" />
 
         <div v-else-if="!cards.length" class="rounded-[16px] border border-dashed border-line-strong">
           <ZEmpty

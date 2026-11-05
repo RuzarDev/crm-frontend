@@ -51,7 +51,7 @@ export type StepTone = 'done' | 'action' | 'waiting' | 'later'
 export type StepStateKey =
   | 'filled' | 'fill'
   | 'effective' | 'effectiveUntil'
-  | 'needSign' | 'needGenerate' | 'needNew' | 'awaitingUs'
+  | 'needSign' | 'needGenerate' | 'needNew' | 'awaitingUs' | 'renewWindow'
   | 'afterProfile'
 export interface StepState { done: boolean; tone: StepTone; key: StepStateKey; date: string }
 
@@ -65,6 +65,8 @@ export interface RegistrationSnapshot {
   poaDone: boolean
   /** Клиент договор подписал, ждём подпись AQNIET. */
   contractAwaitingUs: boolean
+  /** Договор истёк, но его ещё может продлить менеджер: новый формировать рано. */
+  contractRenewWindow?: boolean
 }
 
 export interface CompanySnapshot {
@@ -72,6 +74,11 @@ export interface CompanySnapshot {
   /** Документы — только для показа (срок действия, ждёт ли подписи клиента), не для «готово». */
   contracts: Import40DocumentDto[]
   poas: Import40DocumentDto[]
+  /**
+   * Реквизиты заполнены целиком (profile.isComplete). Сервер считает шаг пройденным и с неполными реквизитами, если договор
+   * и доверенность действуют (с 30.10.2026): поставки идут, но галочка «Заполнены» спорила бы с тегом ниже. Не загружено — как у сервера.
+   */
+  requisitesFilled?: boolean
 }
 
 const p2 = (n: number) => String(n).padStart(2, '0')
@@ -98,7 +105,7 @@ export function validDate(v: string | null | undefined): string {
 
 const effectiveDoc = (docs: Import40DocumentDto[]) => sortDocs(docs).find((d) => isDocumentEffective(d)) ?? null
 
-function docStep(ok: boolean, docs: Import40DocumentDto[], profileDone: boolean, awaitingUs: boolean): StepState {
+function docStep(ok: boolean, docs: Import40DocumentDto[], profileDone: boolean, awaitingUs: boolean, renewWindow = false): StepState {
   if (ok) {
     const date = validDate(effectiveDoc(docs)?.validUntilUtc)
     return { done: true, tone: 'done', key: date ? 'effectiveUntil' : 'effective', date }
@@ -107,6 +114,7 @@ function docStep(ok: boolean, docs: Import40DocumentDto[], profileDone: boolean,
   if (!profileDone) return { done: false, tone: 'later', key: 'afterProfile', date: '' }
   const cur = currentDoc(docs)
   if (cur && isOpen(cur) && !cur.clientSigned) return { done: false, tone: 'action', key: 'needSign', date: '' }
+  if (renewWindow) return { done: false, tone: 'waiting', key: 'renewWindow', date: '' }
   // Документ действует, но сервер не принимает его для новой поставки (разовый занят открытой заявкой).
   if (effectiveDoc(docs) || docs.some((d) => isDocumentActive(d))) return { done: false, tone: 'action', key: 'needNew', date: '' }
   return { done: false, tone: 'action', key: 'needGenerate', date: '' }
@@ -118,10 +126,10 @@ function docStep(ok: boolean, docs: Import40DocumentDto[], profileDone: boolean,
  */
 export function companySteps(s: CompanySnapshot): Record<CompanyStep, StepState> {
   const { reg } = s
-  const profile: StepState = reg.profileDone
+  const profile: StepState = reg.profileDone && s.requisitesFilled !== false
     ? { done: true, tone: 'done', key: 'filled', date: '' }
     : { done: false, tone: 'action', key: 'fill', date: '' }
-  const contract = docStep(reg.contractDone, s.contracts, reg.profileDone, reg.contractAwaitingUs)
+  const contract = docStep(reg.contractDone, s.contracts, reg.profileDone, reg.contractAwaitingUs, reg.contractRenewWindow)
   const poa = docStep(reg.poaDone, s.poas, reg.profileDone, false)
   return { profile, contract, poa }
 }

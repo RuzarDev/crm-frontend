@@ -17,6 +17,7 @@ import { fieldErrors as serverFieldErrors } from '@/api/nationalLists'
 import { saveBlob } from '@/ui/download'
 import { formatMoneyIn, formatNumberIn } from '@/ui/number'
 import { message } from '@/ui/message'
+import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
 import { formatDay } from '@/views/broker/list'
 import { emptyInsurance, hasInsurance, insuranceErrors, insuranceFieldsOf } from './carriers'
@@ -28,6 +29,7 @@ import { DOC_MAX_MB } from '@/utils/uploadLimits'
 // В карточке поставки клиента и в карточке заявки сотрудника. carrierHref — карточка перевозчика (у клиента и сотрудника своя).
 const props = withDefaults(defineProps<{ caseId: string; clientId: string; carrierHref: (id: string) => string; compact?: boolean }>(), { compact: false })
 const { t, locale } = useI18n()
+const { confirm } = useConfirm()
 const uid = useId()
 
 const freight = shallowRef<CarrierInvoice[]>([])
@@ -100,6 +102,16 @@ const upload = async (file: File | undefined) => {
   } finally { fileBusy.value = false }
 }
 const removeFile = async () => {
+  const name = insurance.value?.file?.fileName
+  if (!name) return
+  const ok = await confirm({
+    title: t('carriers.insurance.deleteFileTitle'),
+    content: t('carriers.insurance.deleteFileText', { name }),
+    okText: t('carriers.insurance.deleteFileOk'),
+    cancelText: t('carriers.form.cancel'),
+    danger: true,
+  })
+  if (!ok) return
   fileBusy.value = true
   try {
     insurance.value = await carriersApi.deleteInsuranceFile(props.caseId)
@@ -218,7 +230,7 @@ defineExpose({ reload: load })
           :max-size-mb="DOC_MAX_MB"
           :loading="fileBusy"
           button-size="sm"
-          class="max-sm:w-full"
+          class="max-sm:block max-sm:w-full max-sm:[&>button]:h-11 max-sm:[&>button]:w-full max-sm:[&>button]:text-sm"
           data-insurance-upload
           @select="upload($event[0])"
         >{{ t(insurance?.file ? 'carriers.insurance.replaceFile' : 'carriers.insurance.attachFile') }}</ZUpload>

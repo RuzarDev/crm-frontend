@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import { import40Api, type Import40CanCreateDto, type RegistrationBlockCode } from '@/api/import40'
 import { blockReasonOf } from '@/shell/registrationBanner'
 import { formatDay } from '@/views/broker/list'
+import { validDate } from '@/views/client/company/company'
 import { import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 
 // Регистрация клиента = три шага «Моей компании»: реквизиты → договор → доверенность.
@@ -105,9 +106,10 @@ export function useClientRegistration() {
   const busyCaseNumber = computed(() => state.value?.busyCaseNumber ?? null)
   const busyCaseIsDraft = computed(() => state.value?.busyCaseIsDraft === true)
   // Параметры текстов блокировки: номер поставки (busy) или отозванного документа и дата (05.11.2026).
+  // Срок продления — календарная дата конца дня по UTC, как «действует до» (validDate), а отзыв — момент времени.
   const blockParams = computed(() => ({
     number: state.value?.busyCaseNumber ?? state.value?.revokedDocNumber ?? '',
-    date: state.value?.revokedAtUtc ? formatDay(state.value.revokedAtUtc) : '',
+    date: state.value?.revokedAtUtc ? formatDay(state.value.revokedAtUtc) : validDate(state.value?.renewUntilUtc),
   }))
 
   return {

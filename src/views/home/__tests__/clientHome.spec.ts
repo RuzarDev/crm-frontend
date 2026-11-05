@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ClientShipment } from '@/api/clientShipments'
 import type { BrokerInvoice } from '@/api/billing'
-import { activeShipments, clientAsks, clientGreetingName, dayMonth, moreToPay, unpaidInvoices } from '../clientHome'
+import { activeShipments, clientAsks, clientGreetingName, dayMonth, hiddenAsks, moreToPay, unpaidInvoices } from '../clientHome'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
   id: 'c', number: 'И40-1', cargo: 'Ноутбуки', post: '', status: 2, step: 3, isProblem: false,
@@ -32,14 +32,24 @@ describe('clientAsks', () => {
 })
 
 describe('activeShipments', () => {
-  it('без выполненных и отменённых, по дате изменения убыв.', () => {
+  it('как вкладка «В работе»: без черновиков, ждущих клиента, выполненных и отменённых, по дате изменения убыв.', () => {
     const list = activeShipments([
       ship({ id: 'old', updatedAtUtc: '2026-09-01T00:00:00Z' }),
       ship({ id: 'done', status: 8 }),
       ship({ id: 'cancel', status: 9 }),
-      ship({ id: 'new', status: 0, updatedAtUtc: '2026-10-07T00:00:00Z' }),
+      ship({ id: 'draft', status: 0 }),
+      ship({ id: 'pay', status: 6 }),
+      ship({ id: 'new', status: 5, updatedAtUtc: '2026-10-07T00:00:00Z' }),
     ])
     expect(list.map((c) => c.id)).toEqual(['new', 'old'])
+  })
+})
+
+describe('hiddenAsks', () => {
+  it('скрытые строки делятся по вкладкам списка: черновики отдельно от ждущих клиента', () => {
+    const asks = [ship({ id: 'p', status: 6 }), ship({ id: 'r', status: 0, returnReason: 'Нет инвойса' }), ship({ id: 'd', status: 0 })]
+    expect(hiddenAsks(asks, 1)).toEqual({ waiting: 1, drafts: 1 })
+    expect(hiddenAsks(asks, 3)).toEqual({ waiting: 0, drafts: 0 })
   })
 })
 

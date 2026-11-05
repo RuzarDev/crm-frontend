@@ -35,8 +35,10 @@ const props = defineProps<{
   refresh: () => Promise<unknown>
   /** Документ действует, но сервер (can-create) не принимает его для новой поставки — нужен новый. */
   needNew?: boolean
-  /** Причина от сервера (can-create reason). */
+  /** Причина на языке клиента (по коду can-create). */
   needNewReason?: string | null
+  /** Договор истёк, но его ещё может продлить менеджер: подсказка вместо «сформируйте новый». */
+  renewHint?: string | null
 }>()
 const emit = defineEmits<{ goProfile: [] }>()
 const { t } = useI18n()
@@ -255,7 +257,9 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
           data-plate-state="todo"
         >
           <span class="text-base font-semibold text-ink">{{ t('client.company.doc.yourSignature') }}</span>
-          <span class="text-[13.5px] leading-5 text-ink-2">{{ t('client.company.doc.signHint') }}</span>
+          <!-- NCALayer работает только на компьютере: на телефоне кнопки нет, в подсказке его тоже нет. -->
+          <span class="text-[13.5px] leading-5 text-ink-2 max-sm:hidden">{{ t('client.company.doc.signHint') }}</span>
+          <span class="text-[13.5px] leading-5 text-ink-2 sm:hidden" data-sign-hint-phone>{{ t('client.company.doc.signHintPhone') }}</span>
           <span class="mt-1 flex flex-wrap gap-2">
             <ZButton variant="primary" :loading="refreshing && !uploading" :class="actionBtn" data-sign-egov @click="openSigex">
               {{ t('client.company.doc.signEgov') }}
@@ -324,13 +328,14 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
         <h2 :id="titleId" class="m-0 text-lg leading-[26px] font-semibold tracking-[-0.01em] text-ink">
           {{ revokedLast ? t(k('revokedTitle'), { no: `${revokedLast.number}/${revokedLast.year}`, date: revokedLast.revokedAtUtc ? formatDay(revokedLast.revokedAtUtc) : '' }) : t(history.length ? k('noneTitle') : k('emptyTitle')) }}
         </h2>
-        <p class="m-0 mt-1 max-w-[560px] text-base text-ink-3">
-          {{ profileComplete ? t(history.length ? k('noneHint') : k('emptyHint')) : t('client.company.doc.fillFirst') }}
+        <p class="m-0 mt-1 max-w-[560px] text-base text-ink-3" data-doc-empty-hint>
+          {{ renewHint || (profileComplete ? t(history.length ? k('noneHint') : k('emptyHint')) : t('client.company.doc.fillFirst')) }}
         </p>
       </div>
+      <!-- В окне продления новый договор не главное действие: его продлит менеджер (выпуск остаётся, это правило сервера). -->
       <ZButton
         v-if="profileComplete"
-        variant="primary"
+        :variant="renewHint ? 'secondary' : 'primary'"
         :loading="generating"
         class="h-10 px-5 max-sm:h-12 max-sm:w-full max-sm:text-base"
         data-doc-generate
