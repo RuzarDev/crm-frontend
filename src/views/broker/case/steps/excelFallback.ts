@@ -422,7 +422,7 @@ export function headerDocs(i: HeaderDocsInput): Import40Doc44ItemInput[] {
   }
   // CMR в наборе, а номер не распознан (скан без текста) — строка CMR без номера: декларант впишет номер, сервер не
   // добавит транспортный документ по виду транспорта заявки.
-  else if (i.road && i.cmrInBatch) out.push(docLine('02015', null, null, names))
+  else if (i.road && i.cmrInBatch && !i.aiTransport) out.push(docLine('02015', null, null, names))
   if (!i.hasCaseContract) {
     const h = headers.find((x) => x.contractNumber)
     const number = h?.contractNumber ?? extras?.contractNumber ?? null
@@ -512,7 +512,7 @@ export function applyExcelFallback(preview: Import40ExtractionPreview, docs: rea
   const aiDocs = extras?.documents?.length ? extras.documents : null
   const aiPacking = aiDocs?.find((d) => d.kind === 'packing_list' && d.number?.trim()
     && !d.flags?.includes('number_from_invoice') && !d.flags?.includes('referenced_only'))
-  const aiTransport = aiDocs?.find((d) => d.code?.startsWith('020') && d.number?.trim() === extras?.transportDocument?.trim()
+  const aiTransport = aiDocs?.find((d) => d.code?.startsWith('020') && (!extras?.transportDocument || d.number?.trim() === extras.transportDocument.trim())
     && !d.flags?.includes('referenced_only'))
   const fromHeaders = headerDocs({
     // ЖД: вагоны в гр. 18 — не «номера машины», транспортный документ — ЖД накладная 02013 (если в наборе нет самого CMR).
