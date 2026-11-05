@@ -146,17 +146,35 @@ describe('BrokerRegistryView', () => {
     expect(lastQuery()).toMatchObject({ type: 'import40', page: 1 })
   })
 
-  it('клик по строке: Импорт 40 — в карточку, транзит — в /reestr', async () => {
+  it('клик по строке: Импорт 40 — в карточку, транзит — на страницу записи', async () => {
     await mountView()
     await w.findAll('tbody tr')[0].trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/import-40/i1')
     await w.findAll('tbody tr')[1].trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/reestr')
+    expect(router.currentRoute.value.path).toBe('/reestr/t1')
   })
 
-  it('«Excel» выгружает строки текущей страницы; без строк кнопка выключена', async () => {
+  it('номер транзита — ссылка на страницу записи', async () => {
+    api.list.mockResolvedValue({ items: [r({ id: 't2', serviceType: 'transit', number: 'REG-1' })], totalCount: 1, page: 1, pageSize: 25 })
+    await mountView()
+    expect(w.get('a[data-registry-link]').attributes('href')).toBe('/reestr/t2')
+  })
+
+  it('«Excel» выгружает весь отфильтрованный список постранично, с теми же фильтрами', async () => {
+    await mountView()
+    await pickType('Импорт 40')
+    api.list.mockClear()
+    api.list.mockImplementation(async (q: { page: number }) => ({ items: q.page < 3 ? Array.from({ length: 100 }, (_, i) => r({ id: `x${q.page}-${i}` })) : ITEMS.slice(0, 2), totalCount: 202, page: q.page, pageSize: 100 }))
+    await w.get('[data-registry-excel]').trigger('click')
+    await flushPromises()
+    expect(api.list.mock.calls.map((c) => [c[0].page, c[0].pageSize, c[0].type])).toEqual([[1, 100, 'import40'], [2, 100, 'import40'], [3, 100, 'import40']])
+    expect(api.exportXlsx.mock.calls[0][2]).toHaveLength(202)
+  })
+
+  it('«Excel»: файл, лист и строки; без строк кнопка выключена', async () => {
+    api.list.mockResolvedValue({ items: ITEMS, totalCount: 3, page: 1, pageSize: 25 })
     await mountView()
     await w.get('[data-registry-excel]').trigger('click')
     await flushPromises()

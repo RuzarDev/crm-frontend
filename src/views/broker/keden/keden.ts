@@ -25,7 +25,7 @@ export interface KedenRow {
   /** Дата изменения статуса (ISO) и она же числом — для сортировки; пустая — в конец. */
   changedAt: string | null
   ts: number | null
-  /** Связанная ДТ платформы (S-30, 30.10.2026; только у сотрудника в «mine») — ссылка на страницу ДТ. */
+  /** Связанная ДТ платформы (S-30, 30.10.2026): у сотрудника в «mine» и у администратора в «all» — ссылка на страницу ДТ. */
   caseId?: string | null
   declarationId?: string | null
 }
@@ -48,6 +48,8 @@ export const rowFromListItem = (i: KedenDeclarationListItemDto): KedenRow => ({
   declarantXin: null,
   changedAt: i.statusDateTimeUtc,
   ts: stamp(i.statusDateTimeUtc),
+  caseId: i.caseId ?? null,
+  declarationId: i.declarationId ?? null,
 })
 
 export const rowFromMine = (i: KedenDeclarationStatus): KedenRow => ({

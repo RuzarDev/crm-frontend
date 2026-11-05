@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZPhone from '@/components/z/ZPhone.vue'
 import ZSegmented from '@/components/z/ZSegmented.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
+import CustomsPostOption from '@/components/customsPost/CustomsPostOption.vue'
 import WagonList from '@/components/transport/WagonList.vue'
 import { import40Api, type Import40UpdateRequest } from '@/api/import40'
+import { referencesApi } from '@/api/references'
+import type { CustomsPostItem } from '@/types/api'
+import { buildCustomsPostOptions, filterCustomsPostOption } from '@/utils/customsPosts'
 import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { ZOptionValue } from '@/ui/options'
@@ -22,7 +27,8 @@ import DraftContainers from './DraftContainers.vue'
 import DraftReadonly from './DraftReadonly.vue'
 
 // Шаг 1 «Заявка и документы» (статус 0). Сотрудник с import40.declarant или import40.assign (и администратор) ведёт черновик
-// за клиента: груз, пост (сохранение по blur и Enter — PUT, ответ заменяет заявку), вид транспорта и поля по виду, контейнеры,
+// за клиента: груз (сохранение по blur и Enter — PUT, ответ заменяет заявку), пост из справочника, как при создании заявки
+// (сохранение при выборе; прежнее значение не из справочника остаётся видно), вид транспорта и поля по виду, контейнеры,
 // документы раздела documents, «Отправить на оформление». Остальные видят шаг в режиме чтения. Пройденный шаг (mode done) — чтение.
 const props = defineProps<CaseStepProps>()
 const { t } = useI18n()
@@ -84,6 +90,20 @@ const commit = async (field: DraftField) => {
   if (!ok) form[field] = draftValueOf(kase.value, field) // ошибку показал перехватчик; поле — к серверному значению
 }
 const onInput = (field: DraftField) => { if (emptyError[field]) emptyError[field] = false }
+
+// ---- Пост: тот же выбор из справочника, что в окне создания заявки (05.11.2026) ----
+const posts = shallowRef<CustomsPostItem[]>([])
+const postOptions = computed(() => buildCustomsPostOptions(posts.value, (k) => t(`customsPost.kind.${k}`)))
+watch(canEdit, async (can) => {
+  if (!can || posts.value.length) return
+  try {
+    posts.value = await referencesApi.listCustomsPosts()
+  } catch { /* справочник недоступен: виден текущий пост, ошибку показал перехватчик */ }
+}, { immediate: true })
+const pickPost = (v: ZOptionValue | ZOptionValue[] | null) => {
+  form.post = typeof v === 'string' ? v : ''
+  void commit('post')
+}
 
 // ---- Вагоны (01.11.2026, пункт 1 правок 30.10): список строками, сохраняется целиком по blur/Enter/удалению строки ----
 const wagonsKey = (list: string[]) => list.map((w) => w.trim()).filter(Boolean).join('\n')
@@ -170,7 +190,20 @@ const phoneField = 'max-sm:h-12 max-sm:text-base'
           <ZInput v-model:value="form.cargo" :class="phoneField" autocomplete="off" data-draft-field="cargo" @input="onInput('cargo')" @blur="commit('cargo')" @press-enter="commit('cargo')" />
         </ZField>
         <ZField :label="t('broker.case.draft.post')" :error="emptyError.post ? t('broker.case.draft.cannotBeEmpty') : undefined">
-          <ZInput v-model:value="form.post" :class="phoneField" autocomplete="off" data-draft-field="post" @input="onInput('post')" @blur="commit('post')" @press-enter="commit('post')" />
+          <ZSelect
+            :value="form.post || null"
+            :options="postOptions"
+            show-search
+            :filter-option="filterCustomsPostOption"
+            :not-found-content="t('customsPost.notFound')"
+            :placeholder="t('broker.requests.create.postPh')"
+            popup-width="min(460px, calc(100vw - 32px))"
+            :class="phoneField"
+            data-draft-field="post"
+            @update:value="pickPost"
+          >
+            <template #option="{ option }"><CustomsPostOption :option="option" /></template>
+          </ZSelect>
         </ZField>
       </div>
 

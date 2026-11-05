@@ -206,6 +206,13 @@ const dtLink = (r: KedenRow) => (r.caseId && r.declarationId ? `/import-40/${r.c
             >{{ record.registrationNumber || t('broker.keden.openDt') }}</RouterLink>
             <span v-else-if="record.registrationNumber" class="block truncate font-mono text-sm font-medium text-ink" data-keden-no>{{ record.registrationNumber }}</span>
             <span v-else class="text-muted">—</span>
+            <!-- В «all» номер ведёт на сырые данные КЕДЕН; связанная ДТ платформы — второй ссылкой (05.11.2026). -->
+            <RouterLink
+              v-if="isAll && dtLink(record)"
+              :to="dtLink(record)!"
+              class="block w-fit rounded-field text-xs font-medium text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:inline-flex max-sm:min-h-11 max-sm:items-center max-sm:text-sm"
+              data-keden-all-dt
+            >{{ t('broker.keden.openDt') }}</RouterLink>
           </template>
           <ZTag v-else-if="column.key === 'type'" tone="neutral" :title="record.type ? typeFull(record.type) : undefined" data-keden-type>{{ record.type ? typeShort(record.type) : '—' }}</ZTag>
           <StatusDot v-else-if="column.key === 'status'" :tone="statusTone(record.statusCode, record.statusName)" :label="record.statusName || '—'" wrap />

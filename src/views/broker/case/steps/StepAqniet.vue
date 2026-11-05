@@ -14,8 +14,8 @@ import AqnietInvoiceList from './AqnietInvoiceList.vue'
 
 // Шаг 6 «Оплата услуг AQNIET» (статус 7, бухгалтер; доска CaseSvh). Счета и акты AQNIET по заявке (список не зависит от
 // finance.read — сервер отдаёт только относящиеся к заявке). На текущем шаге: «Выставить счёт AQNIET» (finance.write) →
-// /billing?caseId=…; администратору — ещё «Завершить без счёта AQNIET» (окно причины из CaseActionModals; редкий запасной
-// выход — тихая кнопка danger-ghost слева от главной). Что бухгалтер отметил оплату в «Счетах», карточка узнаёт при возврате
+// /billing?caseId=…. «Завершить без счёта AQNIET» — редкий запасной выход администратора, в меню ⋯ шапки заявки, а не рядом
+// с главной кнопкой (05.11.2026). Что бухгалтер отметил оплату в «Счетах», карточка узнаёт при возврате
 // на вкладку (useCase: перечитывание при visibilitychange). Пройденный шаг — только список.
 // S-25 (30.10.2026): счёт уже выставлен (или есть черновик) — вместо «Выставить» (второй счёт) «Открыть счёт» (/billing?case=,
 // только фильтр); текст — по факту: нет счёта — «ещё не выставлен», выставлен — «ждём оплату».
@@ -69,10 +69,7 @@ const submitUnmark = async () => {
 
 <template>
   <CaseStepPanel v-if="mode === 'current'" :step="ctx.step" :meta="t('broker.case.aqniet.meta')">
-    <template v-if="canIssue || canOpen || perms.canCompleteWithoutInvoice" #actions>
-      <ZButton v-if="perms.canCompleteWithoutInvoice" variant="danger-ghost" :disabled="ctx.actions.busy()" class="max-sm:w-full" data-aqniet-complete @click="ctx.actions.ask('completeWithoutInvoice')">
-        {{ t('import40Case.completeWithoutInvoice') }}
-      </ZButton>
+    <template v-if="canIssue || canOpen" #actions>
       <ZButton v-if="canIssue" variant="primary" class="max-sm:w-full" data-aqniet-issue @click="issue">
         {{ t('import40Case.issueAqnietInvoice') }}
       </ZButton>

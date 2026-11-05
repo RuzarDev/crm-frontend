@@ -78,6 +78,7 @@ describe('StepSvh', () => {
     expect(w.find('[data-svh-issue]').exists()).toBe(false)
     await w.get('[data-svh-close]').trigger('click')
     expect(confirmState.title).toBe('Закрыть ДТ на СВХ?')
+    expect(confirmState.content).toContain('Вернуть шаг могут только руководитель и администратор')
     expect(api.action).not.toHaveBeenCalled()
     confirmState.resolve(true)
     await flushPromises()

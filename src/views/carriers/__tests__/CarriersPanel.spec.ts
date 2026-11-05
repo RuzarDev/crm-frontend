@@ -159,6 +159,25 @@ describe('ShipmentTransportBlock', () => {
     expect(nbsp(w.get('[data-insurance-row="premium"]').text())).toContain('150 000,00 KZT')
   })
 
+  it('удаление файла полиса — с подтверждением и именем файла; отказ — запроса нет', async () => {
+    api.caseFreight.mockResolvedValue([])
+    api.insurance.mockResolvedValue(insurance({ insurer: 'X', file: { fileName: 'полис.pdf', contentType: 'application/pdf', sizeBytes: 1 } }))
+    api.deleteInsuranceFile.mockResolvedValue(insurance({ insurer: 'X' }))
+    await mount(ShipmentTransportBlock, { caseId: 'case1', clientId: 'c1', carrierHref: (id: string) => id })
+    await w.get('[data-insurance-file-delete]').trigger('click')
+    await flushPromises()
+    expect(confirmState.title).toBe('Удалить файл полиса «полис.pdf»?')
+    expect(confirmState.danger).toBe(true)
+    confirmState.resolve(false)
+    await flushPromises()
+    expect(api.deleteInsuranceFile).not.toHaveBeenCalled()
+    await w.get('[data-insurance-file-delete]').trigger('click')
+    await flushPromises()
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.deleteInsuranceFile).toHaveBeenCalledWith('case1')
+  })
+
   it('без права менять — без кнопок', async () => {
     api.caseFreight.mockResolvedValue([])
     api.insurance.mockResolvedValue(insurance({ canEdit: false, insurer: 'X', file: { fileName: 'p.pdf', contentType: 'application/pdf', sizeBytes: 1 } }))

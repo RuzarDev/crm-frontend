@@ -50,6 +50,7 @@ vi.mock('@/ui/download', () => download)
 
 import DtPage from '../DtPage.vue'
 import { useAuthStore } from '@/stores/auth'
+import CaseCustomsRequests from '@/views/broker/case/CaseCustomsRequests.vue'
 import { confirmState } from '@/ui/confirm'
 import { resetDtTnvedCheckCache } from '../goods/tnvedCodeCheck'
 
@@ -288,6 +289,12 @@ describe('DtPage: готовность', () => {
     // Товар фикстуры помечен «пересчитать ТПиН» — точка «платежи устарели» у раздела «Платежи».
     expect(navItem('payments').find('[data-dt-nav-stale]').exists()).toBe(true)
     expect(navItem('goods').find('[data-dt-nav-stale]').exists()).toBe(false)
+  })
+
+  it('запрос таможни на границе: КПП может закрыть его и со страницы ДТ, как из карточки заявки', async () => {
+    as({ permissions: ['import40.read', 'import40.kpp'] })
+    await open()
+    expect(w.getComponent(CaseCustomsRequests).props('canManageBorder')).toBe(true)
   })
 
   it('клик по пункту «До подачи» — раздел и подсветка поля по data-graph', async () => {

@@ -13,6 +13,9 @@ export interface KedenDeclarationListItemDto {
   registeredDateTimeUtc: string | null
   declarantName: string | null
   customsPost: string | null
+  /** Связанная ДТ платформы (05.11.2026). */
+  caseId?: string | null
+  declarationId?: string | null
 }
 
 export interface KedenDeclarationListResponse {

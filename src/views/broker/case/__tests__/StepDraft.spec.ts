@@ -9,13 +9,14 @@ import { mountStep } from './stepHarness'
 const api = vi.hoisted(() => ({
   update: vi.fn(), action: vi.fn(), addContainer: vi.fn(), deleteContainer: vi.fn(), uploadFile: vi.fn(), deleteFile: vi.fn(), downloadFile: vi.fn(),
 }))
-const refs = vi.hoisted(() => ({ listCountries: vi.fn() }))
+const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 
 import StepDraft from '../steps/StepDraft.vue'
+import ZSelect from '@/components/z/ZSelect.vue'
 
 let w: VueWrapper
 let state: { kase: Import40CaseDto; files: Import40FileDto[] }
@@ -38,6 +39,7 @@ beforeEach(() => {
   api.addContainer.mockResolvedValue(caseDto())
   api.deleteContainer.mockResolvedValue(caseDto())
   refs.listCountries.mockResolvedValue([{ code: 'CN', name: 'Китай' }])
+  refs.listCustomsPosts.mockResolvedValue([{ code: '39701', name: '39701 Хоргос', location: null, transportKind: null }])
 })
 afterEach(() => {
   w?.unmount()
@@ -84,12 +86,30 @@ describe('StepDraft — сохранение полей', () => {
   })
 
   it('Enter сохраняет так же; без изменений запроса нет', async () => {
-    mount(USERS.declarant, { post: 'Хоргос' })
-    await edit('post', 'Алтынколь', 'enter')
-    expect(api.update).toHaveBeenCalledWith('c1', { post: 'Алтынколь' })
+    mount(USERS.declarant, { cargo: 'Ноутбуки' })
+    await edit('cargo', 'Телефоны', 'enter')
+    expect(api.update).toHaveBeenCalledWith('c1', { cargo: 'Телефоны' })
     api.update.mockClear()
-    await edit('post', 'Алтынколь')
+    await edit('cargo', 'Телефоны')
     expect(api.update).not.toHaveBeenCalled()
+  })
+
+  it('пост — выбор из справочника, как при создании заявки: сохраняется сразу; прежний свободный текст виден', async () => {
+    mount(USERS.declarant, { post: 'Старый пост' })
+    await flushPromises()
+    expect(refs.listCustomsPosts).toHaveBeenCalledTimes(1)
+    const select = w.getComponent(ZSelect)
+    expect(select.props('options')).toEqual([expect.objectContaining({ value: '39701 Хоргос' })])
+    expect(select.props('value')).toBe('Старый пост')
+    select.vm.$emit('update:value', '39701 Хоргос')
+    await flushPromises()
+    expect(api.update).toHaveBeenCalledWith('c1', { post: '39701 Хоргос' })
+  })
+
+  it('режим чтения: справочник постов не запрашивается', async () => {
+    mount(USERS.kpp)
+    await flushPromises()
+    expect(refs.listCustomsPosts).not.toHaveBeenCalled()
   })
 
   it('(баг) пустой груз не отправляется и не откатывается молча: под полем «Нельзя оставить пустым», ввод снимает подсказку', async () => {
@@ -195,7 +215,7 @@ describe('StepDraft — сохранение полей', () => {
     state.kase = { ...state.kase, post: 'Алтынколь' } // перечитали: пост изменился на сервере, груз — нет
     await flushPromises()
     expect((field('cargo').element as HTMLInputElement).value).toBe('Телефоны')
-    expect((field('post').element as HTMLInputElement).value).toBe('Алтынколь')
+    expect(w.getComponent(ZSelect).props('value')).toBe('Алтынколь')
   })
 })
 

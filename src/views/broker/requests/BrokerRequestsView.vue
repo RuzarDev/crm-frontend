@@ -189,7 +189,7 @@ const byUpdated = (a: Import40BoardRow, b: Import40BoardRow) => Date.parse(a.upd
 const columns = computed<ZColumn<Import40BoardRow>[]>(() => [
   { key: 'request', title: t('broker.requests.col.request'), width: 160, sorter: (a, b) => a.number.localeCompare(b.number, 'ru', { numeric: true }) },
   { key: 'client', title: t('broker.requests.col.client'), width: 170 },
-  { key: 'tnved', title: t('broker.requests.col.tnved'), width: 140 },
+  { key: 'tnved', title: t('broker.requests.col.tnved'), width: 170 },
   { key: 'stage', title: t('broker.requests.col.stage'), width: 200, sorter: (a, b) => a.status - b.status },
   { key: 'executor', title: t('broker.requests.col.executor'), width: 130 },
   { key: 'payments', title: t('broker.requests.col.payments'), width: 110, align: 'right' },

@@ -100,8 +100,9 @@ describe('«Счета и акты» (сотрудник)', () => {
     await mountView()
     actionsOf(0).vm.$emit('action', 'cancel')
     await flushPromises()
-    expect(confirmState.title).not.toBe('Аннулировать документ?')
+    expect(confirmState.title).not.toContain('Аннулировать')
     const modal = document.body.querySelector('[data-billing-cancel-paid]')
+    expect(modal?.querySelector('[data-billing-cancel-doc]')?.textContent).toContain('№')
     expect(modal?.textContent).toContain('Аннулировать оплаченный счёт')
     const area = document.body.querySelector<HTMLTextAreaElement>('textarea[data-billing-cancel-reason], [data-billing-cancel-reason] textarea')!
     area.value = 'выставлен не тому клиенту'
@@ -255,7 +256,9 @@ describe('«Счета и акты» (сотрудник)', () => {
 
     actionsOf(3).vm.$emit('action', 'cancel')
     await flushPromises()
-    expect(confirmState.title).toBe('Аннулировать документ?')
+    expect(confirmState.title).toBe('Аннулировать: Акт № 0098/2026?')
+    expect(confirmState.content).toContain('Клиент увидит документ аннулированным')
+    expect(confirmState.content).toContain('86')
     expect(confirmState.danger).toBe(true)
     confirmState.resolve(true)
     await flushPromises()

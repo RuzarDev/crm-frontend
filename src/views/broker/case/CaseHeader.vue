@@ -31,6 +31,8 @@ const menu = computed<ZDropdownItem[]>(() => {
   const items: ZDropdownItem[] = []
   if (props.perms.showProblemAction) items.push({ key: 'problem', label: t('import40Case.problemBtn'), icon: PhFlag })
   if (props.perms.canStepBack) items.push({ key: 'stepBack', label: t('import40Case.stepBackBtn'), icon: PhArrowCounterClockwise })
+  // Шаг 6 «Ждёт оплаты услуг AQNIET» (статус 7): только на нём сервер принимает завершение без счёта.
+  if (props.perms.canCompleteWithoutInvoice && props.kase.status === 7) items.push({ key: 'completeWithoutInvoice', label: t('import40Case.completeWithoutInvoice'), danger: true, divider: items.length > 0 })
   if (props.perms.canCancel) items.push({ key: 'cancel', label: t('import40Case.cancelBtn'), icon: PhXCircle, danger: true, divider: items.length > 0 })
   return items
 })

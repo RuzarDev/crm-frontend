@@ -46,7 +46,7 @@ describe('StepBorder', () => {
     mount(USERS.kpp)
     await w.get('[data-border-passed]').trigger('click')
     expect(confirmState.title).toBe('Отметить, что граница пройдена?')
-    expect(confirmState.content).toBe('Прибытие машины не отмечено — оно будет отмечено тем же временем.')
+    expect(confirmState.content).toBe('Прибытие транспорта не отмечено — оно будет отмечено тем же временем.')
     expect(confirmState.cancelText).toBe('Отмена')
     expect(api.action).not.toHaveBeenCalled()
     confirmState.resolve(true)
@@ -122,7 +122,7 @@ describe('StepBorder', () => {
     expect(api.action).toHaveBeenCalledWith('c1', 'border-passed', undefined, undefined)
   })
 
-  it('«Машина прибыла»: окно со временем «сейчас» и постом заявки, отправка border-arrived', async () => {
+  it('«Транспорт прибыл»: окно со временем «сейчас» и постом заявки, отправка border-arrived', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 18, 14, 20))
     try {
@@ -137,13 +137,13 @@ describe('StepBorder', () => {
       await flushPromises()
       expect(api.action).toHaveBeenCalledWith('c1', 'border-arrived', 'очередь',
         { date: new Date(2026, 9, 18, 14, 20).toISOString(), post: 'Хоргос — ЦТО' })
-      expect(msg.success).toHaveBeenCalledWith('Прибытие машины отмечено')
+      expect(msg.success).toHaveBeenCalledWith('Прибытие транспорта отмечено')
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('«Машина прибыла»: время в будущем — ошибка у поля, запроса нет', async () => {
+  it('«Транспорт прибыл»: время в будущем — ошибка у поля, запроса нет', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 18, 14, 20))
     try {
@@ -160,14 +160,14 @@ describe('StepBorder', () => {
     }
   })
 
-  it('прибытие отмечено: строка «Прибыла … · пост …», комментарий, отмена с подтверждением', async () => {
+  it('прибытие отмечено: строка «Прибыл … · пост …», комментарий, отмена с подтверждением', async () => {
     const at = new Date(2026, 9, 18, 14, 20).toISOString()
     mount(USERS.kpp, { borderArrivedAtUtc: at, borderArrivalPost: 'Нур Жолы', borderArrivalNote: 'очередь' })
     expect(w.find('[data-border-arrived]').exists()).toBe(false)
-    expect(w.get('[data-arrival-text]').text()).toBe('Прибыла 18.10 в 14:20 · пост Нур Жолы')
+    expect(w.get('[data-arrival-text]').text()).toBe('Прибыл 18.10 в 14:20 · пост Нур Жолы')
     expect(w.get('[data-arrival-note]').text()).toBe('очередь')
     await w.get('[data-arrival-cancel]').trigger('click')
-    expect(confirmState.title).toBe('Отменить отметку «Машина прибыла»?')
+    expect(confirmState.title).toBe('Отменить отметку «Транспорт прибыл»?')
     confirmState.resolve(true)
     await flushPromises()
     expect(api.action).toHaveBeenCalledWith('c1', 'border-arrived-cancel', undefined, undefined)
@@ -259,7 +259,7 @@ describe('StepBorder', () => {
     expect(w.get('[data-docs-slot="border-scans"] [data-slot-file-kind]').text()).toBe('ДХТ (документ хранения товаров)')
   })
 
-  it('КПП назначен другой: «Машина прибыла» выключена у прочих КПП, руководителю доступна', () => {
+  it('КПП назначен другой: «Транспорт прибыл» выключена у прочих КПП, руководителю доступна', () => {
     mount(USERS.kpp, { assignedKppId: 'k9', assignedKppName: 'Ерлан Б.' })
     expect(w.get('[data-border-arrived]').attributes('disabled')).toBeDefined()
     expect(tipOf('[data-border-arrived]')).toBe('Заявку ведёт Ерлан Б.')
@@ -280,7 +280,7 @@ describe('StepBorder', () => {
       status: 2, borderArrivedAtUtc: at, borderArrivalPost: 'Хоргос',
       borderControls: [{ id: 'bc1', kind: 'phyto', text: null, atUtc: at, userName: null }],
     }, 'done')
-    expect(w.get('[data-border-done] [data-arrival-text]').text()).toBe('Прибыла 18.10 в 14:20 · пост Хоргос')
+    expect(w.get('[data-border-done] [data-arrival-text]').text()).toBe('Прибыл 18.10 в 14:20 · пост Хоргос')
     expect(w.get('[data-done-controls]').text()).toBe('Фитосанитарный контроль (18.10 в 14:20)')
     expect(w.get('[data-docs-slot="border-scans"]').find('[data-slot-upload]').exists()).toBe(false)
   })

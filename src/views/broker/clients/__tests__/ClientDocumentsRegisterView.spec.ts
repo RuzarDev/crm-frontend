@@ -8,9 +8,12 @@ import type { ClientDocumentRow } from '@/api/clientCard'
 const api = vi.hoisted(() => ({ documents: vi.fn(), exportXlsx: vi.fn(), toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() } }))
 vi.mock('@/api/clientCard', () => ({ clientCardApi: { documents: api.documents } }))
 vi.mock('@/ui/message', () => ({ message: api.toast }))
+const renew = vi.hoisted(() => vi.fn())
+vi.mock('@/api/import40Contract', async (orig) => ({ ...(await orig<object>()), import40ContractApi: { renewDocument: renew } }))
 vi.mock('@/views/broker/list', async (orig) => ({ ...(await orig<typeof import('@/views/broker/list')>()), exportXlsx: api.exportXlsx }))
 
 import ClientDocumentsRegisterView from '../ClientDocumentsRegisterView.vue'
+import { confirmState } from '@/ui/confirm'
 import ZPagination from '@/components/z/ZPagination.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -56,7 +59,54 @@ beforeEach(async () => {
 afterEach(() => {
   w?.unmount()
   document.body.innerHTML = ''
+  confirmState.resolve(false)
   vi.clearAllMocks()
+})
+
+describe('«Документы клиентов»: действия в строке (05.11.2026)', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const until = (days: number) => new Date(Date.now() + days * DAY).toISOString()
+  const contract = doc({ id: 'x', number: '7', validUntilUtc: until(20), daysLeft: 20, expiringSoon: true })
+  const poa = doc({ id: 'y', kind: 'poa', number: '8', clientId: 'c2', validUntilUtc: until(10), daysLeft: 10, expiringSoon: true })
+
+  it('руководителю: «Продлить» договор и «Перевыпустить» истекающую доверенность', async () => {
+    api.documents.mockResolvedValue([contract, poa])
+    await mountView()
+    expect(bodyRows()[0].get('[data-doc-extend]').text()).toBe('Продлить')
+    expect(bodyRows()[1].get('[data-doc-reissue]').text()).toBe('Перевыпустить')
+    expect(has('[data-doc-reissue] + [data-doc-extend]')).toBe(false)
+  })
+
+  it('декларанту действий нет; доверенности с уже выпущенной следующей и действующей вне срока — тоже', async () => {
+    api.documents.mockResolvedValue([contract, poa])
+    as('manager', ['clients.read', 'import40.read'], ['declarant'])
+    await mountView()
+    expect(has('[data-doc-extend]')).toBe(false)
+    expect(has('[data-doc-reissue]')).toBe(false)
+    w.unmount()
+
+    as('manager', ['clients.read', 'import40.read'], ['rop'])
+    const next = doc({ id: 'z', kind: 'poa', number: '9', clientId: 'c2', status: 1, generatedAtUtc: '2026-11-01T04:00:00Z' })
+    const calm = doc({ id: 'w', kind: 'poa', number: '10', clientId: 'c3', validUntilUtc: until(200), daysLeft: 200 })
+    api.documents.mockResolvedValue([poa, next, calm])
+    await mountView()
+    expect(has('[data-doc-reissue]')).toBe(false)
+  })
+
+  it('«Продлить»: подтверждение, запрос, тост, перечитывание; клик не открывает карточку', async () => {
+    api.documents.mockResolvedValue([contract])
+    renew.mockResolvedValue({ validUntilUtc: '2027-12-31T23:59:59Z' })
+    await mountView()
+    await w.get('[data-doc-extend]').trigger('click')
+    await flushPromises()
+    expect(confirmState.title).toBe('Продлить договор № 7/2026?')
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(renew).toHaveBeenCalledWith('c', 'x', { silent: true })
+    expect(api.toast.success).toHaveBeenCalled()
+    expect(api.documents).toHaveBeenCalledTimes(2)
+    expect(router.currentRoute.value.path).toBe('/client-documents')
+  })
 })
 
 describe('«Документы клиентов»: список', () => {

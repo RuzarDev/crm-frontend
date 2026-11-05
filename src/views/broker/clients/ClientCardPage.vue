@@ -2,7 +2,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhBuildings, PhCheck, PhClock, PhDownloadSimple, PhDotsThree, PhEnvelopeSimple, PhFileText, PhPhone } from '@phosphor-icons/vue'
+import { PhBuildings, PhCheck, PhClock, PhDownloadSimple, PhDotsThree, PhEnvelopeSimple, PhFileText, PhPhone, PhQrCode } from '@phosphor-icons/vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
 import ZAvatar from '@/components/z/ZAvatar.vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -37,7 +37,7 @@ import { useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
 import { validity, type Validity } from './clientDocs'
-import { REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, profileMissing, validDate } from '@/views/client/company/company'
+import { REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, profileMissing } from '@/views/client/company/company'
 import { blankFileName, clientStatusLabelKey, clientStatusTone, docKindLabelKey, inviteUntil, signMethodLabelKey } from './clients'
 import {
   accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, docsTabCount, hasNextPoa, nextPoaOf,
@@ -46,6 +46,7 @@ import {
 import DocSignedFiles from './DocSignedFiles.vue'
 import InviteClientModal from './InviteClientModal.vue'
 import { useClientAccountActions } from './useClientAccountActions'
+import { useContractExtend } from './useContractExtend'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 import ContractsPanel from '@/views/foreignContracts/ContractsPanel.vue'
 import PoaReissueModal from '@/views/broker/company/PoaReissueModal.vue'
@@ -296,7 +297,8 @@ const nextPoaLine = (d: ClientCardDoc): string => {
   return t(n.status === 1 ? 'broker.clientCard.doc.nextPoaAwaiting' : 'broker.clientCard.doc.nextPoaActive', params)
 }
 // «Перевыпустить» (02.11.2026, пакет I) — права и место как у «Продлить» договора: администратор или руководитель, у текущей
-// многоразовой доверенности в любое время срока. Ссылка «Выпустить новую» (декларант, срок истекает) — только без неё.
+// многоразовой доверенности в любое время срока. Декларанту окно закрыто на сервере: то же название ведёт на шаг выпуска
+// доверенности (срок истекает, 05.11.2026 — название одно).
 const canReissue = (d: ClientCardDoc) => canSignProvider.value && reissuablePoa(card.value?.documents ?? [], d)
 const canReissuePoa = (d: ClientCardDoc) => canEditPapers.value && canRenewPoa(d) && !hasNextPoa(card.value?.documents ?? [], d) && !canReissue(d)
 const reissueDoc = ref<ClientCardDoc | null>(null)
@@ -312,27 +314,10 @@ const replacedLine = (d: ClientCardDoc) => (d.replacedBy ? t('broker.company.rei
 // за 60 дней до конца срока и 30 после (как на сервере).
 const { confirm } = useConfirm()
 const canExtend = (d: ClientCardDoc) => canSignProvider.value && canRenewContract(d)
-const extending = ref<string | null>(null)
-const extend = async (d: ClientCardDoc) => {
-  if (extending.value) return
-  const ok = await confirm({
-    title: t('broker.company.renewTitle', { no: `${d.number}/${d.year}` }),
-    content: t('broker.company.renewConfirm', { date: `31.12.${new Date(d.validUntilUtc!).getUTCFullYear() + 1}` }),
-    okText: t('broker.clientCard.doc.extend'),
-  })
-  if (!ok) return
-  extending.value = d.id
-  try {
-    const renewed = await import40ContractApi.renewDocument(id.value, d.id, { silent: true })
-    message.success(t('broker.clientCard.doc.extended', { date: validDate(renewed.validUntilUtc) }))
-    await load()
-  } catch (e) {
-    const data = (e as { response?: { data?: { error?: string } } })?.response?.data
-    message.error(data?.error || t('broker.clientCard.doc.extendError'))
-  } finally {
-    extending.value = null
-  }
-}
+const { extending, extend: extendContract } = useContractExtend(() => load())
+const extend = (d: ClientCardDoc) => extendContract(id.value, d)
+// Договор истекает, а продлить могут другие: декларанту говорим, кто (05.11.2026), вместо немого тега «Истекает».
+const extendHint = (d: ClientCardDoc) => canEditPapers.value && !canSignProvider.value && canRenewContract(d)
 
 // Бланк сервер собирает по данным клиента на момент запроса; ошибку показывает перехватчик.
 const downloading = ref<string | null>(null)
@@ -388,14 +373,33 @@ const docColumns = computed<ZColumn<ClientCardDoc>[]>(() => [
 // Подписанный документ — «Скачать» (документ с QR подписантов), «бланк» — только пока никто не подписал (02.11.2026:
 // владелец — у подписанных доверенности и договора стояло «Скачать бланк»).
 const blankLabel = (d: ClientCardDoc) => t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank')
-const docPrimary = (d: ClientCardDoc): RowPrimary | null =>
-  canSignDoc(d)
-    ? { key: 'sign', label: t('broker.clientCard.doc.sign'), variant: 'primary' }
-    : canExtend(d)
-      ? { key: 'extend', label: t('broker.clientCard.doc.extend'), variant: 'primary', loading: extending.value === d.id }
-      : canReissue(d)
-        ? { key: 'reissue', label: t('broker.company.reissue.action'), variant: 'primary' }
-        : canImport.value ? { key: 'blank', label: blankLabel(d), variant: 'outline', loading: downloading.value === d.id } : null
+// Один список действий документа (05.11.2026): «Обзор» показывает его кнопками, вкладка «Документы» — главной кнопкой и
+// меню ⋯. Порядок — по важности: первое действие и есть главная кнопка строки.
+type DocAction = 'sign' | 'extend' | 'reissue' | 'renew' | 'blank' | 'pdf' | 'verify'
+const docActions = (d: ClientCardDoc): DocAction[] => {
+  const out: DocAction[] = []
+  if (canSignDoc(d)) out.push('sign')
+  if (canExtend(d)) out.push('extend')
+  if (canReissue(d)) out.push('reissue')
+  if (canReissuePoa(d)) out.push('renew')
+  if (canImport.value) out.push('blank', 'pdf')
+  if (canImport.value && d.verifyUrl) out.push('verify')
+  return out
+}
+const docActionLabel = (a: DocAction, d: ClientCardDoc): string => {
+  if (a === 'sign') return t('broker.clientCard.doc.sign')
+  if (a === 'extend') return t('broker.clientCard.doc.extend')
+  if (a === 'blank') return blankLabel(d)
+  if (a === 'pdf') return 'PDF'
+  if (a === 'verify') return t('broker.company.verifyLink')
+  return t('broker.company.reissue.action') // reissue и renew: одно действие для сотрудника, разный только путь
+}
+const docPrimary = (d: ClientCardDoc): RowPrimary | null => {
+  const a = docActions(d)[0]
+  if (!a) return null
+  const loading = a === 'extend' ? extending.value === d.id : a === 'blank' ? downloading.value === d.id : undefined
+  return { key: a, label: docActionLabel(a, d), variant: a === 'blank' ? 'outline' : 'primary', loading }
+}
 // Отзыв — редкое и необратимое действие: только в меню ⋯, только администратору (05.11.2026).
 const isAdmin = computed(() => (auth.role || '').toLowerCase() === 'administrator')
 const DOC_REVOKED = 4
@@ -419,13 +423,18 @@ const revokeDoc = async (d: ClientCardDoc) => {
     // тост показал общий перехватчик
   }
 }
-const docItems = (d: ClientCardDoc): ZDropdownItem[] => [...baseDocItems(d), ...revokeItems(d)]
-const baseDocItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d) || canReissue(d)) && canImport.value ? [{ key: 'blank', label: blankLabel(d) }] : [])
+const docItems = (d: ClientCardDoc): ZDropdownItem[] => [
+  ...docActions(d).slice(1).map((a) => ({ key: a, label: docActionLabel(a, d) })),
+  ...revokeItems(d),
+]
 const onDocAction = (d: ClientCardDoc, key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
   else if (key === 'extend') void extend(d)
   else if (key === 'reissue') reissue(d)
+  else if (key === 'renew') void router.push(poaRoute.value)
   else if (key === 'blank') void downloadBlank(d)
+  else if (key === 'pdf') void downloadBlank(d, 'pdf')
+  else if (key === 'verify' && d.verifyUrl) window.open(d.verifyUrl, '_blank', 'noopener')
   else if (key === 'revoke') void revokeDoc(d)
 }
 
@@ -677,60 +686,71 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                       </li>
                     </ul>
                     <div v-if="replacedLine(d)" class="text-[12.5px] text-ink-3" data-doc-replaced>{{ replacedLine(d) }}</div>
-                    <div v-if="canImport || canSignDoc(d) || canExtend(d) || canReissue(d)" class="flex flex-wrap gap-2">
-                      <RouterLink
-                        v-if="canSignDoc(d)"
-                        :to="signRoute"
-                        class="inline-flex h-8 items-center rounded-field bg-navy px-3 text-sm font-semibold text-white no-underline outline-hidden hover:bg-navy-hover focus-visible:shadow-focus max-sm:h-11 max-sm:px-4"
-                        data-doc-sign
-                      >{{ t('broker.clientCard.doc.sign') }}</RouterLink>
-                      <ZButton
-                        v-if="canImport"
-                        size="sm"
-                        :loading="downloading === d.id"
-                        :disabled="downloading !== null && downloading !== d.id"
-                        :class="['max-sm:h-11 max-sm:px-4', OUTLINE]"
-                        data-doc-blank
-                        @click="downloadBlank(d)"
-                      >
-                        <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-                        {{ t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank') }}
-                      </ZButton>
-                      <ZButton
-                        v-if="canImport"
-                        size="sm"
-                        :loading="downloading === `${d.id}:pdf`"
-                        :disabled="downloading !== null && downloading !== `${d.id}:pdf`"
-                        :class="['max-sm:h-11 max-sm:px-4', OUTLINE]"
-                        data-doc-pdf
-                        @click="downloadBlank(d, 'pdf')"
-                      >
-                        <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-                        PDF
-                      </ZButton>
-                      <ZButton
-                        v-if="canExtend(d)"
-                        size="sm"
-                        variant="primary"
-                        :loading="extending === d.id"
-                        class="max-sm:h-11 max-sm:px-4"
-                        data-doc-extend
-                        @click="extend(d)"
-                      >{{ t('broker.clientCard.doc.extend') }}</ZButton>
-                      <ZButton
-                        v-if="canReissue(d)"
-                        size="sm"
-                        variant="primary"
-                        class="max-sm:h-11 max-sm:px-4"
-                        data-doc-reissue
-                        @click="reissue(d)"
-                      >{{ t('broker.company.reissue.action') }}</ZButton>
-                      <RouterLink
-                        v-if="canReissuePoa(d)"
-                        :to="poaRoute"
-                        :class="['inline-flex h-8 items-center rounded-field px-3 text-sm font-semibold text-ink no-underline outline-hidden focus-visible:shadow-focus max-sm:h-11 max-sm:px-4', OUTLINE]"
-                        data-doc-renew
-                      >{{ t('broker.clientCard.doc.renew') }}</RouterLink>
+                    <div v-if="extendHint(d)" class="text-[12.5px] text-ink-3" data-doc-extend-hint>{{ t('broker.clientCard.doc.extendHint') }}</div>
+                    <div v-if="docActions(d).length || revokeItems(d).length" class="flex flex-wrap gap-2">
+                      <template v-for="a in docActions(d)" :key="a">
+                        <RouterLink
+                          v-if="a === 'sign'"
+                          :to="signRoute"
+                          class="inline-flex h-8 items-center rounded-field bg-navy px-3 text-sm font-semibold text-white no-underline outline-hidden hover:bg-navy-hover focus-visible:shadow-focus max-sm:h-11 max-sm:px-4"
+                          data-doc-sign
+                        >{{ docActionLabel(a, d) }}</RouterLink>
+                        <ZButton
+                          v-else-if="a === 'extend'"
+                          size="sm"
+                          variant="primary"
+                          :loading="extending === d.id"
+                          class="max-sm:h-11 max-sm:px-4"
+                          data-doc-extend
+                          @click="extend(d)"
+                        >{{ docActionLabel(a, d) }}</ZButton>
+                        <ZButton
+                          v-else-if="a === 'reissue'"
+                          size="sm"
+                          variant="primary"
+                          class="max-sm:h-11 max-sm:px-4"
+                          data-doc-reissue
+                          @click="reissue(d)"
+                        >{{ docActionLabel(a, d) }}</ZButton>
+                        <RouterLink
+                          v-else-if="a === 'renew'"
+                          :to="poaRoute"
+                          :class="['inline-flex h-8 items-center rounded-field px-3 text-sm font-semibold text-ink no-underline outline-hidden focus-visible:shadow-focus max-sm:h-11 max-sm:px-4', OUTLINE]"
+                          data-doc-renew
+                        >{{ docActionLabel(a, d) }}</RouterLink>
+                        <ZButton
+                          v-else-if="a === 'blank'"
+                          size="sm"
+                          :loading="downloading === d.id"
+                          :disabled="downloading !== null && downloading !== d.id"
+                          :class="['max-sm:h-11 max-sm:px-4', OUTLINE]"
+                          data-doc-blank
+                          @click="downloadBlank(d)"
+                        >
+                          <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
+                          {{ docActionLabel(a, d) }}
+                        </ZButton>
+                        <ZButton
+                          v-else-if="a === 'pdf'"
+                          size="sm"
+                          :loading="downloading === `${d.id}:pdf`"
+                          :disabled="downloading !== null && downloading !== `${d.id}:pdf`"
+                          :class="['max-sm:h-11 max-sm:px-4', OUTLINE]"
+                          data-doc-pdf
+                          @click="downloadBlank(d, 'pdf')"
+                        >
+                          <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
+                          {{ docActionLabel(a, d) }}
+                        </ZButton>
+                        <a
+                          v-else-if="a === 'verify'"
+                          :href="d.verifyUrl ?? undefined"
+                          target="_blank"
+                          rel="noopener"
+                          class="inline-flex h-8 items-center gap-1.5 rounded-field px-2 text-sm font-medium text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:h-11"
+                          data-doc-verify
+                        ><PhQrCode :size="16" aria-hidden="true" />{{ docActionLabel(a, d) }}</a>
+                      </template>
                       <ZDropdown v-if="revokeItems(d).length" :items="revokeItems(d)" @select="onDocAction(d, $event)">
                         <button
                           type="button"
@@ -882,6 +902,7 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                 <span v-else-if="column.key === 'validity'" class="block text-sm">
                   <span :class="validity(record).date === dash ? 'text-muted' : 'tabular-nums text-ink-2'">{{ validity(record).date }}</span>
                   <span v-if="validity(record).hint" :class="['block text-xs', hintClass(validity(record).hint!)]">{{ hintText(validity(record).hint!) }}</span>
+                  <span v-if="extendHint(record)" class="block text-xs text-ink-3" data-doc-extend-hint>{{ t('broker.clientCard.doc.extendHint') }}</span>
                 </span>
                 <span v-else-if="column.key === 'signs'" class="block text-[13px]">
                   <span v-for="s in signs(record)" :key="s.key" :class="['flex items-center gap-1.5', s.on ? 'text-ink-2' : 'text-muted']" :data-sign="s.key" :data-signed="s.on">

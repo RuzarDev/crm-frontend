@@ -87,6 +87,16 @@ describe('KedenDeclarationsView: mode=all', () => {
     expect(a.text()).toBe('KD-77')
   })
 
+  it('связанная ДТ: вторая ссылка на страницу ДТ рядом с карточкой КЕДЕН; без связи — только карточка (05.11.2026)', async () => {
+    api.list.mockResolvedValue({ items: [li({ id: 'n', caseId: 'k1', declarationId: 'd1' }), li({ id: 'm' })], total: 2 })
+    await mountView('all')
+    const links = w.findAll('a[data-keden-all-dt]')
+    expect(links).toHaveLength(1)
+    expect(links[0].attributes('href')).toBe('/import-40/k1/dt/d1')
+    expect(links[0].text()).toBe('Открыть ДТ')
+    expect(w.findAll('a[data-keden-open]')).toHaveLength(2)
+  })
+
   it('пустой список: без горизонтальной прокрутки таблицы', async () => {
     api.list.mockResolvedValue({ items: [], total: 0 })
     await mountView('all')

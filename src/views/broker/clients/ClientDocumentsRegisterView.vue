@@ -14,21 +14,25 @@ import FilterChip from '@/components/broker/FilterChip.vue'
 import NoticeBanner from '@/components/broker/NoticeBanner.vue'
 import ClientRegistryRegister from '@/views/clientRegistry/ClientRegistryRegister.vue'
 import { clientCardApi, type ClientDocumentRow } from '@/api/clientCard'
+import { canReissuePoa, canRenewContract } from '@/api/import40Contract'
+import PoaReissueModal from '@/views/broker/company/PoaReissueModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
 import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
-import { docTag } from './clientCard'
+import { canRenewPoa, docTag } from './clientCard'
 import { docKindLabelKey } from './clients'
 import {
   DOC_KINDS, DOC_STATES, docExcelRows, filterDocs, kindLabelKey, needsAqniet, parseDocState, parseWithin, stateCounts, stateLabelKey, validity,
   type DocKind, type DocState, type Validity,
 } from './clientDocs'
+import { useContractExtend } from './useContractExtend'
 
 // «Документы клиентов» (редизайн, волна 3б, доска ClientDocs): договоры и доверенности по всем клиентам со сроками.
 // Один запрос без фильтров; поиск, вид и состояние считаются на клиенте, порядок строк — как отдал сервер.
 // Строка открывает карточку клиента; «Подписать за AQNIET» — только администратору и руководителю отдела.
+// «Продлить» и «Перевыпустить» в строке — те же действия и права, что в карточке клиента (05.11.2026).
 const { t, locale } = useI18n()
 const router = useRouter()
 const route = useRoute()
@@ -121,6 +125,18 @@ const customRow = (r: ClientDocumentRow) => ({
 })
 const signForAqniet = (r: ClientDocumentRow) => {
   void router.push({ path: '/import-40/company', query: { client: r.clientId, step: 'contract' } })
+}
+// Договор — в окне продления сервера (за 60 дней и 30 после); доверенность — только истекающая или просроченная, иначе
+// кнопка стояла бы у каждой действующей. Следующую доверенность ищем среди документов этого клиента.
+const { extending, extend } = useContractExtend(() => board.load())
+const canExtend = (r: ClientDocumentRow) => canSignProvider.value && canRenewContract(r)
+const canReissue = (r: ClientDocumentRow) => canSignProvider.value && canRenewPoa(r)
+  && canReissuePoa(items.value.filter((x) => x.clientId === r.clientId), r)
+const reissueDoc = ref<ClientDocumentRow | null>(null)
+const reissueOpen = ref(false)
+const reissue = (r: ClientDocumentRow) => {
+  reissueDoc.value = r
+  reissueOpen.value = true
 }
 type Hint = NonNullable<Validity['hint']>
 const hintText = (h: Hint) =>
@@ -304,6 +320,23 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
               :class="['block text-xs', hintClass(validity(record).hint!)]"
               :data-doc-hint="validity(record).hint!.kind"
             >{{ hintText(validity(record).hint!) }}</span>
+            <ZButton
+              v-if="canExtend(record)"
+              variant="link"
+              :loading="extending === record.id"
+              class="mt-0.5 block text-xs text-zircon-ink max-sm:h-11"
+              :aria-label="t('broker.clientDocs.extendFor', { name: record.clientName })"
+              data-doc-extend
+              @click="extend(record.clientId, record)"
+            >{{ t('broker.clientCard.doc.extend') }}</ZButton>
+            <ZButton
+              v-else-if="canReissue(record)"
+              variant="link"
+              class="mt-0.5 block text-xs text-zircon-ink max-sm:h-11"
+              :aria-label="t('broker.clientDocs.reissueFor', { name: record.clientName })"
+              data-doc-reissue
+              @click="reissue(record)"
+            >{{ t('broker.company.reissue.action') }}</ZButton>
           </span>
         </template>
         <template #emptyText>
@@ -316,5 +349,6 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
       </ZTable>
     </template>
     </template>
+    <PoaReissueModal v-model:open="reissueOpen" :client-id="reissueDoc?.clientId ?? ''" :doc="reissueDoc" @reissued="board.load()" />
   </div>
 </template>

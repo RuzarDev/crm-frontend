@@ -41,6 +41,7 @@ const tag = computed(() => {
 const confirmPayment = async () => {
   const ok = await confirm({
     title: t('import40Case.confirmSvhPayment'),
+    content: t('import40Case.confirmSvhPaymentHint'),
     okText: t('broker.case.svhPayment.confirmOk'),
     cancelText: t('common.cancel'),
   })
