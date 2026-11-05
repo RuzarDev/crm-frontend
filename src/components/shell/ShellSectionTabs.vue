@@ -42,7 +42,7 @@ watch(() => [props.activeKey, props.section.key], async () => {
             :href="href"
             :aria-current="p.key === activeKey ? 'page' : undefined"
             :class="cn(
-              'inline-flex h-8 items-center whitespace-nowrap rounded-field px-3 text-sm no-underline outline-hidden focus-visible:shadow-focus',
+              'inline-flex h-8 items-center whitespace-nowrap max-sm:h-11 rounded-field px-3 text-sm no-underline outline-hidden focus-visible:shadow-focus',
               'transition-[background-color,color] duration-150 ease-out motion-reduce:transition-none',
               p.key === activeKey
                 ? 'bg-sunken font-semibold text-ink hover:text-ink'

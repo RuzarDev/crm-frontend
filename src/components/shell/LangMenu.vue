@@ -28,7 +28,7 @@ const onSelect = (key: string) => {
     <button
       type="button"
       :aria-label="t('shell.lang.label', { lang: t(`lang.${current}`), code: CODE[current] })"
-      class="h-[30px] shrink-0 cursor-pointer rounded-field border-0 bg-transparent px-2 font-sans text-[12.5px] font-semibold text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus data-[state=open]:bg-sunken data-[state=open]:text-ink motion-reduce:transition-none"
+      class="h-[30px] min-w-11 shrink-0 cursor-pointer max-sm:h-11 sm:min-w-0 rounded-field border-0 bg-transparent px-2 font-sans text-[12.5px] font-semibold text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus data-[state=open]:bg-sunken data-[state=open]:text-ink motion-reduce:transition-none"
     >{{ CODE[current] }}</button>
   </ZDropdown>
 </template>

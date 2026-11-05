@@ -255,7 +255,7 @@ const linkBtn = 'inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-
               :max-size-mb="DOC_MAX_MB"
               :loading="photoBusy"
               button-size="sm"
-              class="max-sm:w-full"
+              class="max-sm:block max-sm:w-full max-sm:[&>button]:h-11 max-sm:[&>button]:w-full max-sm:[&>button]:text-sm"
               data-pb-photo-upload
               @select="uploadPhotos"
             >{{ t('preBorder.photos.add') }}</ZUpload>

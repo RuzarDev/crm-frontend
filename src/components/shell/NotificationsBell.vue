@@ -102,14 +102,14 @@ const itemClass = cn(
       <button
         type="button"
         :aria-label="label"
-        class="relative flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus data-[state=open]:bg-sunken data-[state=open]:text-ink motion-reduce:transition-none"
+        class="relative flex size-[34px] max-sm:size-11 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-2 outline-hidden transition-colors duration-150 ease-out hover:bg-sunken hover:text-ink focus-visible:shadow-focus data-[state=open]:bg-sunken data-[state=open]:text-ink motion-reduce:transition-none"
       >
         <PhBell :size="18" aria-hidden="true" />
         <span
           v-if="unread"
           data-unread-dot
           aria-hidden="true"
-          class="pointer-events-none absolute top-[7px] right-[8px] size-[7px] rounded-full bg-danger"
+          class="pointer-events-none absolute top-[7px] right-[8px] size-[7px] max-sm:top-3 max-sm:right-[13px] rounded-full bg-danger"
         />
       </button>
     </template>
