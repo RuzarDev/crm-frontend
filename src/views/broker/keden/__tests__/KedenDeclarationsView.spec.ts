@@ -93,6 +93,13 @@ describe('KedenDeclarationsView: mode=all', () => {
     expect(w.get('table').classes().join(' ')).not.toContain('min-w-(--z-table-x)')
   })
 
+  it('длинный статус переносится внутри колонки и не заходит на «Пост»', async () => {
+    await mountView('all')
+    const labels = w.findAll('tbody [data-status-label]')
+    expect(labels.length).toBe(3)
+    for (const label of labels) expect(label.classes()).not.toContain('whitespace-nowrap')
+  })
+
   it('есть колонка «Тип» с короткой подписью и ссылки на карточку', async () => {
     await mountView('all')
     expect(headers()).toContain('Тип')
