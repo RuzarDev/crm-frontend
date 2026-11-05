@@ -114,6 +114,20 @@ describe('doc44FromAiDocuments', () => {
   })
 })
 
+describe('транспортный документ: вид из перечня', () => {
+  it('пустая строка 02015 по виду заявки становится 02016 с номером и датой', () => {
+    const existing = [{ docTypeCode: '02015', docTypeName: 'CMR', docNumber: null, docDate: null }] as never
+    const { rows } = doc44FromAiDocuments(existing, [doc({ kind: 'cmr', code: '02016', name: 'ТТН', number: 'TTN-1', date: '2026-08-14' })])
+    expect(cols(rows)).toEqual([['02016', 'TTN-1', '2026-08-14']])
+  })
+
+  it('applyExcelFallback: номера в extras нет, строка одна', () => {
+    const documents = [doc({ kind: 'cmr', code: '02016', name: 'ТТН', number: 'TTN-1', date: '2026-08-14' })]
+    const r = applyExcelFallback({ goodsItems: [] }, [], { extras: { hintCodes: [], goods: [], documents } as never, transportMode: 1, road: true })
+    expect(cols(r.doc44Items).filter(([c]) => String(c).startsWith('020'))).toEqual([['02016', 'TTN-1', '2026-08-14']])
+  })
+})
+
 describe('«Из документов» (applyExcelFallback): перечень и прежний путь — одна дедупликация', () => {
   const extras = {
     invoiceNumber: 'TEST-INV-1', invoiceDate: '2026-03-01', contractNumber: 'TEST-CTR-9', contractDate: '2026-01-10',

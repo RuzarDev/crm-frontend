@@ -129,8 +129,14 @@ export function doc44FromAiDocuments(
     let inBox = hit >= 0
     if (inBox && hit < existing.length) opts.onMatch?.(hit)
     if (!inBox) {
-      const empty = opts.fillEmpty === false ? undefined : rows.find((r) => codeOf(r) === code && !trimmed(r.docNumber))
+      // Пустая строка транспортного документа стояла по виду заявки: вид определяет документ (02016 вместо 02015)
+      const empty = opts.fillEmpty === false ? undefined : rows.find((r) => !trimmed(r.docNumber)
+        && (codeOf(r) === code || (isTransport(code) && isTransport(codeOf(r)))))
       if (empty && number) {
+        if (codeOf(empty) !== code) {
+          empty.docTypeCode = code
+          empty.docTypeName = opts.docKindNames?.get(code) ?? trimmed(d.codeName)?.toLocaleUpperCase('ru-RU') ?? null
+        }
         empty.docNumber = number
         empty.docDate ??= date
         inBox = true
