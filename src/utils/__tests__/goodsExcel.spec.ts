@@ -243,3 +243,14 @@ describe('readGoodsExcel', () => {
     expect(GOODS_EXCEL_MESSAGES).toEqual({ noSheets: 'dt.vFayleNetListov', empty: 'dt.faylPust', noGoods: 'dt.neNaydenoTovarovDlya' })
   })
 })
+
+describe('второй этаж шапки (05.11.2026)', () => {
+  it('строка подписей граф — не товар', () => {
+    const rows = [
+      ['№', '产品名称', '商品编码', '数量', '单位', '总价'],
+      [null, 'Наименование товара', 'Код ТН ВЭД', 'Кол-во товара', 'Ед.изм', 'Сумма'],
+      ['1', 'Мачта тестовая', '7308200000', 1, 'шт', 100],
+    ]
+    expect(goodsFromSheetRows(rows).map((g) => g.description)).toEqual(['Мачта тестовая'])
+  })
+})

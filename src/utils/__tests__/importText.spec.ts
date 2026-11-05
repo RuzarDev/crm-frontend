@@ -1,3 +1,4 @@
+import { russianPart } from '../importText'
 import { describe, expect, it } from 'vitest'
 import {
   countryFromText, hasHan, normPartyName, normalizeIncotermsPlace, packagingLine, packagingWord, parseForeignAddress, upperRu,
@@ -88,5 +89,17 @@ describe('прочее', () => {
     expect(vehiclePlatesFrom([[null, 'АВТО:184AFR19/48AEU19']])).toEqual({ tractor: '184AFR19', trailer: '48AEU19' })
     expect(vehiclePlatesFrom([['TRUCK NO: 777ABC02']])).toEqual({ tractor: '777ABC02', trailer: null })
     expect(vehiclePlatesFrom([['Транспорт / 运输方式: Международная автоперевозка (CMR)']])).toBeNull()
+  })
+})
+
+describe('russianPart: латинское название без китайского хвоста (05.11.2026)', () => {
+  it('китайский хвост убирается', () => {
+    expect(russianPart('OKI TEST Noodle with Beef 12×109g 红烧牛肉味 (杯面)')).toBe('OKI TEST Noodle with Beef 12×109g')
+    expect(russianPart('TEST Cheese Chicken (Cup）12*107g芝士火鸡味(杯面)')).toBe('TEST Cheese Chicken (Cup)12*107g')
+    expect(russianPart('TEST Cream Chicken 12x108g 奶油火鸡味(杯面')).toBe('TEST Cream Chicken 12x108g')
+  })
+
+  it('мало латиницы: китайский текст и есть описание', () => {
+    expect(russianPart('ABC 12x 电脑桌')).toBe('ABC 12x 电脑桌')
   })
 })

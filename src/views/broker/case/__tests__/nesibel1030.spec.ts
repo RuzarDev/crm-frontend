@@ -238,3 +238,14 @@ describe('гр. 2: китайское название накладной (04.11
     expect(han.some((n) => n.key === 'senderNameHan')).toBe(true)
   })
 })
+
+describe('«по поручению» и опечатка в названии (05.11.2026)', () => {
+  it('Mada и Maida — одна компания', () => {
+    expect(onBehalfSender([{ name: 'Test Maida Import Co., Ltd', docType: 'transport' } as never], 'Test Mada Import Co., Ltd')).toBeNull()
+  })
+
+  it('другая компания — по поручению', () => {
+    expect(onBehalfSender([{ name: 'Test Forwarder Co., Ltd', docType: 'transport' } as never], 'Test Mada Import Co., Ltd')?.seller)
+      .toBe('Test Mada Import Co., Ltd')
+  })
+})

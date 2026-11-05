@@ -55,6 +55,21 @@ export interface OnBehalfSender { consignor: Import40ExtractionPartySource; sell
  * продавец — отправитель инвойса (04.11.2026, documents[].sender: вид документа), затем другого документа. Совпадают, нет
  * накладной или старый сервер без senderSources — null (как раньше).
  */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i]
+    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j]! + 1, row[j - 1]! + 1, prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1))
+    prev = row
+  }
+  return prev[b.length]!
+}
+
+/** Одна компания с опечаткой в документе («Mada» и «Maida», 05.11.2026): различие до 2 букв в названии от 10 знаков. */
+function nearlySameName(a: string, b: string): boolean {
+  return a === b || (Math.min(a.length, b.length) >= 10 && editDistance(a, b) <= 2)
+}
+
 export function onBehalfSender(
   sources: readonly Import40ExtractionPartySource[] | null | undefined, sellerName: string | null | undefined,
 ): OnBehalfSender | null {
@@ -63,7 +78,7 @@ export function onBehalfSender(
   if (!consignor) return null
   const key = normPartyName(consignor.name)
   if (!key) return null
-  const differs = (name: string | null | undefined) => !!name?.trim() && !looksLikeLabel(name) && normPartyName(name) !== key
+  const differs = (name: string | null | undefined) => !!name?.trim() && !looksLikeLabel(name) && !nearlySameName(normPartyName(name), key)
   const seller = differs(sellerName) ? sellerName!
     : (valid.find((x) => x.kind === 'invoice' && differs(x.name)) ?? valid.find((x) => x.docType !== 'transport' && differs(x.name)))?.name
   return seller ? { consignor, seller: seller.trim() } : null
