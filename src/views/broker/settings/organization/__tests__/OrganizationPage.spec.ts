@@ -85,10 +85,10 @@ describe('OrganizationPage: состав', () => {
     expect(w.get('[data-org-hint]').text()).toBe('Реквизиты · попадают в счета, акты, договоры и доверенности')
     expect(w.get('[data-org-saved]').text()).not.toContain('·')
   })
-  it('пять секций и поля с данными; ИИК показан группами', async () => {
+  it('шесть секций и поля с данными; ИИК показан группами', async () => {
     await open()
-    expect(w.findAll('[data-org-section]').map((s) => s.attributes('data-org-section'))).toEqual(['company', 'signers', 'bank', 'vat', 'notify'])
-    expect(w.findAll('h2').map((h) => h.text())).toEqual(['Компания', 'Подписанты', 'Банк', 'НДС', 'Уведомления'])
+    expect(w.findAll('[data-org-section]').map((s) => s.attributes('data-org-section'))).toEqual(['company', 'signers', 'bank', 'vat', 'customsRep', 'notify'])
+    expect(w.findAll('h2').map((h) => h.text())).toEqual(['Компания', 'Подписанты', 'Банк', 'НДС', 'Таможенный представитель', 'Уведомления'])
     expect(input('companyName').value).toBe('ТОО «AQNIET Customs»')
     expect(input('bin').value).toBe('180940012345')
     expect(input('iik').value).toBe('KZ72 722S 0000 1234 5678')
@@ -268,7 +268,7 @@ describe('OrganizationPage: сохранение', () => {
       companyName: 'ТОО «AQNIET Customs»', shortName: 'AQNIET', bin: '180940012345', legalAddress: 'Алматы, пр. Абая 52, оф. 305',
       bank: 'Halyk', iik: 'KZ72722S000012345678', bik: 'CASPKZKA', kbe: '17',
       directorName: 'Ахметов К. С.', directorBasis: 'устава', accountantName: 'Жумабек А. Е.', phone: '+7 727 355 12 40', email: 'office@aqniet.kz',
-      vatPayer: true, vatRate: 16, kedenStatusEmails: null, updatedAtUtc: SAVED_AT,
+      vatPayer: true, vatRate: 16, kedenStatusEmails: null, customsRepRegistryNumber: null, customsRepRegistryDate: null, updatedAtUtc: SAVED_AT,
     })
     expect(api.toast.success).toHaveBeenCalledTimes(1)
     expect(bar().exists()).toBe(false)
@@ -293,6 +293,43 @@ describe('OrganizationPage: сохранение', () => {
     await saveBtn().trigger('click')
     await flushPromises()
     expect(w.get('[data-savebar-text]').text()).toBe('Не удалось сохранить реквизиты')
+  })
+})
+
+// Свидетельство таможенного представителя: из него сервер ставит 09034 в гр.44 новых ДТ (05.11.2026).
+describe('OrganizationPage: свидетельство таможенного представителя', () => {
+  const section = () => w.get('[data-org-section="customsRep"]')
+
+  it('подпись и подсказка; значения с сервера в полях', async () => {
+    api.organization.mockResolvedValue(dto({ customsRepRegistryNumber: 'N-1', customsRepRegistryDate: '2024-02-03' }))
+    await open()
+    expect(section().text()).toContain('Номер свидетельства')
+    expect(section().text()).toContain('Попадает в гр.44 каждой новой ДТ')
+    expect(input('customsRepRegistryNumber').value).toBe('N-1')
+    expect(input('customsRepRegistryDate').value).toBe('03.02.2024')
+    expect(bar().exists()).toBe(false)
+  })
+  it('номер без даты не сохраняется: ошибка у даты, «Сохранить» заблокирована', async () => {
+    await open()
+    await type('customsRepRegistryNumber', 'N-1')
+    expect(section().text()).toContain('Укажите дату свидетельства')
+    expect(saveBtn().attributes('disabled')).toBeDefined()
+  })
+  it('новый номер уходит в PUT; дата не менялась — null', async () => {
+    api.organization.mockResolvedValue(dto({ customsRepRegistryNumber: 'N-1', customsRepRegistryDate: '2024-02-03' }))
+    api.saveOrganization.mockImplementation(async (d: OrganizationSettings) => dto({ ...d, customsRepRegistryDate: '2024-02-03' }))
+    await open()
+    await type('customsRepRegistryNumber', ' N-2 ')
+    expect(bar().text()).toContain('таможенный представитель')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(api.saveOrganization.mock.calls[0][0]).toMatchObject({ customsRepRegistryNumber: 'N-2', customsRepRegistryDate: null })
+  })
+  it('без права правки поля заблокированы', async () => {
+    as('declarant', [])
+    await open()
+    expect(input('customsRepRegistryNumber').disabled).toBe(true)
+    expect(input('customsRepRegistryDate').disabled).toBe(true)
   })
 })
 

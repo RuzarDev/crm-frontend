@@ -71,9 +71,35 @@ describe('organization: форма и секции', () => {
     expect(p.updatedAtUtc).toBe('2026-10-02T09:20:00Z')
     expect(Object.values(p).includes(null as never)).toBe(false)
     expect(Object.keys(p).sort()).toEqual([
-      'accountantName', 'bank', 'bik', 'bin', 'companyName', 'directorBasis', 'directorName', 'email', 'iik', 'kbe',
-      'kedenStatusEmails', 'legalAddress', 'phone', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
+      'accountantName', 'bank', 'bik', 'bin', 'companyName', 'customsRepRegistryDate', 'customsRepRegistryNumber',
+      'directorBasis', 'directorName', 'email', 'iik', 'kbe', 'kedenStatusEmails', 'legalAddress', 'phone', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
     ].sort())
+  })
+})
+
+// Свидетельство таможенного представителя для гр.44 новых ДТ (05.11.2026).
+describe('organization: свидетельство ТП', () => {
+  const filled = { ...base(), customsRepRegistryNumber: 'N-1', customsRepRegistryDate: '2024-02-03' }
+  it('с сервера — номер и дата; нет полей или старый сервер — пусто', () => {
+    const f = toForm({ customsRepRegistryNumber: 'N-1', customsRepRegistryDate: '2024-02-03' })
+    expect([f.customsRepRegistryNumber, f.customsRepRegistryDate]).toEqual(['N-1', '2024-02-03'])
+    expect([toForm({}).customsRepRegistryNumber, toForm({}).customsRepRegistryDate]).toEqual(['', ''])
+    expect(toForm({ customsRepRegistryNumber: null, customsRepRegistryDate: null }).customsRepRegistryDate).toBe('')
+  })
+  it('секция страницы — между НДС и уведомлениями', () => {
+    expect(changedSections(base(), filled)).toEqual(['customsRep'])
+  })
+  it('номер без даты не сохраняем; дата без номера и пустые поля — без ошибки', () => {
+    expect(validate({ ...filled, customsRepRegistryDate: '' }).customsRepRegistryDate).toBe('repDate')
+    expect(validate(filled).customsRepRegistryDate).toBeUndefined()
+    expect(validate({ ...filled, customsRepRegistryNumber: ' ' }).customsRepRegistryDate).toBeUndefined()
+    expect(validate(base()).customsRepRegistryDate).toBeUndefined()
+  })
+  it('PUT: не меняли — null (давно открытая вкладка не сотрёт), меняли или очистили — значение', () => {
+    expect(toPayload({ ...filled, bank: 'Halyk' }, null, filled)).toMatchObject({ customsRepRegistryNumber: null, customsRepRegistryDate: null })
+    expect(toPayload({ ...filled, customsRepRegistryNumber: ' N-2 ' }, null, filled)).toMatchObject({ customsRepRegistryNumber: 'N-2', customsRepRegistryDate: null })
+    expect(toPayload({ ...filled, customsRepRegistryNumber: '', customsRepRegistryDate: '' }, null, filled))
+      .toMatchObject({ customsRepRegistryNumber: '', customsRepRegistryDate: '' })
   })
 })
 

@@ -2,9 +2,9 @@ import type { OrganizationSettings } from '@/api/billing'
 
 // Чистая логика страницы «Организация» (редизайн, волна 5б): форма, проверки, секции, подпись «Сохранено».
 
-// notify — почта для писем о смене статуса ДТ в КЕДЕН (23.10.2026).
-export type SectionKey = 'company' | 'signers' | 'bank' | 'vat' | 'notify'
-export const SECTIONS: SectionKey[] = ['company', 'signers', 'bank', 'vat', 'notify']
+// notify — почта для писем о смене статуса ДТ в КЕДЕН (23.10.2026); customsRep — свидетельство ТП для гр.44 новых ДТ (05.11.2026).
+export type SectionKey = 'company' | 'signers' | 'bank' | 'vat' | 'customsRep' | 'notify'
+export const SECTIONS: SectionKey[] = ['company', 'signers', 'bank', 'vat', 'customsRep', 'notify']
 
 export interface OrgForm {
   companyName: string
@@ -24,6 +24,9 @@ export interface OrgForm {
   vatRate: number | null
   /** Адреса для писем КЕДЕН — в форме по одному на строку. */
   kedenStatusEmails: string
+  /** Свидетельство о включении в реестр ТП: номер и дата 'YYYY-MM-DD' (нет — пустая строка). */
+  customsRepRegistryNumber: string
+  customsRepRegistryDate: string
 }
 export type FieldKey = keyof OrgForm
 
@@ -32,6 +35,7 @@ export const FIELD_SECTION: Record<FieldKey, SectionKey> = {
   directorName: 'signers', directorBasis: 'signers', accountantName: 'signers', phone: 'signers', email: 'signers',
   bank: 'bank', iik: 'bank', bik: 'bank', kbe: 'bank',
   vatPayer: 'vat', vatRate: 'vat',
+  customsRepRegistryNumber: 'customsRep', customsRepRegistryDate: 'customsRep',
   kedenStatusEmails: 'notify',
 }
 
@@ -42,6 +46,8 @@ export const VAT_MAX = 30
 export const DEFAULT_BASIS = 'устава'
 /** Сколько адресов КЕДЕН принимает сервер (больше — 400). */
 export const KEDEN_EMAILS_MAX = 20
+/** Длина номера свидетельства: он уходит в гр.44, а КЕДЕН принимает номер документа до 50 знаков (сервер отвечает 400). */
+export const REP_NUMBER_MAX = 50
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 
@@ -67,6 +73,8 @@ export const toForm = (d: Partial<OrganizationSettings> | null | undefined): Org
   vatRate: typeof d?.vatRate === 'number' ? d.vatRate : 16,
   // Старый сервер поля не знает — пусто.
   kedenStatusEmails: splitEmails(str(d?.kedenStatusEmails)).join('\n'),
+  customsRepRegistryNumber: str(d?.customsRepRegistryNumber),
+  customsRepRegistryDate: str(d?.customsRepRegistryDate).slice(0, 10),
 })
 
 /**
@@ -86,7 +94,7 @@ export const changedSections = (saved: OrgForm, draft: OrgForm): SectionKey[] =>
   return SECTIONS.filter((s) => hit.has(s))
 }
 
-export type OrgErrorCode = 'required' | 'bin' | 'iik' | 'bik' | 'kbe' | 'email' | 'basis' | 'vatRate' | 'emails' | 'emailsLimit'
+export type OrgErrorCode = 'required' | 'bin' | 'iik' | 'bik' | 'kbe' | 'email' | 'basis' | 'vatRate' | 'emails' | 'emailsLimit' | 'repDate'
 const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/
 /** Первый неверный адрес КЕДЕН (для текста ошибки); все верные — null. */
 export const invalidEmail = (v: string): string | null => splitEmails(v).find((x) => !EMAIL.test(x)) ?? null
@@ -96,6 +104,7 @@ export const invalidEmail = (v: string): string | null => splitEmails(v).find((x
  * остальные поля могут быть пустыми — свежая установка заполняется по частям, — но заполненные обязаны быть
  * в формате: БИН — 12 цифр, ИИК — KZ и 18 знаков, БИК — 8 латинских букв/цифр, Кбе — 2 цифры, email.
  * Адреса КЕДЕН — не больше 20, каждый в формате email (сервер проверяет так же и отвечает 400).
+ * Номер свидетельства ТП без даты не сохраняем: строка 09034 в каждой новой ДТ была бы без даты.
  */
 export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> => {
   const e: Partial<Record<FieldKey, OrgErrorCode>> = {}
@@ -115,6 +124,7 @@ export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> =>
   const emails = splitEmails(f.kedenStatusEmails)
   if (emails.length > KEDEN_EMAILS_MAX) e.kedenStatusEmails = 'emailsLimit'
   else if (invalidEmail(f.kedenStatusEmails)) e.kedenStatusEmails = 'emails'
+  if (f.customsRepRegistryNumber.trim() && !f.customsRepRegistryDate) e.customsRepRegistryDate = 'repDate'
   return e
 }
 
@@ -122,22 +132,25 @@ export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> =>
  * Весь DTO в PUT: строки обрезаны и никогда не null (сервер на null отвечает 500), updatedAtUtc — как пришёл.
  * Исключение — адреса КЕДЕН: если передана сохранённая форма (saved) и список не менялся, уходит null — сервер
  * его не трогает (23.10.2026, ревью: давно открытая вкладка при правке реквизитов молча стирала бы список,
- * и письма о статусах ДТ переставали бы уходить; сервер версию записи не сверяет).
+ * и письма о статусах ДТ переставали бы уходить; сервер версию записи не сверяет). Так же — свидетельство ТП (05.11.2026).
  */
 export const toPayload = (
   f: OrgForm, base: Pick<OrganizationSettings, 'updatedAtUtc'> | null, saved: OrgForm | null = null,
-): OrganizationSettings => ({
-  companyName: f.companyName.trim(), shortName: f.shortName.trim(), bin: f.bin.trim(), legalAddress: f.legalAddress.trim(),
-  bank: f.bank.trim(), iik: compact(f.iik), bik: compact(f.bik), kbe: f.kbe.trim(),
-  directorName: f.directorName.trim(), directorBasis: f.directorBasis.trim() || DEFAULT_BASIS,
-  accountantName: f.accountantName.trim(), phone: f.phone.trim(), email: f.email.trim(),
-  vatPayer: f.vatPayer, vatRate: f.vatRate ?? 16,
-  // Через запятую, как хранит сервер; очистили намеренно — '' (сервер очищает список); не трогали — null.
-  kedenStatusEmails: saved && comparable('kedenStatusEmails', saved) === comparable('kedenStatusEmails', f)
-    ? null
-    : splitEmails(f.kedenStatusEmails).join(','),
-  updatedAtUtc: base?.updatedAtUtc ?? null,
-})
+): OrganizationSettings => {
+  const untouched = (k: FieldKey) => !!saved && comparable(k, saved) === comparable(k, f)
+  return {
+    companyName: f.companyName.trim(), shortName: f.shortName.trim(), bin: f.bin.trim(), legalAddress: f.legalAddress.trim(),
+    bank: f.bank.trim(), iik: compact(f.iik), bik: compact(f.bik), kbe: f.kbe.trim(),
+    directorName: f.directorName.trim(), directorBasis: f.directorBasis.trim() || DEFAULT_BASIS,
+    accountantName: f.accountantName.trim(), phone: f.phone.trim(), email: f.email.trim(),
+    vatPayer: f.vatPayer, vatRate: f.vatRate ?? 16,
+    // Через запятую, как хранит сервер; очистили намеренно — '' (сервер очищает список); не трогали — null.
+    kedenStatusEmails: untouched('kedenStatusEmails') ? null : splitEmails(f.kedenStatusEmails).join(','),
+    customsRepRegistryNumber: untouched('customsRepRegistryNumber') ? null : f.customsRepRegistryNumber.trim(),
+    customsRepRegistryDate: untouched('customsRepRegistryDate') ? null : f.customsRepRegistryDate,
+    updatedAtUtc: base?.updatedAtUtc ?? null,
+  }
+}
 
 /** Время с сервера приходит без пояснения пояса — это UTC. */
 const parseUtc = (s: string): Date => new Date(/(Z|[+-]\d{2}:?\d{2})$/i.test(s) ? s : `${s}Z`)
