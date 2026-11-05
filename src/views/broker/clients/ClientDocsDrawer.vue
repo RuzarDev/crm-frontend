@@ -68,6 +68,11 @@ const downloadBlank = (d: Import40DocumentDto) => {
   if (!c) return Promise.resolve()
   return run(d.id, async () => saveBlob(await import40ContractApi.downloadDocument(c.id, d.id), blankFileName(kindLabel(d), d)))
 }
+const downloadPdf = (d: Import40DocumentDto) => {
+  const c = props.client
+  if (!c) return
+  return run(`${d.id}:pdf`, async () => saveBlob(await import40ContractApi.downloadDocument(c.id, d.id, 'pdf'), blankFileName(kindLabel(d), d, 'pdf')))
+}
 const downloadSigned = (d: Import40DocumentDto, f: Import40DocumentFileDto) => {
   const c = props.client
   if (!c) return Promise.resolve()
@@ -114,6 +119,10 @@ const fileLink = 'inline-flex max-w-full min-h-8 cursor-pointer items-center gap
           <ZButton size="sm" :loading="downloading === d.id" :disabled="downloading !== null && downloading !== d.id" class="max-sm:h-11" data-doc-blank @click="downloadBlank(d)">
             <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
             {{ d.clientSigned || d.providerSigned ? t('broker.clientCard.doc.download') : t('admin.skachatBlank') }}
+          </ZButton>
+          <ZButton size="sm" :loading="downloading === `${d.id}:pdf`" :disabled="downloading !== null && downloading !== `${d.id}:pdf`" class="max-sm:h-11" data-doc-pdf @click="downloadPdf(d)">
+            <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
+            PDF
           </ZButton>
           <button
             v-for="f in d.files"

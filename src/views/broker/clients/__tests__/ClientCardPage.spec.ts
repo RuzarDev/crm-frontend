@@ -414,7 +414,7 @@ describe('карточка клиента: обзор', () => {
     await mountAt()
     await w.get('[data-doc-card="contract"] [data-doc-blank]').trigger('click')
     await flushPromises()
-    expect(api.download).toHaveBeenCalledWith('c1', 'dc')
+    expect(api.download).toHaveBeenCalledWith('c1', 'dc', undefined)
     expect(api.saveBlob).toHaveBeenCalledWith(blob, 'Договор-14-2026.docx')
     api.download.mockRejectedValue(httpError(500))
     await w.get('[data-doc-card="poa"] [data-doc-blank]').trigger('click')
@@ -638,7 +638,7 @@ describe('карточка клиента: вкладки «Транзит», «
     api.download.mockResolvedValue(new Blob(['x']))
     await rows[0].get('[data-row-primary]').trigger('click')
     await flushPromises()
-    expect(api.download).toHaveBeenCalledWith('c1', 'dc')
+    expect(api.download).toHaveBeenCalledWith('c1', 'dc', undefined)
   })
 
   it('документы без import40.read: бланка нет', async () => {

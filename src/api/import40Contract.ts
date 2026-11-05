@@ -234,10 +234,10 @@ export const import40ContractApi = {
       body,
       opts?.silent ? { silent: true } : undefined,
     )).data,
-  downloadDocument: async (clientId: string, docId: string): Promise<Blob> => {
+  downloadDocument: async (clientId: string, docId: string, format?: 'pdf'): Promise<Blob> => {
     const response = await apiClient.get(
       `${base(clientId)}/documents/${encodeURIComponent(docId)}/download`,
-      { responseType: 'blob' },
+      { responseType: 'blob', ...(format ? { params: { format } } : {}) },
     )
     return response.data
   },

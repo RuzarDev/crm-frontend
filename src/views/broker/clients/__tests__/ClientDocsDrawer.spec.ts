@@ -126,6 +126,16 @@ describe('ClientDocsDrawer', () => {
     expect(api.saveBlob).toHaveBeenCalledWith(blob, 'Доверенность-3-2026.docx')
   })
 
+  it('PDF: тот же документ с format=pdf и имя .pdf', async () => {
+    const blob = new Blob(['x'])
+    api.downloadDocument.mockResolvedValue(blob)
+    await mountDrawer()
+    await cards()[1].get('[data-doc-pdf]').trigger('click')
+    await flushPromises()
+    expect(api.downloadDocument).toHaveBeenCalledWith('c1', 'p', 'pdf')
+    expect(api.saveBlob).toHaveBeenCalledWith(blob, 'Доверенность-3-2026.pdf')
+  })
+
   it('подписанный файл: запрос API и saveBlob под исходным именем', async () => {
     const blob = new Blob(['y'])
     api.downloadDocumentSignedFile.mockResolvedValue(blob)

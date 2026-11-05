@@ -69,8 +69,8 @@ export const signMethodLabelKey = (method: string | null): string =>
 export const docKindLabelKey = (kind: Import40DocumentDto['kind']): string => (kind === 'contract' ? 'admin.dogovor' : 'admin.doverennost')
 
 /** «Договор-12-2026.docx» — имя файла бланка (подпись вида документа берётся из i18n). */
-export const blankFileName = (kindLabel: string, doc: Pick<Import40DocumentDto, 'number' | 'year'>): string =>
-  `${kindLabel}-${doc.number}-${doc.year}.docx`
+export const blankFileName = (kindLabel: string, doc: Pick<Import40DocumentDto, 'number' | 'year'>, ext: 'docx' | 'pdf' = 'docx'): string =>
+  `${kindLabel}-${doc.number}-${doc.year}.${ext}`
 
 /** «до 14.10» для приглашённых: дата или «ссылка истекла». */
 export const inviteUntil = (c: Pick<ClientOnboardingRow, 'status' | 'inviteExpiresAtUtc'>, now: number = Date.now()): { expired: boolean; date: string } | null =>
