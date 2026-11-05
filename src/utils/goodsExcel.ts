@@ -438,6 +438,9 @@ export function goodsFromSheetRows(rows: unknown[][], opts: GoodsExcelOptions = 
     const row = rows[i]
     if (!row || row.every((c) => c == null || c === '')) continue
 
+    // Второй этаж шапки («Наименование товара | Код ТН ВЭД | Кол-во»), 05.11.2026: чисел нет, ячейки — подписи граф, это не товар.
+    if (!row.some((c) => typeof c === 'number') && Object.keys(headerColumns(row, opts)).length >= 3) continue
+
     const tnvedCode = excelTnved(cell(row, 'tnvedCode'))
     const description = excelToStr(cell(row, 'description'))
     const grossWeightKg = excelToNum(cell(row, 'grossWeightKg'))

@@ -309,6 +309,21 @@ export function hasRussianPart(text: string | null | undefined): boolean {
 export const chineseOnly = (text: string | null | undefined): boolean => hasHan(text) && !hasRussianPart(text)
 
 /**
+ * Название латиницей без китайского хвоста (05.11.2026): «OKI RAMEN Noodle with Beef 12×109g 红烧牛肉味 (杯面)» → «OKI RAMEN Noodle with
+ * Beef 12×109g». Нужно хотя бы три латинских слова: иначе китайская часть и есть описание, и текст остаётся как есть.
+ */
+function latinName(src: string): string | null {
+  const latin = src
+    .replace(/[（(][^()（）]*\p{Script=Han}[^()（）]*(?:[)）]|$)/gu, ' ')
+    .replace(/[\p{Script=Han}。，、；：！？“”「」『』【】]+/gu, ' ')
+    .replace(/）/g, ')').replace(/（/g, '(')
+    .replace(/[\s(,;:/\-–—]+$/u, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return (latin.match(/[a-z]{3,}/gi) ?? []).length >= 3 ? latin : null
+}
+
+/**
  * Описание гр. 31 из двуязычной ячейки (правка 2.4, 22.10.2026): есть и иероглифы, и русский текст — только русская часть.
  * Строки с иероглифами без кириллицы выпадают; строка «中文。中文。 Русский текст» — без предложений с иероглифами;
  * строки без букв обоих письменностей (латиница, числа) — только после первой русской («Model "RC1001"»). Только
@@ -317,6 +332,7 @@ export const chineseOnly = (text: string | null | undefined): boolean => hasHan(
 export function russianPart(text: string | null | undefined): string | null {
   const src = (text ?? '').trim()
   if (!src) return null
+  if (hasHan(src) && !CYR_RE.test(src)) return latinName(src) ?? src
   if (!hasHan(src) || !CYR_RE.test(src) || !hasRussianText(src)) return src
   const kept: string[] = []
   let ruStarted = false
