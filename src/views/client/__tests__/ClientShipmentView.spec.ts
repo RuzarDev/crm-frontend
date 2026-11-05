@@ -319,9 +319,22 @@ describe('ClientShipmentView', () => {
     })
   })
 
-  it('склад оплачен, счёт AQNIET выставлен — плашка со ссылкой на «Счета» и строка счёта', async () => {
+  it('счёт AQNIET не оплачен, чека нет — ход клиента: золотая панель со ссылкой на этот счёт', async () => {
     const inv: Import40CaseInvoiceDto = { id: 'i1', kind: 'invoice', status: 1, number: '42', year: 2026, total: 150000, issuedAtUtc: null, paidAtUtc: null }
     await mountCard({ status: 7 }, [], [inv])
+    const panel = w.get('[data-ask="payService"]')
+    expect(panel.classes()).toContain('bg-gold-soft')
+    expect(panel.get('[data-ask-eyebrow]').text()).toBe('Нужно от вас')
+    expect(panel.text()).toContain('Оплатите счёт за услуги AQNIET')
+    expect(panel.get('[data-pay-service-text]').text().replace(/\s/g, ' ')).toContain('Счёт на 150 000')
+    expect(panel.get('[data-pay-service-link]').attributes('href')).toBe('/billing?id=i1')
+    expect(w.find('[data-notice="paid"]').exists()).toBe(false)
+  })
+
+  it('склад оплачен, к счёту AQNIET приложен чек — плашка со ссылкой на «Счета» и строка счёта', async () => {
+    const inv: Import40CaseInvoiceDto = { id: 'i1', kind: 'invoice', status: 1, number: '42', year: 2026, total: 150000, issuedAtUtc: null, paidAtUtc: null, hasPaymentCheck: true }
+    await mountCard({ status: 7 }, [], [inv])
+    expect(w.find('[data-ask="payService"]').exists()).toBe(false)
     expect(w.get('[data-notice="paid"]').text()).toContain('Склад оплачен')
     expect(w.get('[data-paid-link]').attributes('href')).toBe('/billing')
     const row = w.get('[data-service-row]')

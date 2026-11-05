@@ -47,6 +47,8 @@ export interface ClientCardDoc {
   generatedAtUtc: string
   /** 02.11.2026 (пакет I): доверенность действует, но текущая — перевыпущенная позже («0008/2026»); иначе null. */
   replacedBy?: string | null
+  /** 05.11.2026: файлы подписи — тем, кому сервер их отдаст; иначе пусто, остаётся filesCount. */
+  files?: { id: string; originalFileName: string }[]
 }
 
 export interface ClientCardCase {
@@ -107,6 +109,8 @@ export interface ClientDocumentRow {
   expiringSoon: boolean
   consumedByCaseId: string | null
   generatedAtUtc: string
+  /** 05.11.2026: как в карточке клиента — заменена перевыпущенной доверенностью («0008/2026»). */
+  replacedBy?: string | null
 }
 
 export const clientCardApi = {

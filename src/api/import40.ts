@@ -799,6 +799,8 @@ export interface Import40CaseInvoiceDto {
   total: number
   issuedAtUtc: string | null
   paidAtUtc: string | null
+  /** Клиент приложил чек: счёт ждёт проверки бухгалтером, а не оплаты (05.11.2026). */
+  hasPaymentCheck?: boolean
 }
 
 export interface KedenReadinessDto {

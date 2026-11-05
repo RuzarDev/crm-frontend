@@ -1,5 +1,4 @@
 import { isDocumentActive, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
-import type { ZTone } from '@/components/z/ZTag.vue'
 
 // «Компания клиента» сотрудника (/import-40/company, редизайн, волна 7): чистые правила шагов, регистрации
 // и документов — как у прежнего Import40CompanyView + Import40DocumentStep, без Vue.
@@ -77,12 +76,7 @@ export function multiBlocked(kind: DocKind, docs: Import40DocumentDto[]): 'activ
   return null
 }
 
-// ---- Статус документа ----
-type StatusKey = 'draft' | 'awaiting' | 'active' | 'expired' | 'revoked'
-const STATUS_KEY: Record<number, StatusKey> = { 0: 'draft', 1: 'awaiting', 2: 'active', 3: 'expired', 4: 'revoked' }
-const STATUS_TONE: Record<StatusKey, ZTone> = { draft: 'neutral', awaiting: 'info', active: 'done', expired: 'danger', revoked: 'danger' }
-export const statusKey = (status: number): StatusKey => STATUS_KEY[status] ?? 'draft'
-export const statusTone = (status: number): ZTone => STATUS_TONE[statusKey(status)]
+// ---- Статус документа: подпись и тон — docTag (views/broker/clients/clientCard.ts) ----
 export const REVOKED = 4
 
 /** Срок действия прошёл. */

@@ -6,14 +6,14 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { BrokerInvoice } from '@/api/billing'
 
 const api = vi.hoisted(() => ({
-  list: vi.fn(), issue: vi.fn(), markPaid: vi.fn(), remind: vi.fn(), cancel: vi.fn(), remove: vi.fn(), pdf: vi.fn(),
+  list: vi.fn(), issue: vi.fn(), markPaid: vi.fn(), unmarkPaid: vi.fn(), remind: vi.fn(), cancel: vi.fn(), remove: vi.fn(), pdf: vi.fn(),
   downloadPaymentCheck: vi.fn(), organization: vi.fn(), listClients: vi.fn(), listCases: vi.fn(), listServices: vi.fn(),
   exportXlsx: vi.fn(), saveBlob: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/billing', () => ({
   billingApi: {
-    list: api.list, issue: api.issue, markPaid: api.markPaid, remind: api.remind, cancel: api.cancel, remove: api.remove,
+    list: api.list, issue: api.issue, markPaid: api.markPaid, unmarkPaid: api.unmarkPaid, remind: api.remind, cancel: api.cancel, remove: api.remove,
     pdf: api.pdf, downloadPaymentCheck: api.downloadPaymentCheck, organization: api.organization,
   },
 }))
@@ -78,6 +78,7 @@ beforeEach(async () => {
   api.issue.mockResolvedValue({})
   api.markPaid.mockResolvedValue({})
   api.cancel.mockResolvedValue({})
+  api.unmarkPaid.mockResolvedValue({})
   api.remove.mockResolvedValue(undefined)
   api.remind.mockResolvedValue({ ok: true, emailSent: true, to: 'a@b.kz' })
   api.pdf.mockResolvedValue(new Blob(['%PDF']))
@@ -110,6 +111,34 @@ describe('«Счета и акты» (сотрудник)', () => {
     ok.click()
     await flushPromises()
     expect(api.cancel).toHaveBeenCalledWith('p', 'выставлен не тому клиенту')
+  })
+
+  // 05.11.2026: подсказка «Шаг назад» ведёт сюда — снятие отметки как на шаге 6: руководитель, причина, тот же API.
+  it('«Снять отметку оплаты» — руководителю в меню оплаченного счёта, с причиной; бухгалтеру пункта нет', async () => {
+    const paid = inv({ id: 'p', caseId: 'k9', caseNumber: 'ИМ-2026-0199', status: 2, number: '0300', paidAtUtc: '2026-10-20T05:00:00Z' })
+    api.list.mockResolvedValue([paid])
+    await mountView()
+    expect(menuKeys(0)).not.toContain('unmarkPaid')
+    w.unmount()
+
+    as('manager', ['finance.read', 'finance.write', 'import40.assign'])
+    await mountView()
+    expect(menuKeys(0)).toEqual(['pdf', 'unmarkPaid', 'cancel'])
+    expect((actionsOf(0).props('items') as { key: string; label: string }[]).find((x) => x.key === 'unmarkPaid')?.label).toBe('Снять отметку оплаты')
+    actionsOf(0).vm.$emit('action', 'unmarkPaid')
+    await flushPromises()
+    const modal = document.body.querySelector('[data-billing-unmark]')
+    expect(modal?.textContent).toContain('Снять отметку оплаты счёта')
+    const ok = () => [...document.body.querySelectorAll<HTMLButtonElement>('[data-billing-unmark] button')].find((b) => b.textContent?.trim() === 'Снять отметку')!
+    expect(ok().disabled).toBe(true)
+    const area = document.body.querySelector<HTMLTextAreaElement>('textarea[data-billing-unmark-reason], [data-billing-unmark-reason] textarea')!
+    area.value = 'оплата отмечена по ошибке'
+    area.dispatchEvent(new Event('input'))
+    await flushPromises()
+    ok().click()
+    await flushPromises()
+    expect(api.unmarkPaid).toHaveBeenCalledWith('p', 'оплата отмечена по ошибке')
+    expect(api.list).toHaveBeenCalledTimes(3)
   })
 
   // S-41 (30.10.2026): оплаченный счёт без заявки — тоже окно причины, а не простое подтверждение.

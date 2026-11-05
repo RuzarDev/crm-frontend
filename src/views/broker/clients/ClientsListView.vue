@@ -13,13 +13,13 @@ import type { ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ListSearch from '@/components/broker/ListSearch.vue'
 import RowActions from '@/components/broker/RowActions.vue'
 import ClientDocsDrawer from './ClientDocsDrawer.vue'
-import InviteClientModal, { type InviteReissue } from './InviteClientModal.vue'
+import InviteClientModal from './InviteClientModal.vue'
+import { useClientAccountActions } from './useClientAccountActions'
 import { clientsOnboardingApi, type ClientOnboardingRow } from '@/api/clientsOnboarding'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
 import { exportXlsx, formatDay } from '@/views/broker/list'
 import { message } from '@/ui/message'
-import { useConfirm } from '@/ui/confirm'
 import type { ZColumn } from '@/ui/table'
 import {
   CLIENT_SEGMENTS, SEGMENT_LABEL, clientExcelRows, clientName, clientStatusLabelKey, clientStatusTone, filterClients, inviteUntil,
@@ -32,15 +32,14 @@ import {
 const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
-const { confirm } = useConfirm()
 
-const canInvite = computed(() => auth.hasPermission('clients.invite'))
-const canManage = computed(() => auth.hasPermission('clients.manage'))
 // Документы клиента сервер отдаёт только при import40.read: без права был 403 и два тоста.
 const canViewDocs = computed(() => auth.hasPermission('import40.read'))
 
 const board = useBlock(true, () => clientsOnboardingApi.list({ silent: true }))
 onMounted(() => { void board.load() })
+// «Новая ссылка» и блокировка — общий код с меню карточки клиента.
+const { canInvite, accountItems, inviteOpen, reissue, openInvite, onInviteOpen, onAccountAction } = useClientAccountActions(() => board.load())
 
 const items = computed<ClientOnboardingRow[]>(() => board.data ?? [])
 
@@ -88,59 +87,14 @@ const customRow = (c: ClientOnboardingRow) => ({
 // ---- Действия строки ----
 const menuItems = (c: ClientOnboardingRow): ZDropdownItem[] => [
   ...(canViewDocs.value ? [{ key: 'docs', label: t('broker.clients.action.documents') }] : []),
-  ...(canInvite.value && c.status === 'Invited' ? [{ key: 'reissue', label: t('broker.clients.action.newLink') }] : []),
-  ...(canManage.value && c.status !== 'Blocked' ? [{ key: 'block', label: t('broker.clients.action.block'), danger: true, divider: true }] : []),
-  ...(canManage.value && c.status === 'Blocked' ? [{ key: 'unblock', label: t('broker.clients.action.unblock') }] : []),
+  ...accountItems(c),
 ]
 
 const docsOpen = ref(false)
 const docsClient = ref<ClientOnboardingRow | null>(null)
-const inviteOpen = ref(false)
-const reissue = ref<InviteReissue | null>(null)
-
-const openInvite = () => { reissue.value = null; inviteOpen.value = true }
-const onInviteOpen = (open: boolean) => {
-  inviteOpen.value = open
-  if (!open) reissue.value = null
-}
-
-const reissueLink = async (c: ClientOnboardingRow) => {
-  const yes = await confirm({
-    title: t('broker.clients.reissue.title'),
-    content: t('broker.clients.reissue.text'),
-    okText: t('broker.clients.reissue.ok'),
-    cancelText: t('admin.otmena'),
-  })
-  if (!yes) return
-  reissue.value = { email: c.email ?? c.username, bin: c.bin ?? '', companyName: c.companyName ?? '', phone: c.phone ?? '' }
-  inviteOpen.value = true
-}
-
-// Блокировка и разблокировка: при ошибке тост показал перехватчик — список не перечитываем.
-const toggleBlock = async (c: ClientOnboardingRow, block: boolean) => {
-  if (block) {
-    const yes = await confirm({
-      title: t('admin.zablokirovatKlientaOnNe'),
-      okText: t('admin.zablokirovat'),
-      cancelText: t('admin.otmena'),
-      danger: true,
-    })
-    if (!yes) return
-  }
-  try {
-    await (block ? clientsOnboardingApi.block(c.id) : clientsOnboardingApi.unblock(c.id))
-  } catch {
-    return
-  }
-  message.success(t(block ? 'admin.klientZablokirovan' : 'admin.klientRazblokirovan'))
-  await board.load()
-}
-
 const onAction = (c: ClientOnboardingRow, key: string) => {
   if (key === 'docs') { docsClient.value = c; docsOpen.value = true }
-  else if (key === 'reissue') void reissueLink(c)
-  else if (key === 'block') void toggleBlock(c, true)
-  else if (key === 'unblock') void toggleBlock(c, false)
+  else onAccountAction(c, key)
 }
 
 // ---- Excel: отфильтрованные строки ----

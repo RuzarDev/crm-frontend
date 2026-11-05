@@ -44,6 +44,11 @@ describe('billing: главная кнопка и меню', () => {
     expect(menuActions(inv({ status: 2 }), true)).toEqual(['pdf', 'cancel'])
     expect(primaryAction(inv({ status: 3 }))).toBeNull()
     expect(menuActions(inv({ status: 3 }), true)).toEqual(['pdf'])
+    // «Снять отметку оплаты»: только оплаченный счёт и своё право, не зависит от finance.write (05.11.2026).
+    expect(menuActions(inv({ status: 2 }), true, true)).toEqual(['pdf', 'unmarkPaid', 'cancel'])
+    expect(menuActions(inv({ status: 2 }), false, true)).toEqual(['pdf', 'unmarkPaid'])
+    expect(menuActions(inv({ status: 2, kind: 'act' }), true, true)).toEqual(['pdf', 'cancel'])
+    expect(menuActions(inv({ status: 1 }), true, true)).not.toContain('unmarkPaid')
   })
   it('без права записи — только PDF', () => {
     for (const r of [inv({ status: 0 }), inv({}), inv({ paymentChecks: [check] }), inv({ status: 2 })]) {

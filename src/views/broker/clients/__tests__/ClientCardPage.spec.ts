@@ -8,17 +8,19 @@ import type { BrokerInvoice } from '@/api/billing'
 import type { ReestrEntry } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 
+const onboarding = vi.hoisted(() => ({ block: vi.fn(), unblock: vi.fn() }))
 const api = vi.hoisted(() => ({
-  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(), revoke: vi.fn(), renew: vi.fn(),
+  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), signedFile: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(), revoke: vi.fn(), renew: vi.fn(),
   confirm: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/clientCard', () => ({ clientCardApi: { card: api.card } }))
+vi.mock('@/api/clientsOnboarding', () => ({ clientsOnboardingApi: { block: onboarding.block, unblock: onboarding.unblock } }))
 vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.reestr } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.billing } }))
 vi.mock('@/api/import40Contract', async (orig) => ({
   ...(await orig<typeof import('@/api/import40Contract')>()),
-  import40ContractApi: { downloadDocument: api.download, renewDocument: api.renew, revokeDocument: api.revoke },
+  import40ContractApi: { downloadDocument: api.download, downloadDocumentSignedFile: api.signedFile, renewDocument: api.renew, revokeDocument: api.revoke },
 }))
 vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
 vi.mock('@/ui/download', () => ({ saveBlob: api.saveBlob }))
@@ -40,7 +42,8 @@ const ReissueStub = {
   props: ['open', 'doc', 'clientId'], emits: ['reissued', 'update:open'],
   template: '<div v-if="open" data-reissue-stub :data-doc="doc?.id" :data-client="clientId"><button type="button" data-reissue-done @click="$emit(\'reissued\', {})" /></div>',
 }
-const stubs = { ZDropdown: DropdownStub, PoaReissueModal: ReissueStub }
+const InviteStub = { props: ['open', 'reissue'], template: '<div v-if="open" data-invite-stub :data-email="reissue?.email" :data-bin="reissue?.bin" :data-phone="reissue?.phone" />' }
+const stubs = { ZDropdown: DropdownStub, PoaReissueModal: ReissueStub, InviteClientModal: InviteStub }
 
 const doc = (o: Partial<ClientCardDoc>): ClientCardDoc => ({
   id: 'd1', kind: 'contract', number: '14', year: 2026, status: 2, clientSigned: true, clientSignedAtUtc: '2026-03-13T08:00:00Z', clientSignMethod: 'egov',
@@ -224,6 +227,71 @@ describe('карточка клиента: шапка', () => {
     expect(api.reestr).toHaveBeenCalledTimes(2)
     expect(api.billing).toHaveBeenCalledTimes(2)
     expect(w.get('[data-card-title]').text()).toBe('ТОО «Новое имя»')
+  })
+
+  // 05.11.2026, аудит №2: те же права, условия и подтверждения, что в меню строки «Клиентов».
+  it('меню «⋯»: «Новая ссылка» — приглашённому при clients.invite, с подтверждением', async () => {
+    api.card.mockResolvedValue(card({ status: 'Invited', inviteExpiresAtUtc: '2020-01-01T00:00:00Z', profile: { ...card().profile, phone: '+7 700 000 00 00' }, phone: null }))
+    as('manager', [...ALL, 'clients.invite'])
+    await mountAt()
+    const keys = () => w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))
+    expect(keys()).toEqual(['docs', 'refresh', 'reissue'])
+    api.confirm.mockResolvedValueOnce(false)
+    await w.get('[data-menu-item="reissue"]').trigger('click')
+    await flushPromises()
+    expect(has('[data-invite-stub]')).toBe(false)
+    api.confirm.mockResolvedValueOnce(true)
+    await w.get('[data-menu-item="reissue"]').trigger('click')
+    await flushPromises()
+    const modal = w.get('[data-invite-stub]')
+    expect(modal.attributes('data-email')).toBe('finance@kazakhmys-trade.kz')
+    expect(modal.attributes('data-bin')).toBe('160440012345')
+    expect(modal.attributes('data-phone')).toBe('+7 700 000 00 00')
+  })
+
+  it('меню «⋯»: блокировка — при clients.manage, с подтверждением, карточка перечитывается; активному «Новой ссылки» нет', async () => {
+    onboarding.block.mockResolvedValue(undefined)
+    onboarding.unblock.mockResolvedValue(undefined)
+    as('manager', [...ALL, 'clients.invite', 'clients.manage'])
+    await mountAt()
+    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs', 'refresh', 'block'])
+    api.confirm.mockResolvedValueOnce(false)
+    await w.get('[data-menu-item="block"]').trigger('click')
+    await flushPromises()
+    expect(onboarding.block).not.toHaveBeenCalled()
+    api.confirm.mockResolvedValueOnce(true)
+    const calls = api.card.mock.calls.length
+    await w.get('[data-menu-item="block"]').trigger('click')
+    await flushPromises()
+    expect(onboarding.block).toHaveBeenCalledWith('c1')
+    expect(api.card.mock.calls.length).toBe(calls + 1)
+    w.unmount()
+
+    api.card.mockResolvedValue(card({ status: 'Blocked' }))
+    await mountAt('/clients/c1')
+    expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs', 'refresh', 'unblock'])
+    await w.get('[data-menu-item="unblock"]').trigger('click')
+    await flushPromises()
+    expect(onboarding.unblock).toHaveBeenCalledWith('c1')
+  })
+
+  it('вкладка «Документы»: файлы подписи скачиваются из строки; без данных о файлах — счётчик', async () => {
+    const blob = new Blob(['x'])
+    api.signedFile.mockResolvedValue(blob)
+    api.card.mockResolvedValue(card({ documents: [
+      doc({ id: 'dc', filesCount: 1, files: [{ id: 'f1', originalFileName: 'contract-signed.cms' }] }),
+      doc({ id: 'dn', filesCount: 2, files: [] }),
+    ] }))
+    await mountAt('/clients/c1?tab=docs')
+    const link = w.get('[data-doc-file]')
+    expect(link.text()).toBe('contract-signed.cms')
+    expect(link.classes()).toContain('max-sm:min-h-11')
+    await link.trigger('click')
+    await flushPromises()
+    expect(api.signedFile).toHaveBeenCalledWith('c1', 'dc', 'f1')
+    expect(api.saveBlob).toHaveBeenCalledWith(blob, 'contract-signed.cms')
+    expect(w.findAll('[data-doc-file]')).toHaveLength(1)
+    expect(w.text()).toContain('2')
   })
 
   it('меню «⋯»: «Документы клиента» всегда; «Подписать договор» — руководителю с import40.read, когда договор ждёт AQNIET', async () => {

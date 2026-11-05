@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   revokeDocument: vi.fn(),
   renewDocument: vi.fn(),
   downloadDocument: vi.fn(),
+  downloadDocumentSignedFile: vi.fn(),
   signDocument: vi.fn(),
   sigexStartSigningDocument: vi.fn(),
   sigexPollDocument: vi.fn(),
@@ -491,7 +492,7 @@ describe('StaffCompanyPage', () => {
     await mountAt('/import-40/company?step=poa')
     expect(reissuable()).toEqual(['pn'])
     expect(w.get('[data-doc="pold"] [data-tag="replaced"]').text()).toBe('Заменена доверенностью № 10/2026')
-    expect(w.find('[data-doc="pold"] [data-tag="effective"]').exists()).toBe(false)
+    expect(w.find('[data-doc="pold"] [data-tag="status"]').exists()).toBe(false)
     await w.get('[data-doc="pn"] [data-doc-reissue]').trigger('click')
     await flushPromises()
     expect($('[data-poa-reissue-modal]')).not.toBeNull()
@@ -591,12 +592,34 @@ describe('StaffCompanyPage', () => {
     expect(w.get('[data-doc="d1"] [data-doc-error]').text()).toBe('Подпись не прошла проверку')
   })
 
-  it('теги документа: действует + статус, разовый · использован, срок', async () => {
+  it('теги документа: единый статус, разовый, срок; использованная разовая не «действует»', async () => {
     setDocs('c1', [], [doc({ id: 'p1', kind: 'poa', status: 2, clientSigned: true, isSingleUse: true, consumedByCaseId: 'k1', validUntilUtc: '2099-12-31T12:00:00Z' })])
     await mountAt('/import-40/company?step=poa')
     const tags = w.findAll('[data-doc-tags] [data-tag]').map((t) => t.text())
-    expect(tags).toEqual(['Активен', 'разовый · использован', 'до 31.12.2099'])
-    expect(tags).not.toContain('Действует') // использованная разовая уже не «действует»
+    expect(tags).toEqual(['Использован', 'разовый', 'до 31.12.2099'])
+  })
+
+  it('действующий документ — один статус «Действует», просроченный — красный «Истёк»', async () => {
+    const fresh = doc({ id: 'c1', status: 2, clientSigned: true, providerSigned: true, validUntilUtc: '2099-12-31T12:00:00Z' })
+    const old = doc({ id: 'c2', status: 2, clientSigned: true, providerSigned: true, validUntilUtc: '2020-12-31T12:00:00Z' })
+    setDocs('c1', [fresh, old], [])
+    await mountAt('/import-40/company?step=contract')
+    expect(w.get('[data-doc="c1"] [data-tag="status"]').text()).toBe('Действует')
+    expect(w.get('[data-doc="c2"] [data-tag="status"]').text()).toBe('Истёк')
+    expect(w.get('[data-doc="c2"] [data-tag="status"]').classes()).toContain('bg-tone-danger-bg')
+    expect(w.findAll('[data-doc="c1"] [data-doc-tags] [data-tag]').map((t) => t.text())).not.toContain('Активен')
+  })
+
+  it('файлы подписи скачиваются прямо со страницы', async () => {
+    const file = { id: 'f1', section: 'client-signed', originalFileName: 'signed.cms', createdAtUtc: '2026-01-01T00:00:00Z' }
+    setDocs('c1', [doc({ id: 'c1', status: 2, clientSigned: true, files: [file] })], [])
+    const blob = new Blob(['x'])
+    api.downloadDocumentSignedFile.mockResolvedValue(blob)
+    await mountAt('/import-40/company?step=contract')
+    await w.get('[data-doc="c1"] [data-doc-file]').trigger('click')
+    await flushPromises()
+    expect(api.downloadDocumentSignedFile).toHaveBeenCalledWith('c1', 'c1', 'f1')
+    expect(save).toHaveBeenCalledWith(blob, 'signed.cms')
   })
 
   it('(баг) срок «до» — календарная дата по UTC: конец года сервера не «переезжает» на 01.01', async () => {

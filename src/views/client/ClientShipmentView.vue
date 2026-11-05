@@ -28,7 +28,7 @@ import { stagesApi, type CaseStages } from '@/api/stages'
 import { billingApi } from '@/api/billing'
 import { referencesApi } from '@/api/references'
 import type { RefCodeItem } from '@/types/api'
-import { shipmentTag, toShipmentSummary } from '@/views/client/shipment'
+import { serviceInvoiceToPay, shipmentTag, toShipmentSummary } from '@/views/client/shipment'
 import { dayMonthOf } from '@/views/client/shipment/util'
 import { saveBlob } from '@/ui/download'
 import { countryName } from '@/utils/countries'
@@ -161,7 +161,7 @@ const translations = useTranslations(() => id.value)
 const hasServiceInvoice = computed(() => invoices.value.some((i) => i.kind === 'invoice' && (i.status === 1 || i.status === 2)))
 // Счета не загрузились — про счёт AQNIET тег не гадает (прежнее «Оплата услуг», 30.10.2026, аудит C-27).
 const summary = computed(() => (kase.value
-  ? toShipmentSummary(kase.value, files.value, customs.list.value, preBorder.data.value?.missing ?? [], invoicesError.value ? undefined : hasServiceInvoice.value)
+  ? toShipmentSummary(kase.value, files.value, customs.list.value, preBorder.data.value?.missing ?? [], invoicesError.value ? undefined : hasServiceInvoice.value, serviceInvoiceToPay(invoices.value))
   : null))
 // Файлы не загрузились — тег не гадает про чек («Ждём оплату склада» / «Чек на проверке»).
 const tag = computed(() => (summary.value ? shipmentTag(summary.value, { filesUnknown: filesError.value }) : null))

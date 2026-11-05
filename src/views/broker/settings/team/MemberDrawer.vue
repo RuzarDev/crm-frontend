@@ -323,12 +323,25 @@ const resetPassword = async () => {
 // ---- Удаление (users.delete, не себе; администратора — только администратор) ----
 const canDelete = computed(() => auth.hasPermission('users.delete') && !isSelf.value && !(targetIsAdmin.value && !isAdmin.value))
 const deleting = ref(false)
+// Назначения на заявках при удалении не снимаются: окно называет их число и советует переназначить (05.11.2026).
+// Счётчик не загрузился — удалять всё равно можно, окно честно об этом говорит.
+const deleteBody = async (id: string): Promise<string> => {
+  try {
+    const n = await usersApi.openCases(id, { silent: true })
+    return t(n > 0 ? 'broker.settings.team.drawer.deleteBodyCases' : 'broker.settings.team.drawer.deleteBody', { n })
+  } catch {
+    return t('broker.settings.team.drawer.deleteBodyUnknown')
+  }
+}
 const remove = async () => {
   const mem = m.value
   if (!mem || deleting.value) return
+  deleting.value = true
+  const content = await deleteBody(mem.id)
+  deleting.value = false
   const ok = await confirm({
     title: t('broker.settings.team.drawer.deleteTitle', { name: memberName(mem) }),
-    content: t('broker.settings.team.drawer.deleteBody'),
+    content,
     okText: t('broker.settings.team.drawer.delete'),
     cancelText: t('admin.otmena'),
     danger: true,

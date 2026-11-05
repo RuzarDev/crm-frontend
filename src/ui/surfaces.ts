@@ -41,7 +41,7 @@ export const modalBackdrop = cn(
 
 /** Крестик закрытия окна (ZModal, ZDrawer): в правом верхнем углу, последним в порядке фокуса. */
 export const modalCloseButton = cn(
-  'absolute right-4 top-4 flex size-8 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0',
+  'absolute right-4 top-4 flex size-8 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 max-sm:right-2 max-sm:top-2 max-sm:size-11',
   'text-muted outline-hidden transition-colors duration-150 ease-out motion-reduce:transition-none',
   'hover:bg-sunken hover:text-ink focus-visible:shadow-focus',
 )
@@ -94,7 +94,7 @@ export const cssSize = (v: number | string): string => (typeof v === 'number' ? 
 
 /** Пункт списка/меню. */
 export const listItem = cn(
-  'relative flex cursor-pointer select-none items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-sm text-ink outline-hidden',
+  'relative flex cursor-pointer select-none items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-sm text-ink outline-hidden max-sm:min-h-11',
   'data-[highlighted]:bg-sunken data-[state=checked]:font-semibold',
   'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45',
 )

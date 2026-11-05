@@ -3,7 +3,7 @@ import type { ClientCardCase, ClientCardDoc } from '@/api/clientCard'
 import type { BrokerInvoice } from '@/api/billing'
 import type { ReestrEntry } from '@/types/api'
 import {
-  availableTabs, awaitingAqniet, canRenewPoa, caseTone, contactRows, currentDocs, directorBasisOf, docTag, hasNextPoa, invoicesOf, matchesCase, nextPoaOf,
+  availableTabs, awaitingAqniet, canRenewPoa, caseTone, contactRows, currentDocs, directorBasisOf, docExpiry, docTag, docTagOf, hasNextPoa, invoicesOf, matchesCase, nextPoaOf,
   recentCases, resolveTab, transitQuery, unpaidOf,
 } from '../clientCard'
 
@@ -81,6 +81,26 @@ describe('документы', () => {
     expect(docTag(doc({ status: 2, daysLeft: -3 }))).toEqual({ tone: 'danger', labelKey: 'admin.istek' })
     expect(docTag(doc({ status: 2, daysLeft: 300 }))).toEqual({ tone: 'done', labelKey: 'admin.deystvuet' })
     expect(docTag(doc({ status: 1 }))).toEqual({ tone: 'wait', labelKey: 'admin.zhdetPodpisi' })
+  })
+  it('тег: заменённая и израсходованная разовая — не зелёные, просрочка важнее', () => {
+    expect(docTag(doc({ status: 2, daysLeft: 30, replacedBy: '8/2026' }))).toEqual({ tone: 'neutral', labelKey: 'broker.company.reissue.replaced' })
+    expect(docTag(doc({ status: 2, daysLeft: 30, isSingleUse: true, consumedByCaseId: 'k1' }))).toEqual({ tone: 'neutral', labelKey: 'broker.company.consumedStatus' })
+    expect(docTag(doc({ status: 2, daysLeft: -1, isSingleUse: true, consumedByCaseId: 'k1' }))).toEqual({ tone: 'danger', labelKey: 'admin.istek' })
+  })
+  it('срок из даты — как сервер: без даты нет, 30 дней — «истекает», только у действующего', () => {
+    const now = Date.parse('2026-11-05T12:00:00Z')
+    expect(docExpiry({ status: 2, validUntilUtc: null }, now)).toEqual({ daysLeft: null, expiringSoon: false })
+    expect(docExpiry({ status: 2, validUntilUtc: '2026-12-05T12:00:00Z' }, now)).toEqual({ daysLeft: 30, expiringSoon: true })
+    expect(docExpiry({ status: 2, validUntilUtc: '2026-12-06T12:00:00Z' }, now)).toEqual({ daysLeft: 31, expiringSoon: false })
+    expect(docExpiry({ status: 1, validUntilUtc: '2026-12-05T12:00:00Z' }, now).expiringSoon).toBe(false)
+    expect(docExpiry({ status: 2, validUntilUtc: '2026-11-05T11:00:00Z' }, now).daysLeft).toBe(-1)
+  })
+  it('docTagOf: документ со сроком датой — просроченный не зелёный', () => {
+    const base = { status: 2, isSingleUse: false, consumedByCaseId: null }
+    const now = Date.parse('2026-11-05T12:00:00Z')
+    expect(docTagOf({ ...base, validUntilUtc: '2026-11-01T00:00:00Z' }, now)).toEqual({ tone: 'danger', labelKey: 'admin.istek' })
+    expect(docTagOf({ ...base, validUntilUtc: '2036-11-01T00:00:00Z' }, now)).toEqual({ tone: 'done', labelKey: 'admin.deystvuet' })
+    expect(docTagOf({ ...base, validUntilUtc: '2036-11-01T00:00:00Z', replacedBy: '8/2026' }, now).labelKey).toBe('broker.company.reissue.replaced')
   })
   it('«Выпустить новую»: доверенность, срок истекает или вышел', () => {
     expect(canRenewPoa(doc({ kind: 'poa', status: 2, expiringSoon: true, daysLeft: 5 }))).toBe(true)

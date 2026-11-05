@@ -43,6 +43,9 @@ import {
   accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, docsTabCount, hasNextPoa, nextPoaOf,
   invoicesOf, liveInvoicesCount, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
+import DocSignedFiles from './DocSignedFiles.vue'
+import InviteClientModal from './InviteClientModal.vue'
+import { useClientAccountActions } from './useClientAccountActions'
 import ClientRegistryPanel from '@/views/clientRegistry/ClientRegistryPanel.vue'
 import ContractsPanel from '@/views/foreignContracts/ContractsPanel.vue'
 import PoaReissueModal from '@/views/broker/company/PoaReissueModal.vue'
@@ -159,17 +162,27 @@ const editRoute = computed(() => ({ path: '/import-40/company', query: { client:
 const poaRoute = computed(() => ({ path: '/import-40/company', query: { client: id.value, step: 'poa' } }))
 const signRoute = computed(() => ({ path: '/import-40/company', query: { client: id.value, step: 'contract' } }))
 const hasAwaiting = computed(() => !!card.value?.documents.some(awaitingAqniet))
+// «Новая ссылка» и блокировка (05.11.2026) — те же права и подтверждения, что в меню строки «Клиентов»: общий код.
+const { canInvite, accountItems, inviteOpen, reissue: reissueInvite, onInviteOpen, onAccountAction } = useClientAccountActions(() => load())
+const account = computed(() => {
+  const c = card.value
+  return c && status.value
+    ? { id: c.id, status: status.value, email: c.email, username: c.username, bin: bin.value, companyName: c.companyName, phone: c.phone || c.profile.phone }
+    : null
+})
 // «Обновить» — перечитать карточку и блоки (как в прежней карточке).
 const menu = computed<ZDropdownItem[]>(() => [
   ...(canOpenSigning.value && hasAwaiting.value ? [{ key: 'sign', label: t('broker.clientCard.menu.sign') }] : []),
   { key: 'docs', label: t('broker.clientCard.menu.docs') },
   { key: 'refresh', label: t('common.refresh') },
+  ...(account.value ? accountItems(account.value) : []),
 ])
 const onMenu = (key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
   // «Документы клиента» — вкладка этой карточки, а не общий реестр всех клиентов (30.10.2026, аудит S-2).
   else if (key === 'docs') setTab('docs')
   else if (key === 'refresh') void load()
+  else if (account.value) onAccountAction(account.value, key)
 }
 
 // ---- Показатели ----
@@ -875,7 +888,8 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                     <PhCheck v-if="s.on" :size="14" weight="bold" class="shrink-0 text-tone-done-fg" aria-hidden="true" /><span v-else aria-hidden="true">—</span>
                     <span>{{ s.text }}</span>
                   </span>
-                  <span v-if="record.filesCount" class="mt-0.5 block text-xs text-muted">{{ t('broker.clientCard.doc.files', { n: record.filesCount }) }}</span>
+                  <DocSignedFiles v-if="record.files?.length" :client-id="card.id" :doc-id="record.id" :files="record.files" class="mt-0.5" />
+                  <span v-else-if="record.filesCount" class="mt-0.5 block text-xs text-muted">{{ t('broker.clientCard.doc.files', { n: record.filesCount }) }}</span>
                 </span>
                 <RowActions
                   v-else-if="column.key === 'actions'"
@@ -942,5 +956,6 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
       </ZTabs>
     </template>
     <PoaReissueModal v-model:open="reissueOpen" :client-id="id" :doc="reissueDoc" @reissued="load()" />
+    <InviteClientModal v-if="canInvite" :open="inviteOpen" :reissue="reissueInvite" @update:open="onInviteOpen" @invited="load()" />
   </div>
 </template>

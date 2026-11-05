@@ -43,6 +43,10 @@ describe('фильтры', () => {
     expect(ids(filterDocs(ROWS, '', 'all', 'awaiting'))).toEqual(['b', 'f', 'g'])
     expect(ids(filterDocs(ROWS, '', 'all', 'aqniet'))).toEqual(['b', 'f'])
     expect(filterDocs(ROWS, '', 'all', 'all')).toHaveLength(7)
+    // Сегменты совпадают с тегом строки: статус 2 в базе, а срок вышел или заменена — не «Действуют» и не «Истекают» (05.11.2026).
+    const edge = [doc({ id: 'x', daysLeft: -2 }), doc({ id: 'y', kind: 'poa', daysLeft: 5, expiringSoon: true, replacedBy: '8/2026' }), doc({ id: 'z', daysLeft: 5, expiringSoon: true })]
+    expect(ids(filterDocs(edge, '', 'all', 'active'))).toEqual(['z'])
+    expect(ids(filterDocs(edge, '', 'all', 'expiring'))).toEqual(['z'])
   })
   it('вид и состояние работают вместе', () => {
     expect(ids(filterDocs(ROWS, '', 'poa', 'all'))).toEqual(['c', 'e'])

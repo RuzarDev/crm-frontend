@@ -81,6 +81,10 @@ const downloadSvh = async () => {
   }
 }
 
+// ---- Оплата услуг AQNIET (05.11.2026): счёт и чек — на экране «Счета» ----
+const serviceSum = computed(() => (props.shipment.serviceInvoiceToPayTotal != null ? formatMoney(props.shipment.serviceInvoiceToPayTotal) : ''))
+const serviceInvoiceTo = computed(() => ({ path: '/billing', query: { id: props.shipment.serviceInvoiceToPayId ?? undefined } }))
+
 // ---- Загрузка файла (чек / документ к ответу) ----
 const uploading = ref<'payment-check' | 'documents' | null>(null)
 const upload = async (section: 'payment-check' | 'documents', file: File) => {
@@ -248,6 +252,29 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
       <PhDownloadSimple :size="15" aria-hidden="true" class="sm:hidden" />
       {{ t('client.card.pay.download') }}
     </button>
+  </section>
+
+  <section
+    v-else-if="ask === 'payService'"
+    :aria-labelledby="titleId"
+    :class="cn(panel, 'border-gold-line bg-gold-soft sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-5')"
+    data-ask="payService"
+  >
+    <div class="flex min-w-0 items-start gap-3.5">
+      <span aria-hidden="true" :class="cn(badge, 'bg-gold text-base font-extrabold text-navy')">₸</span>
+      <div class="flex min-w-0 flex-col gap-1">
+        <p :class="eyebrow" data-ask-eyebrow>{{ t('client.ask.eyebrow') }}</p>
+        <h2 :id="titleId" :class="h2">{{ t('client.ask.payService.panelTitle') }}</h2>
+        <p :class="text" data-pay-service-text>
+          <template v-if="serviceSum">{{ t('client.ask.payService.text', { sum: serviceSum }) }}. </template>{{ t('client.card.payService.after') }}
+        </p>
+      </div>
+    </div>
+    <RouterLink
+      :to="serviceInvoiceTo"
+      :class="cn(linkBtn, mainBtn, 'mt-1 bg-navy text-white hover:bg-navy-hover sm:mt-0')"
+      data-pay-service-link
+    >{{ t('client.card.payService.open') }}</RouterLink>
   </section>
 
   <section

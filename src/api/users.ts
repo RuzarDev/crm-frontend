@@ -53,6 +53,10 @@ export const usersApi = {
     return res.status === 204 || !res.data ? null : (res.data as DeclarantProfileDto)
   },
 
+  // Открытые заявки, закреплённые за сотрудником (users.delete): окно «Удалить» советует сначала переназначить.
+  openCases: async (id: string, opts?: SilentOpts): Promise<number> =>
+    (await apiClient.get<{ count: number }>(`/users/${encodeURIComponent(id)}/open-cases`, cfg(opts))).data.count,
+
   // Посты и станции сотрудника (пакет C, 01.11.2026): заявка с этим местом уведомляет закреплённых КПП, одного из
   // доверенности клиента назначает сразу. GET — users.read, PUT — как роли (users.assign_role), набор целиком.
   places: async (id: string, opts?: SilentOpts): Promise<StaffPlaceDto[]> =>

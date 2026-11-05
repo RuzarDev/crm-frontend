@@ -41,6 +41,10 @@ export interface ClientShipment {
   returnedFromStatus?: number | null
   /** Счёт AQNIET за услуги выставлен или оплачен; false — «Ждём счёт AQNIET», нет поля (неизвестно) — «Оплата услуг» (C-27). */
   serviceInvoiceIssued?: boolean
+  /** Счёт AQNIET, который ждёт оплаты: выставлен, чек не приложен; null/нет — платить нечего (05.11.2026). */
+  serviceInvoiceToPayId?: string | null
+  /** Сумма этого счёта, ₸. */
+  serviceInvoiceToPayTotal?: number | null
 }
 
 export const clientShipmentsApi = {

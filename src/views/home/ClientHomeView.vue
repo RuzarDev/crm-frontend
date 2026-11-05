@@ -7,14 +7,11 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
-import ZTooltip from '@/components/z/ZTooltip.vue'
 import ClientStepBar from '@/components/client/ClientStepBar.vue'
 import { clientShipmentsApi, type ClientShipment } from '@/api/clientShipments'
 import { billingApi } from '@/api/billing'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
-import { useClientRegistration } from '@/composables/useClientRegistration'
-import { registrationBlock } from '@/shell/registrationBanner'
 import { homeAttention } from '@/shell/attention'
 import { allSections, buildClientNav, navAccessFromStore, sectionHref } from '@/shell/navModel'
 import { NAV_ICONS } from '@/components/shell/navIcons'
@@ -36,7 +33,6 @@ const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
 const profileStore = useProfileStore()
-const registration = useClientRegistration()
 const text = useShipmentText()
 
 const imp = auth.clientHasModule('import40')
@@ -54,12 +50,8 @@ const greeting = computed(() =>
   name.value ? t(`home.greeting.${part}`, { name: name.value }) : t(`home.greeting.${part}NoName`))
 const company = computed(() => profileStore.profile?.companyName?.trim() ?? '')
 
-// Пока регистрация не завершена, сервер заявку не примет — кнопка выключена, подсказка объясняет почему.
-const locked = computed(() => registration.loaded.value && !registration.complete.value)
-// C-9 (30.10.2026): подсказка — правдивая причина (ждём AQNIET / документ занят поставкой № … / нужен новый).
-const lockedHint = computed(() => (locked.value
-  ? t(registrationBlock(registration.blockReason.value, registration.needNew.value).tooltip, registration.blockParams.value)
-  : ''))
+// Кнопка не выключается: пока поставку оформить нельзя, мастер показывает экран блокировки с причиной и действием
+// (05.11.2026: подсказка у выключенной кнопки на телефоне не открывалась).
 const newShipment = () => router.push('/import-40/new')
 
 // ---- Нужно от вас ----
@@ -122,14 +114,10 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           <template v-if="active.length">{{ t('clientHome.inWork', { n: active.length }) }}</template>
         </p>
       </div>
-      <ZTooltip v-if="imp" :title="lockedHint">
-        <span :tabindex="locked ? 0 : undefined" class="ml-auto inline-flex rounded-row outline-hidden focus-visible:shadow-focus max-sm:w-full">
-          <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
-            <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
-            {{ t('clientHome.new') }}
-          </ZButton>
-        </span>
-      </ZTooltip>
+      <ZButton v-if="imp" variant="primary" :class="cn(cta, 'ml-auto')" data-client-new @click="newShipment">
+        <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
+        {{ t('clientHome.new') }}
+      </ZButton>
     </div>
 
     <template v-if="imp">
@@ -167,7 +155,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
             <RouterLink
               :to="askHref(a)"
               :aria-describedby="askRowId(i)"
-              class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-[359px]:ml-auto"
+              class="inline-flex h-8 shrink-0 items-center rounded-field bg-surface px-3 text-sm font-semibold text-ink no-underline outline-hidden transition-colors duration-150 ease-out hover:bg-gold-line focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11 max-[359px]:ml-auto"
             >{{ askAction(a) }}</RouterLink>
           </li>
         </ul>
@@ -222,14 +210,10 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           >
             <template #action>
               <div class="flex flex-col items-center gap-3">
-                <ZTooltip :title="lockedHint">
-                  <span :tabindex="locked ? 0 : undefined" class="inline-flex rounded-row outline-hidden focus-visible:shadow-focus">
-                    <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
-                      <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
-                      {{ t('clientHome.new') }}
-                    </ZButton>
-                  </span>
-                </ZTooltip>
+                <ZButton variant="primary" :class="cta" data-client-new @click="newShipment">
+                  <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
+                  {{ t('clientHome.new') }}
+                </ZButton>
                 <RouterLink v-if="hasAny && doneCount" :to="DONE_TAB" :class="cn(link, 'max-sm:min-h-11 max-sm:content-center')" data-client-empty-done>{{ t('clientHome.toDone') }}</RouterLink>
                 <RouterLink v-else-if="hasAny" to="/import-40" :class="cn(link, 'max-sm:min-h-11 max-sm:content-center')">{{ t('clientHome.all') }}</RouterLink>
               </div>

@@ -23,6 +23,7 @@ import { salesApi, type SalesServiceItem } from '@/api/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useBlock } from '@/views/home/useBlock'
 import { caseFilterSearch, clientFilterOptions, watchCaseQuery } from '@/views/billingQuery'
+import { canUnmarkPaid } from '@/views/broker/case/casePermissions'
 import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { formatMoney } from '@/ui/number'
 import { saveBlob } from '@/ui/download'
@@ -47,6 +48,8 @@ const auth = useAuthStore()
 const { confirm } = useConfirm()
 
 const canWrite = computed(() => (auth.role || '').toLowerCase() === 'administrator' || auth.hasPermission('finance.write'))
+// «Снять отметку оплаты» — как на шаге 6 заявки: руководитель или администратор (сервер проверяет то же).
+const canUnmark = computed(() => canUnmarkPaid(auth))
 
 const board = useBlock(true, () => billingApi.list(undefined, { silent: true }))
 const rows = computed<BrokerInvoice[]>(() => board.data ?? [])
@@ -262,6 +265,7 @@ const ACTION_LABEL: Record<BillingAction, string> = {
   remind: 'broker.billing.action.remind',
   pdf: 'broker.billing.action.pdf',
   delete: 'broker.billing.action.delete',
+  unmarkPaid: 'broker.case.aqniet.unmarkPaid',
   cancel: 'broker.billing.action.cancel',
 }
 // Одно действие за раз: пока идёт запрос, кнопки действий остальных строк и пункты записи в меню неактивны.
@@ -275,7 +279,7 @@ const rowPrimary = (r: BrokerInvoice): RowPrimary | null => {
     loading: busy.value === r.id, disabled: !!busy.value && busy.value !== r.id,
   }
 }
-const menuItems = (r: BrokerInvoice): ZDropdownItem[] => menuActions(r, canWrite.value).map((k, i, all) => ({
+const menuItems = (r: BrokerInvoice): ZDropdownItem[] => menuActions(r, canWrite.value, canUnmark.value).map((k, i, all) => ({
   key: k,
   label: t(ACTION_LABEL[k]),
   disabled: k !== 'pdf' && !!busy.value,
@@ -384,6 +388,27 @@ const submitCancelPaid = async () => {
     await board.load()
   })
 }
+// 05.11.2026: подсказка «Шаг назад» ведёт сюда — снять отметку можно и здесь, а не только на шаге 6 заявки: то же окно и API.
+const unmarking = ref<BrokerInvoice | null>(null)
+const unmarkOpen = ref(false)
+const unmarkReason = ref('')
+const askUnmark = (r: BrokerInvoice) => {
+  if (isBusy()) return
+  unmarking.value = r
+  unmarkReason.value = ''
+  unmarkOpen.value = true
+}
+const submitUnmark = async () => {
+  const r = unmarking.value
+  const reason = unmarkReason.value.trim()
+  if (!r || !reason) return
+  await run(r, async () => {
+    await billingApi.unmarkPaid(r.id, reason)
+    unmarkOpen.value = false
+    message.success(t('broker.case.aqniet.unmarkDone'))
+    await board.load()
+  })
+}
 const downloadPdf = async (r: BrokerInvoice) => {
   try {
     saveBlob(await billingApi.pdf(r.id), pdfFileName(r, t))
@@ -407,6 +432,7 @@ const onAction = (r: BrokerInvoice, key: string) => {
     case 'edit': if (canWrite.value && r.status === ST_DRAFT) openEdit(r); break
     case 'remind': if (canWrite.value) void remind(r); break
     case 'delete': if (canWrite.value) void remove(r); break
+    case 'unmarkPaid': if (canUnmark.value) askUnmark(r); break
     case 'cancel': if (canWrite.value) void cancelDoc(r); break
     case 'pdf': void downloadPdf(r); break
   }
@@ -604,6 +630,24 @@ const exportExcel = async () => {
       <p class="m-0 mb-3 text-sm text-ink-3">{{ t('billing.cancelPaidHint') }}</p>
       <ZField :label="t('billing.reasonLabel')" required>
         <ZTextarea v-model:value="cancelReason" :rows="3" :maxlength="500" :placeholder="t('billing.reasonPh')" data-billing-cancel-reason />
+      </ZField>
+    </ZModal>
+
+    <ZModal
+      v-if="canUnmark"
+      :open="unmarkOpen"
+      :title="t('broker.case.aqniet.unmarkTitle')"
+      :ok-text="t('broker.case.aqniet.unmarkOk')"
+      :cancel-text="t('common.cancel')"
+      :confirm-loading="!!unmarking && busy === unmarking.id"
+      :ok-button-props="{ disabled: !unmarkReason.trim() }"
+      data-billing-unmark
+      @update:open="(v: boolean) => { if (!v && !busy) unmarkOpen = false }"
+      @ok="submitUnmark"
+    >
+      <p class="m-0 mb-3 text-sm text-ink-3">{{ t('broker.case.aqniet.unmarkHint') }}</p>
+      <ZField :label="t('billing.reasonLabel')" required>
+        <ZTextarea v-model:value="unmarkReason" :rows="3" :maxlength="500" :placeholder="t('broker.case.aqniet.unmarkPh')" data-billing-unmark-reason />
       </ZField>
     </ZModal>
   </div>

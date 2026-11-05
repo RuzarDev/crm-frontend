@@ -8,15 +8,17 @@ import ZCheckbox from '@/components/z/ZCheckbox.vue'
 import ZDropdown from '@/components/z/ZDropdown.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientSigexModal from '@/components/client/ClientSigexModal.vue'
-import { canReissuePoa, canRenewContract, import40ContractApi, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
+import { canReissuePoa, canRenewContract, import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
 import { ncaSignErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
+import DocSignedFiles from '@/views/broker/clients/DocSignedFiles.vue'
+import { docTagOf } from '@/views/broker/clients/clientCard'
 import PoaReissueModal from './PoaReissueModal.vue'
-import { REVOKED, isExpired, multiBlocked, nextYearPoa, poaTargetYear, statusKey, statusTone, type DocKind, type SignSide } from './staffCompany'
+import { REVOKED, isExpired, multiBlocked, nextYearPoa, poaTargetYear, type DocKind, type SignSide } from './staffCompany'
 
 // Договор / доверенность клиента для сотрудника (волна 7, замена Import40DocumentStep): сформировать (разовый,
 // «действует до»), список документов со статусами, скачать .docx, отозвать (администратор), подписи клиента и
@@ -320,11 +322,9 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
           </div>
           <div class="flex flex-wrap gap-1.5" data-doc-tags>
             <ZTag v-if="d.replacedBy" tone="neutral" data-tag="replaced">{{ t('broker.company.reissue.replacedBy', { no: d.replacedBy }) }}</ZTag>
-            <ZTag v-else-if="isDocumentEffective(d)" tone="done" data-tag="effective">{{ t('broker.company.effective') }}</ZTag>
-            <ZTag :tone="statusTone(d.status)" data-tag="status">{{ t(`broker.company.status.${statusKey(d.status)}`) }}</ZTag>
-            <ZTag v-if="d.isSingleUse" tone="submitted" data-tag="single">
-              {{ t('broker.company.singleTag') }}{{ d.consumedByCaseId ? ` · ${t('broker.company.consumed')}` : '' }}
-            </ZTag>
+            <!-- Статус — единый docTag, как в карточке клиента и реестре (05.11.2026). -->
+            <ZTag v-else :tone="docTagOf(d).tone" data-tag="status">{{ t(docTagOf(d).labelKey) }}</ZTag>
+            <ZTag v-if="d.isSingleUse" tone="submitted" data-tag="single">{{ t('broker.company.singleTag') }}</ZTag>
             <ZTag v-if="d.validUntilUtc" :tone="isExpired(d) ? 'danger' : 'neutral'" data-tag="until">
               {{ t('broker.company.until', { date: validDate(d.validUntilUtc) }) }}
             </ZTag>
@@ -380,6 +380,12 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
               <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
             </button>
           </ZDropdown>
+        </div>
+
+        <!-- Файлы подписи — здесь же, не только в окне документов списка «Клиенты» (05.11.2026). -->
+        <div v-if="d.files?.length" class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="text-[13px] text-ink-3">{{ t('broker.company.signedFiles') }}</span>
+          <DocSignedFiles :client-id="clientId" :doc-id="d.id" :files="d.files" />
         </div>
 
         <p v-if="canRenew(d)" class="m-0 text-[13px] text-gold-ink" data-renew-hint>

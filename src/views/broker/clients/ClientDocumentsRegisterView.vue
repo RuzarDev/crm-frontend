@@ -19,7 +19,8 @@ import { useBlock } from '@/views/home/useBlock'
 import { exportXlsx, formatDay, pluralForm } from '@/views/broker/list'
 import { message } from '@/ui/message'
 import type { ZColumn } from '@/ui/table'
-import { docKindLabelKey, docStatusLabelKey, docStatusTone } from './clients'
+import { docTag } from './clientCard'
+import { docKindLabelKey } from './clients'
 import {
   DOC_KINDS, DOC_STATES, docExcelRows, filterDocs, kindLabelKey, needsAqniet, parseDocState, parseWithin, stateCounts, stateLabelKey, validity,
   type DocKind, type DocState, type Validity,
@@ -280,7 +281,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
             <span class="block truncate text-sm font-semibold text-ink" data-doc-title>{{ t('broker.clients.docs.number', { kind: t(docKindLabelKey(record.kind)), number: record.number, year: record.year }) }}</span>
             <span class="block truncate text-xs text-muted" data-doc-generated>{{ t('broker.clientDocs.generated', { date: formatDay(record.generatedAtUtc) }) }}<template v-if="record.isSingleUse"> · {{ t('broker.clientDocs.singleUseNote') }}</template></span>
           </span>
-          <ZTag v-else-if="column.key === 'status'" :tone="docStatusTone(record.status)" data-doc-status>{{ t(docStatusLabelKey(record.status)) }}</ZTag>
+          <ZTag v-else-if="column.key === 'status'" :tone="docTag(record).tone" data-doc-status>{{ t(docTag(record).labelKey) }}</ZTag>
           <span v-else-if="column.key === 'signs'" class="block min-w-0">
             <span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm" data-doc-signs>
               <span v-for="s in signs(record)" :key="s.key" :class="s.on ? 'text-ink-2' : 'text-muted'" :data-sign="s.key" :data-on="s.on">

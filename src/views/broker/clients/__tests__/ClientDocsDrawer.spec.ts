@@ -85,6 +85,15 @@ describe('ClientDocsDrawer', () => {
     expect(cards()).toHaveLength(2)
   })
 
+  it('статус — единый: просроченный документ не «Действует»', async () => {
+    const list = await api.listDocuments()
+    api.listDocuments.mockResolvedValue([{ ...list[0], status: 2, validUntilUtc: '2020-01-01T00:00:00Z' }])
+    await mountDrawer()
+    const tag = cards()[0].get('[data-doc-status]')
+    expect(tag.text()).toBe('Истёк')
+    expect(tag.classes()).toContain('bg-tone-danger-bg')
+  })
+
   it('карточка договора: номер, дата, статус, подписи клиента и AQNIET, файл', async () => {
     await mountDrawer()
     const c = cards()[0]
