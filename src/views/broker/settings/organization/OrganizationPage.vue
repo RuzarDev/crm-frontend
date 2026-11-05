@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { onBeforeRouteLeave } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ZButton from '@/components/z/ZButton.vue'
+import ZDate from '@/components/z/ZDate.vue'
 import SaveBar from '@/components/broker/SaveBar.vue'
 import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
@@ -20,7 +21,7 @@ import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { calendarLocale } from '@/ui/date'
 import {
-  BASIS_PRESETS, DEFAULT_BASIS, KEDEN_EMAILS_MAX, VAT_MAX, VAT_MIN, changedFields, changedSections, compact, formatSavedAt, groupIik,
+  BASIS_PRESETS, DEFAULT_BASIS, KEDEN_EMAILS_MAX, REP_NUMBER_MAX, VAT_MAX, VAT_MIN, changedFields, changedSections, compact, formatSavedAt, groupIik,
   invalidEmail, toForm, toPayload, validate, type FieldKey, type OrgForm,
 } from './organization'
 
@@ -30,6 +31,7 @@ import {
 // вопрос. Менять может finance.write | users.write | администратор (как сервер), остальным — только чтение.
 // Запросы silent: ошибка показывается на странице одним сообщением.
 // 23.10.2026: пятая секция «Уведомления» — почта для писем о смене статуса ДТ в КЕДЕН; 400 сервера по адресам — и у поля.
+// 05.11.2026: секция «Таможенный представитель» — номер и дата свидетельства, из них сервер ставит 09034 в гр.44 новых ДТ.
 const { t, locale } = useI18n()
 const auth = useAuthStore()
 const { confirm } = useConfirm()
@@ -317,6 +319,32 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
               data-org="vatRate"
               @update:value="set('vatRate', $event)"
               @blur="touch('vatRate')"
+            />
+          </ZField>
+        </div>
+      </section>
+
+      <section :class="sectionClass" data-org-section="customsRep">
+        <div class="min-w-0">
+          <h2 class="m-0 text-base font-semibold text-ink">{{ t('broker.settings.organization.sections.customsRep.title') }}</h2>
+          <p class="m-0 mt-1 text-sm text-muted">{{ t('broker.settings.organization.sections.customsRep.text') }}</p>
+        </div>
+        <div :class="gridClass">
+          <ZField
+            :label="t('broker.settings.organization.customsRepRegistryNumber')"
+            :help="t('broker.settings.organization.customsRepRegistryHint')"
+            :error="errorOf('customsRepRegistryNumber')"
+          >
+            <ZInput v-bind="text('customsRepRegistryNumber')" mono :maxlength="REP_NUMBER_MAX" />
+          </ZField>
+          <ZField :label="t('broker.settings.organization.customsRepRegistryDate')" :error="errorOf('customsRepRegistryDate')">
+            <ZDate
+              :value="draft.customsRepRegistryDate || null"
+              allow-clear
+              :disabled="!canEdit"
+              data-org="customsRepRegistryDate"
+              @update:value="set('customsRepRegistryDate', $event ?? '')"
+              @blur="touch('customsRepRegistryDate')"
             />
           </ZField>
         </div>

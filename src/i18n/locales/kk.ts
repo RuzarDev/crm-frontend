@@ -710,11 +710,15 @@ export default {
         kedenStatusEmails: 'КЕДЕН хабарламаларына арналған пошта',
         kedenStatusEmailsHint: 'КЕДЕН-дегі ДТ мәртебесінің кез келген өзгерісі туралы хат. Бірнеше мекенжай — үтір арқылы немесе жаңа жолдан',
         kedenStatusEmailsPlaceholder: "declarant{'@'}company.kz",
+        customsRepRegistryNumber: 'Куәлік нөмірі',
+        customsRepRegistryDate: 'Куәлік күні',
+        customsRepRegistryHint: 'Әрбір жаңа ДТ-ның 44-бағанына түседі',
         sections: {
           company: { title: 'Компания', text: 'Атауы мен мекенжайы тіркеу куәлігіндегідей.' },
           signers: { title: 'Қол қоюшылар', text: 'Құжаттарда көрсетіледі.' },
           bank: { title: 'Банк', text: 'Төлем шоттары үшін.' },
           vat: { title: 'ҚҚС', text: 'Мөлшерлеме шоттарға қойылады.' },
+          customsRep: { title: 'Кеден өкілі', text: 'Кеден өкілдерінің тізіліміне енгізу туралы куәлік.' },
           notify: { title: 'Хабарламалар', text: 'КЕДЕН-дегі оқиғалар туралы хаттар.' },
         },
         err: {
@@ -728,6 +732,7 @@ export default {
           vatRate: 'Мөлшерлеме — {min}-ден {max}-ге дейін',
           emails: 'Мекенжай қате: {address}',
           emailsLimit: '{limit} мекенжайдан артық емес',
+          repDate: 'Куәлік күнін көрсетіңіз',
         },
         bar: { label: 'Сақталмаған өзгерістер', changed: 'Сақталмаған өзгерістер бар · {sections}', blocked: 'Сақтау мүмкін емес · {error}', cancel: 'Болдырмау', save: 'Сақтау' },
         saved: 'Реквизиттер сақталды',

@@ -714,11 +714,15 @@ export default {
         kedenStatusEmails: 'Почта для уведомлений КЕДЕН',
         kedenStatusEmailsHint: 'Письмо о любой смене статуса ДТ в КЕДЕН. Несколько адресов — через запятую или с новой строки',
         kedenStatusEmailsPlaceholder: "declarant{'@'}company.kz",
+        customsRepRegistryNumber: 'Номер свидетельства',
+        customsRepRegistryDate: 'Дата свидетельства',
+        customsRepRegistryHint: 'Попадает в гр.44 каждой новой ДТ',
         sections: {
           company: { title: 'Компания', text: 'Название и адрес как в свидетельстве о регистрации.' },
           signers: { title: 'Подписанты', text: 'Указываются в документах.' },
           bank: { title: 'Банк', text: 'Для счетов на оплату.' },
           vat: { title: 'НДС', text: 'Ставка подставляется в счета.' },
+          customsRep: { title: 'Таможенный представитель', text: 'Свидетельство о включении в реестр таможенных представителей.' },
           notify: { title: 'Уведомления', text: 'Письма о событиях в КЕДЕН.' },
         },
         err: {
@@ -732,6 +736,7 @@ export default {
           vatRate: 'Ставка — от {min} до {max}',
           emails: 'Неверный адрес: {address}',
           emailsLimit: 'Не больше {limit} адресов',
+          repDate: 'Укажите дату свидетельства',
         },
         bar: { label: 'Несохранённые изменения', changed: 'Есть несохранённые изменения · {sections}', blocked: 'Нельзя сохранить · {error}', cancel: 'Отменить', save: 'Сохранить' },
         saved: 'Реквизиты сохранены',

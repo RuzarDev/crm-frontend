@@ -80,6 +80,12 @@ export interface OrganizationSettings {
    * Старый сервер поля не отдаёт.
    */
   kedenStatusEmails?: string | null
+  /**
+   * Свидетельство о включении в реестр таможенных представителей (05.11.2026): номер и дата ('YYYY-MM-DD') уходят в гр.44
+   * каждой новой ДТ (код 09034). В запросе null — не менять, пустая строка — очистить. Старый сервер полей не отдаёт.
+   */
+  customsRepRegistryNumber?: string | null
+  customsRepRegistryDate?: string | null
   updatedAtUtc: string | null
   /** Кто сохранил в последний раз (имя сотрудника); старые сервера и пустая запись — без него. */
   updatedByName?: string | null

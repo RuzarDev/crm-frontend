@@ -710,11 +710,15 @@ export default {
         kedenStatusEmails: 'KEDEN notification email',
         kedenStatusEmailsHint: 'An email on any GD status change in KEDEN. Several addresses — separated by commas or on new lines',
         kedenStatusEmailsPlaceholder: "declarant{'@'}company.kz",
+        customsRepRegistryNumber: 'Certificate number',
+        customsRepRegistryDate: 'Certificate date',
+        customsRepRegistryHint: 'Goes into box 44 of every new GD',
         sections: {
           company: { title: 'Company', text: 'Name and address as on the registration certificate.' },
           signers: { title: 'Signatories', text: 'Shown in documents.' },
           bank: { title: 'Bank', text: 'For payment invoices.' },
           vat: { title: 'VAT', text: 'The rate is applied to invoices.' },
+          customsRep: { title: 'Customs representative', text: 'Certificate of inclusion in the register of customs representatives.' },
           notify: { title: 'Notifications', text: 'Emails about KEDEN events.' },
         },
         err: {
@@ -728,6 +732,7 @@ export default {
           vatRate: 'Rate must be {min} to {max}',
           emails: 'Invalid address: {address}',
           emailsLimit: 'No more than {limit} addresses',
+          repDate: 'Enter the certificate date',
         },
         bar: { label: 'Unsaved changes', changed: 'Unsaved changes · {sections}', blocked: 'Cannot save · {error}', cancel: 'Cancel', save: 'Save' },
         saved: 'Details saved',
