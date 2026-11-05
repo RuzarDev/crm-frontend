@@ -3546,6 +3546,7 @@ export default {
       },
       contact: { name: 'Контактное лицо', position: 'Должность', phone: 'Телефон', email: 'Email' },
       doc: {
+        revokeConfirm: '{company}: клиент не сможет создавать новые заявки, пока не подпишет новый документ. Открытых заявок: {n}, привязка к ним снимется.',
         contract: 'Договор',
         poa: 'Доверенность',
         title: '{kind} № {number}/{year}',

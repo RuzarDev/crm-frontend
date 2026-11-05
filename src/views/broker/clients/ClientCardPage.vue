@@ -380,12 +380,37 @@ const docPrimary = (d: ClientCardDoc): RowPrimary | null =>
       : canReissue(d)
         ? { key: 'reissue', label: t('broker.company.reissue.action'), variant: 'primary' }
         : canImport.value ? { key: 'blank', label: blankLabel(d), variant: 'outline', loading: downloading.value === d.id } : null
-const docItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d) || canReissue(d)) && canImport.value ? [{ key: 'blank', label: blankLabel(d) }] : [])
+// Отзыв — редкое и необратимое действие: только в меню ⋯, только администратору (05.11.2026).
+const isAdmin = computed(() => (auth.role || '').toLowerCase() === 'administrator')
+const DOC_REVOKED = 4
+const revokeItems = (d: ClientCardDoc): ZDropdownItem[] =>
+  isAdmin.value && d.status !== DOC_REVOKED ? [{ key: 'revoke', label: t('broker.company.revoke'), danger: true }] : []
+const revokeDoc = async (d: ClientCardDoc) => {
+  const c = card.value
+  if (!c) return
+  const ok = await confirm({
+    title: t('broker.company.revokeTitle', { no: `${d.number}/${d.year}` }),
+    content: t('broker.clientCard.doc.revokeConfirm', { company: c.companyName || c.username, n: c.totals.casesActive }),
+    okText: t('broker.company.revoke'),
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await import40ContractApi.revokeDocument(id.value, d.id)
+    message.success(t('broker.company.revoked'))
+    await load()
+  } catch {
+    // тост показал общий перехватчик
+  }
+}
+const docItems = (d: ClientCardDoc): ZDropdownItem[] => [...baseDocItems(d), ...revokeItems(d)]
+const baseDocItems = (d: ClientCardDoc): ZDropdownItem[] => ((canSignDoc(d) || canExtend(d) || canReissue(d)) && canImport.value ? [{ key: 'blank', label: blankLabel(d) }] : [])
 const onDocAction = (d: ClientCardDoc, key: string) => {
   if (key === 'sign') void router.push(signRoute.value)
   else if (key === 'extend') void extend(d)
   else if (key === 'reissue') reissue(d)
   else if (key === 'blank') void downloadBlank(d)
+  else if (key === 'revoke') void revokeDoc(d)
 }
 
 // ---- Вкладка «Транзит» ----
@@ -684,6 +709,17 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                         :class="['inline-flex h-8 items-center rounded-field px-3 text-sm font-semibold text-ink no-underline outline-hidden focus-visible:shadow-focus max-sm:h-11 max-sm:px-4', OUTLINE]"
                         data-doc-renew
                       >{{ t('broker.clientCard.doc.renew') }}</RouterLink>
+                      <ZDropdown v-if="revokeItems(d).length" :items="revokeItems(d)" @select="onDocAction(d, $event)">
+                        <button
+                          type="button"
+                          :aria-label="t('broker.clientCard.more')"
+                          :title="t('broker.clientCard.more')"
+                          class="inline-flex size-8 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-sunken focus-visible:shadow-focus max-sm:size-11"
+                          data-doc-more
+                        >
+                          <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
+                        </button>
+                      </ZDropdown>
                     </div>
                   </li>
                 </ul>

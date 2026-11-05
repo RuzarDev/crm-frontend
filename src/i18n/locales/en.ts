@@ -3542,6 +3542,7 @@ export default {
       },
       contact: { name: 'Contact person', position: 'Position', phone: 'Phone', email: 'Email' },
       doc: {
+        revokeConfirm: '{company}: the client cannot create new requests until a new document is signed. Open requests: {n}, the link to them is removed.',
         contract: 'Contract',
         poa: 'Power of attorney',
         title: '{kind} No. {number}/{year}',

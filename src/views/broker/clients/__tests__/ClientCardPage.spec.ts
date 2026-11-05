@@ -9,7 +9,7 @@ import type { ReestrEntry } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 
 const api = vi.hoisted(() => ({
-  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(), renew: vi.fn(),
+  card: vi.fn(), reestr: vi.fn(), billing: vi.fn(), download: vi.fn(), saveBlob: vi.fn(), registry: vi.fn(), revoke: vi.fn(), renew: vi.fn(),
   confirm: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
@@ -18,7 +18,7 @@ vi.mock('@/api/reestr', () => ({ reestrApi: { getList: api.reestr } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.billing } }))
 vi.mock('@/api/import40Contract', async (orig) => ({
   ...(await orig<typeof import('@/api/import40Contract')>()),
-  import40ContractApi: { downloadDocument: api.download, renewDocument: api.renew },
+  import40ContractApi: { downloadDocument: api.download, renewDocument: api.renew, revokeDocument: api.revoke },
 }))
 vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
 vi.mock('@/ui/download', () => ({ saveBlob: api.saveBlob }))
@@ -468,6 +468,26 @@ describe('карточка клиента: «Продлить» договор',
     as('administrator', ALL)
     await mountAt()
     expect(has('[data-doc-extend]')).toBe(true)
+  })
+
+  it('отозвать: только администратор, в меню ⋯, подтверждение с последствиями', async () => {
+    api.card.mockResolvedValue(card({ companyName: 'ТОО Тест', totals: { ...card().totals, casesActive: 4 }, documents: [doc({ id: 'dc' })] }))
+    api.confirm.mockResolvedValue(true)
+    api.revoke.mockResolvedValue({})
+    as('administrator', ALL)
+    await mountAt()
+    await w.get('[data-doc-card="contract"] [data-menu-item="revoke"]').trigger('click')
+    await flushPromises()
+    expect(api.confirm).toHaveBeenCalledWith(expect.objectContaining({ danger: true, content: expect.stringContaining('ТОО Тест') }))
+    expect(api.confirm).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('4') }))
+    expect(api.revoke).toHaveBeenCalledWith('c1', 'dc')
+  })
+
+  it('отозвать недоступно не администратору', async () => {
+    api.card.mockResolvedValue(card({ documents: [doc({ id: 'dc' })] }))
+    as('manager', ALL, ['rop'])
+    await mountAt()
+    expect(w.find('[data-menu-item="revoke"]').exists()).toBe(false)
   })
 
   it('продление: подтверждение, запрос, тост с новым сроком, карточка перечитана', async () => {
