@@ -658,6 +658,32 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(w.get('[data-issues-critical]').text()).toContain('w1.pdf: Не удалось распознать пакет документов')
   })
 
+  it('заявка ЖД без накладной: гр. 44 по виду заявки — предупреждение (№5)', async () => {
+    api.extractBatch.mockResolvedValue(result())
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1', doc44Items: [{ docTypeCode: '02013', docNumber: null }] as never }))
+    mount(USERS.declarant)
+    await pick()
+    expect(w.get('[data-issues-warnings]').text()).toContain('ЖД накладная без номера')
+  })
+
+  it('идёт разбор: на кнопке счётчик времени (№6)', async () => {
+    vi.useFakeTimers()
+    try {
+      let finish: (v: unknown) => void = () => undefined
+      api.extractBatch.mockReturnValue(new Promise((r) => { finish = r }))
+      mount(USERS.declarant)
+      const running = pick()
+      await vi.advanceTimersByTimeAsync(65000)
+      expect(w.text()).toContain('Распознаём… 1:05')
+      finish(result())
+      api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
+      await vi.runOnlyPendingTimersAsync()
+      await running
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('несколько инвойсов в одной ДТ — заметное предупреждение с номерами', async () => {
     api.extractBatch.mockResolvedValue(result({ extras: { documents: [
       { kind: 'invoice', number: '2026102103' }, { kind: 'invoice', number: '2026102101' }, { kind: 'invoice', number: '2026102101' },

@@ -1,3 +1,4 @@
+import { aiFoundCmr, railDocWithoutNumber } from '../steps/documentsImport'
 import { describe, expect, it } from 'vitest'
 import type { Import40FileDto } from '@/api/import40'
 import { EXTRACT_ACCEPT, extractableCaseFiles, preselectedIds } from '../steps/extractDocs'
@@ -42,5 +43,20 @@ describe('extractableCaseFiles: копии неудачных попыток', (
       file('other', '1.pdf', 200, '2026-11-04T08:00:29Z'), file('two', '2.pdf', 100, '2026-11-04T08:00:29Z'),
     ]
     expect(extractableCaseFiles(list).map((f) => f.id).sort()).toEqual(['new', 'other', 'two'])
+  })
+})
+
+describe('транспорт по документам (05.11.2026)', () => {
+  it('aiFoundCmr: сам CMR — да, только упоминание — нет', () => {
+    expect(aiFoundCmr([{ code: '02015', flags: [] }])).toBe(true)
+    expect(aiFoundCmr([{ code: '02015', flags: ['referenced_only'] }])).toBe(false)
+    expect(aiFoundCmr([{ code: '02013' }])).toBe(false)
+    expect(aiFoundCmr(null)).toBe(false)
+  })
+
+  it('railDocWithoutNumber: ЖД накладная без номера', () => {
+    expect(railDocWithoutNumber([{ docTypeCode: '02013', docNumber: ' ' }])).toBe(true)
+    expect(railDocWithoutNumber([{ docTypeCode: '02013', docNumber: '38451494' }])).toBe(false)
+    expect(railDocWithoutNumber([{ docTypeCode: '02015', docNumber: null }])).toBe(false)
   })
 })

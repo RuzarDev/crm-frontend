@@ -124,6 +124,7 @@ const submit = () => {
         <p class="m-0 mt-1 text-xs text-muted">{{ tx('perFileHint', { n: count }) }}</p>
       </div>
       <p class="m-0 text-xs text-muted">{{ tx('note') }}</p>
+      <p class="m-0 text-xs text-muted" data-extract-speed>{{ tx('speedHint') }}</p>
     </div>
   </ZModal>
 </template>
