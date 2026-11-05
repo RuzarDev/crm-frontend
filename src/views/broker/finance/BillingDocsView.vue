@@ -232,7 +232,7 @@ const columns = computed<ZColumn<BrokerInvoice>[]>(() => [
   { key: 'total', title: t('broker.billing.col.total'), width: 160, align: 'right' },
   { key: 'dates', title: t('broker.billing.col.dates'), width: 170 },
   { key: 'checks', title: t('broker.billing.col.checks'), width: 170 },
-  { key: 'actions', title: '', width: 200, align: 'right' },
+  { key: 'actions', title: '', width: 250, align: 'right' },
 ])
 const tableWidth = computed(() => columns.value.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 0), 0))
 const pagination = computed(() => ({
@@ -292,8 +292,8 @@ const isHttp = (e: unknown) => !!(e as { response?: unknown })?.response
 // HTTP-ошибку уже показал общий перехватчик (api/client.ts) — здесь только не-HTTP случай.
 const failed = (e: unknown) => { if (!isHttp(e)) message.error(t('billing.actionError')) }
 
-const ask = (title: string, okText: string, danger = false) =>
-  confirm({ title, okText, cancelText: t('common.cancel'), danger })
+const ask = (title: string, okText: string, danger = false, content?: string) =>
+  confirm({ title, content, okText, cancelText: t('common.cancel'), danger })
 
 // Занято другим действием — говорим сразу, до вопроса-подтверждения (а не молча отказываем после «Да»).
 const isBusy = () => {
@@ -370,7 +370,8 @@ const cancelDoc = async (r: BrokerInvoice) => {
     cancelPaidOpen.value = true
     return
   }
-  if (!(await ask(t('billing.cancelConfirm'), t('broker.billing.action.cancel'), true))) return
+  const hint = t('billing.cancelConfirmHint', { total: formatMoney(r.total) })
+  if (!(await ask(t('billing.cancelConfirm', { doc: docTitle(r, t) }), t('broker.billing.action.cancel'), true, hint))) return
   await run(r, async () => {
     await billingApi.cancel(r.id)
     message.success(t('broker.billing.cancelledOk'))
@@ -627,6 +628,7 @@ const exportExcel = async () => {
       @update:open="(v: boolean) => { if (!v && !busy) cancelPaidOpen = false }"
       @ok="submitCancelPaid"
     >
+      <p v-if="cancelPaid" class="m-0 mb-1 text-sm font-semibold text-ink tabular-nums" data-billing-cancel-doc>{{ docTitle(cancelPaid, t) }} · {{ formatMoney(cancelPaid.total) }}</p>
       <p class="m-0 mb-3 text-sm text-ink-3">{{ t('billing.cancelPaidHint') }}</p>
       <ZField :label="t('billing.reasonLabel')" required>
         <ZTextarea v-model:value="cancelReason" :rows="3" :maxlength="500" :placeholder="t('billing.reasonPh')" data-billing-cancel-reason />

@@ -44,6 +44,7 @@ describe('StepSvhPayment', () => {
     mount(USERS.admin)
     expect(disabled()).toBe(false)
     await w.get('[data-svh-confirm]').trigger('click')
+    expect(confirmState.content).toContain('Вернуть шаг могут только руководитель и администратор')
     confirmState.resolve(true)
     await flushPromises()
     expect(api.action).toHaveBeenCalledWith('c1', 'confirm-svh-payment', undefined, undefined)

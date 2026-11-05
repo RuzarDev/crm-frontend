@@ -2,7 +2,7 @@
 import { computed, type Component } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { PhAirplane, PhArrowCounterClockwise, PhBoat, PhBuildings, PhDotsThree, PhFlag, PhShieldCheck, PhTrain, PhTruck, PhXCircle } from '@phosphor-icons/vue'
+import { PhAirplane, PhArrowCounterClockwise, PhBoat, PhBuildings, PhCheckCircle, PhDotsThree, PhFlag, PhShieldCheck, PhTrain, PhTruck, PhXCircle } from '@phosphor-icons/vue'
 import ZBreadcrumbs from '@/components/z/ZBreadcrumbs.vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import type { Import40CaseDto } from '@/api/import40'
@@ -31,7 +31,9 @@ const menu = computed<ZDropdownItem[]>(() => {
   const items: ZDropdownItem[] = []
   if (props.perms.showProblemAction) items.push({ key: 'problem', label: t('import40Case.problemBtn'), icon: PhFlag })
   if (props.perms.canStepBack) items.push({ key: 'stepBack', label: t('import40Case.stepBackBtn'), icon: PhArrowCounterClockwise })
-  if (props.perms.canCancel) items.push({ key: 'cancel', label: t('import40Case.cancelBtn'), icon: PhXCircle, danger: true, divider: items.length > 0 })
+  // Шаг 6 «Ждёт оплаты услуг AQNIET» (статус 7): только на нём сервер принимает завершение без счёта.
+  if (props.perms.canCompleteWithoutInvoice && props.kase.status === 7) items.push({ key: 'completeWithoutInvoice', label: t('import40Case.completeWithoutInvoice'), icon: PhCheckCircle, danger: true, divider: items.length > 0 })
+  if (props.perms.canCancel) items.push({ key: 'cancel', label: t('import40Case.cancelBtn'), icon: PhXCircle, danger: true, divider: items.length > 0 && !items[items.length - 1]?.danger })
   return items
 })
 const onMenu = (key: string) => emit('ask', key as ReasonKind)

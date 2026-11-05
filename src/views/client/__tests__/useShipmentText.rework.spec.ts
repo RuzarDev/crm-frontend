@@ -27,7 +27,7 @@ describe('useShipmentText: возврат по чек-листу', () => {
     }))).toBe('Догрузите: Инвойс (коммерческий счёт), Фитосанитарный сертификат, Письмо')
   })
   it('всё загружено — «отправьте заявку снова»; комментарий — как есть', () => {
-    expect(askTextOf(ship({ reworkRequested: true, reworkOpen: [] }))).toBe('Документы загружены — отправьте заявку снова')
+    expect(askTextOf(ship({ reworkRequested: true, reworkOpen: [] }))).toBe('Документы загружены — отправьте поставку снова')
     expect(askTextOf(ship({ reworkRequested: true, returnReason: 'Проверьте вес' }))).toBe('Проверьте вес')
   })
 })

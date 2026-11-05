@@ -49,6 +49,8 @@ export interface ClientCardDoc {
   replacedBy?: string | null
   /** 05.11.2026: файлы подписи — тем, кому сервер их отдаст; иначе пусто, остаётся filesCount. */
   files?: { id: string; originalFileName: string }[]
+  /** 05.11.2026: ссылка «Проверить подпись» (QR); только тем, кому отдаются файлы подписи. */
+  verifyUrl?: string | null
 }
 
 export interface ClientCardCase {

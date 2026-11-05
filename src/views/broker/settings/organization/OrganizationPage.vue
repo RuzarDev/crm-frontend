@@ -213,6 +213,7 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
       <div class="min-w-0">
         <h1 class="m-0 text-[22px] leading-7 font-semibold tracking-[-0.015em] text-ink">{{ t('broker.settings.organization.title') }}</h1>
         <p class="m-0 mt-1 text-sm text-muted [overflow-wrap:anywhere]" data-org-hint>{{ hint }}</p>
+        <p v-if="!canEdit" class="m-0 mt-1 text-sm text-ink-2" data-org-readonly>{{ t('broker.settings.organization.readOnly') }}</p>
       </div>
       <p v-if="savedStamp" class="m-0 ml-auto pt-1 text-[12.5px] text-muted [overflow-wrap:anywhere] max-sm:ml-0" data-org-saved>{{ savedStamp }}</p>
     </div>

@@ -318,6 +318,20 @@ describe('CaseView: меню «⋯» по правам', () => {
     await mountCard(USERS.declarant, { status: 2 })
     expect(menuKeys()).toEqual(['problem'])
   })
+  it('шаг 6: администратору «Завершить без счёта AQNIET» в меню, окно называет последствие', async () => {
+    await mountCard(USERS.admin, { status: 7 })
+    expect(menuKeys()).toContain('completeWithoutInvoice')
+    await w.get('[data-menu-item="completeWithoutInvoice"]').trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Заявка сразу станет выполненной')
+  })
+  it('шаг 6: руководителю пункта нет, на других шагах нет и администратору', async () => {
+    await mountCard(USERS.rop, { status: 7 })
+    expect(menuKeys()).not.toContain('completeWithoutInvoice')
+    w.unmount()
+    await mountCard(USERS.admin, { status: 6 })
+    expect(menuKeys()).not.toContain('completeWithoutInvoice')
+  })
   it('право import40.problem — проблема', async () => {
     await mountCard(USERS.problemOnly, { status: 2 })
     expect(menuKeys()).toEqual(['problem'])

@@ -35,6 +35,7 @@ const canUpload = computed(() => current.value && props.ctx.perms.can('kpp'))
 const close = async () => {
   const ok = await confirm({
     title: t('import40Case.confirmCloseSvh'),
+    content: t('import40Case.confirmCloseSvhHint'),
     okText: t('broker.case.svh.confirmCloseOk'),
     cancelText: t('common.cancel'),
   })

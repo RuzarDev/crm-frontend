@@ -152,18 +152,11 @@ describe('StepAqniet', () => {
     expect(w.find('[data-aqniet-unmark]').exists()).toBe(false)
   })
 
-  it('администратор: «Завершить без счёта AQNIET» открывает окно причины', async () => {
-    const m = mount(USERS.admin)
-    expect(w.get('[data-aqniet-complete]').text()).toBe('Завершить без счёта AQNIET')
-    // Тихая кнопка (danger-ghost, не сплошная красная) слева от главной; на телефоне кнопки шага ≥ 44px.
-    const complete = w.get('[data-aqniet-complete]')
-    expect(complete.classes()).toContain('text-danger')
-    expect(complete.classes()).not.toContain('bg-danger')
-    const order = w.findAll('[data-case-step-actions] button').map((b) => b.attributes('data-aqniet-complete') !== undefined ? 'complete' : 'issue')
-    expect(order).toEqual(['complete', 'issue'])
+  it('администратор: рядом с главной кнопкой нет «Завершить без счёта AQNIET» — оно в меню ⋯ шапки заявки', () => {
+    mount(USERS.admin)
+    expect(w.find('[data-aqniet-complete]').exists()).toBe(false)
+    expect(w.findAll('[data-case-step-actions] button')).toHaveLength(1)
     expect(w.get('[data-case-step-actions]').classes()).toContain('max-sm:[&_button]:min-h-11')
-    await w.get('[data-aqniet-complete]').trigger('click')
-    expect((m.w.vm as unknown as { reasonKind: string }).reasonKind).toBe('completeWithoutInvoice')
   })
 
   it('счетов нет — пустой текст', () => {

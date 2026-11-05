@@ -42,15 +42,14 @@ const search = ref('')
 const period = ref<[string, string] | null>(null)
 const page = ref(1)
 
-const block = useBlock<RegistryListResponse>(true, () => registryApi.list({
+const query = () => ({
   type: type.value === 'all' ? undefined : type.value,
   status: status.value ?? undefined,
   search: search.value.trim() || undefined,
   from: period.value?.[0],
   to: period.value?.[1],
-  page: page.value,
-  pageSize: PAGE_SIZE,
-}, { silent: true }))
+})
+const block = useBlock<RegistryListResponse>(true, () => registryApi.list({ ...query(), page: page.value, pageSize: PAGE_SIZE }, { silent: true }))
 onMounted(() => { void block.load() })
 
 const reload = () => { page.value = 1; void block.load() }
@@ -103,8 +102,7 @@ const created = (iso: string) => {
   const p = (n: number) => String(n).padStart(2, '0')
   return Number.isNaN(d.getTime()) ? '' : formatDateText(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`)
 }
-// У транзита нет карточки-страницы — открываем реестр модуля.
-const target = (r: RegistryRowDto) => (r.serviceType === 'import40' ? `/import-40/${r.id}` : '/reestr')
+const target = (r: RegistryRowDto) => (r.serviceType === 'import40' ? `/import-40/${r.id}` : `/reestr/${encodeURIComponent(r.id)}`)
 // Строка кликабельна целиком; ссылка-номер (ctrl/⌘-клик) работает сама.
 const customRow = (r: Row) => ({
   class: 'cursor-pointer',
@@ -114,14 +112,24 @@ const customRow = (r: Row) => ({
   },
 })
 
-// ---- Excel: текущая страница (фильтры уже применены сервером) ----
+// ---- Excel: весь отфильтрованный список, как на остальных экранах; сервер отдаёт не больше 100 строк за запрос ----
+const EXPORT_PAGE_SIZE = 100
+const allRows = async (): Promise<RegistryRowDto[]> => {
+  const filters = query() // фильтры на момент нажатия: смена во время выгрузки не перемешает страницы
+  const out: RegistryRowDto[] = []
+  for (let p = 1; ; p++) {
+    const r = await registryApi.list({ ...filters, page: p, pageSize: EXPORT_PAGE_SIZE }, { silent: true })
+    out.push(...r.items)
+    if (!r.items.length || out.length >= r.totalCount) return out
+  }
+}
 const exporting = ref(false)
 const exportExcel = async () => {
   if (exporting.value) return
   exporting.value = true
   try {
     const c = (k: string) => t(`broker.registry.col.${k}`)
-    await exportXlsx(t('broker.registry.excelFile'), t('broker.registry.excelSheet'), rows.value.map((r) => ({
+    await exportXlsx(t('broker.registry.excelFile'), t('broker.registry.excelSheet'), (await allRows()).map((r) => ({
       [c('type')]: typeLabel(r),
       [c('number')]: r.number ?? '',
       [c('title')]: r.title,
@@ -206,8 +214,7 @@ const resetFilters = () => {
       <template #bodyCell="{ column, record }">
         <ZTag v-if="column.key === 'type'" :tone="record.serviceType === 'import40' ? 'info' : 'pay'">{{ typeLabel(record) }}</ZTag>
         <template v-else-if="column.key === 'number'">
-          <RouterLink v-if="record.number && record.serviceType === 'import40'" :to="target(record)" class="block truncate rounded-field font-mono text-sm font-medium text-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus" data-registry-link>{{ record.number }}</RouterLink>
-          <span v-else-if="record.number" class="block truncate font-mono text-sm text-ink-2">{{ record.number }}</span>
+          <RouterLink v-if="record.number" :to="target(record)" class="block truncate rounded-field font-mono text-sm font-medium text-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus" data-registry-link>{{ record.number }}</RouterLink>
           <span v-else class="text-muted">—</span>
         </template>
         <span v-else-if="column.key === 'title'" class="block truncate text-sm text-ink-2" :title="record.title">{{ record.title }}</span>

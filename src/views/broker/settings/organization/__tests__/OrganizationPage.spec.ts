@@ -409,6 +409,16 @@ describe('OrganizationPage: только чтение', () => {
     expect(field('vatPayer').attributes('disabled')).toBeDefined()
     expect(bar().exists()).toBe(false)
   })
+  it('без права менять: подсказка, кто может; с правом — подсказки нет', async () => {
+    as('kpp', ['finance.read'])
+    await open()
+    expect(w.get('[data-org-readonly]').text()).toBe('Только просмотр. Менять реквизиты может бухгалтер или администратор.')
+    w.unmount()
+    as('accountant', ['finance.write'])
+    await open()
+    expect(w.find('[data-org-readonly]').exists()).toBe(false)
+  })
+
   it('users.write, finance.write и администратор могут менять', async () => {
     for (const [role, perms] of [['sales', ['users.write']], ['accountant', ['finance.write']], ['administrator', []]] as const) {
       as(role, [...perms])

@@ -473,7 +473,30 @@ describe('карточка клиента: обзор', () => {
     expect(cards[1].find('[data-sign="provider"]').exists()).toBe(false)
     expect(cards[1].get('[data-doc-sub]').text()).toBe('до 20.10.2026 · осталось 11\u00a0дн.')
     expect(cards[1].get('[data-doc-renew]').attributes('href')).toBe('/import-40/company?client=c1&step=poa')
+    expect(cards[1].get('[data-doc-renew]').text()).toBe('Перевыпустить')
     expect(cards[0].find('[data-doc-renew]').exists()).toBe(false)
+  })
+
+  it('вкладка «Документы»: те же действия, что на «Обзоре», — PDF, «Перевыпустить», «Проверить подпись»', async () => {
+    api.card.mockResolvedValue(card({ documents: [
+      doc({ id: 'dc', kind: 'contract', number: '14', verifyUrl: 'https://zircon.test/verify/x' }),
+      doc({ id: 'dp', kind: 'poa', number: '9', validUntilUtc: '2026-10-20T00:00:00Z', daysLeft: 11, expiringSoon: true }),
+    ] }))
+    await mountAt()
+    expect(w.get('[data-doc-card="contract"] a[data-doc-verify]').attributes('href')).toBe('https://zircon.test/verify/x')
+    expect(w.find('[data-doc-card="poa"] [data-doc-verify]').exists()).toBe(false)
+    w.unmount()
+
+    await mountAt('/clients/c1?tab=docs')
+    const rows = w.findAll('[data-docs-table] tbody tr')
+    const menu = (i: number) => rows[i].findAll('[data-menu-item]').map((m) => m.attributes('data-menu-item'))
+    expect(rows[0].get('[data-row-primary]').text()).toBe('Скачать')
+    expect(menu(0)).toEqual(['pdf', 'verify'])
+    expect(rows[1].get('[data-row-primary]').text()).toBe('Перевыпустить')
+    expect(menu(1)).toEqual(['blank', 'pdf'])
+    await rows[1].get('[data-row-primary]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/company?client=c1&step=poa')
   })
 
   it('«Скачать бланк»: запрос и saveBlob с именем; ошибка — без второго тоста', async () => {
@@ -523,6 +546,8 @@ describe('карточка клиента: «Продлить» договор',
     as('manager', ALL, ['declarant'])
     await mountAt()
     expect(has('[data-doc-extend]')).toBe(false)
+    // Декларанту вместо немого тега — кто продлит.
+    expect(w.get('[data-doc-card="contract"] [data-doc-extend-hint]').text()).toBe('Продлить может руководитель или администратор')
     w.unmount()
 
     for (const d of [doc({ validUntilUtc: untilIn(61) }), doc({ validUntilUtc: untilIn(-31) }), doc({ isSingleUse: true, validUntilUtc: untilIn(10) }), doc({ status: 4, validUntilUtc: untilIn(10) })]) {

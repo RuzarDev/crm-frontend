@@ -33,6 +33,8 @@ const save = vi.hoisted(() => vi.fn())
 vi.mock('@/api/import40Contract', async (orig) => ({ ...(await orig<object>()), import40ContractApi: api }))
 vi.mock('@/api/import40', async (orig) => ({ ...(await orig<object>()), import40Api: imp }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
+const card = vi.hoisted(() => vi.fn())
+vi.mock('@/api/clientCard', () => ({ clientCardApi: { card } }))
 vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/confirm', () => ({ useConfirm: () => ({ confirm }) }))
 vi.mock('@/ui/download', () => ({ saveBlob: save }))
@@ -84,6 +86,7 @@ const $ = (sel: string) => document.body.querySelector(sel) as HTMLElement | nul
 beforeEach(() => {
   setActivePinia(createPinia())
   as('Administrator')
+  card.mockResolvedValue({ companyName: 'ТОО «Альфа»', username: 'alpha', totals: { casesActive: 3 } })
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div/>' } }] })
   imp.listClients.mockResolvedValue([
     { id: 'c1', username: 'alpha', companyName: 'ТОО «Альфа»' },
@@ -350,7 +353,10 @@ describe('StaffCompanyPage', () => {
     w.get('[data-doc="d1"]').findComponent(ZDropdown).vm.$emit('select', 'revoke')
     await flushPromises()
     await flushPromises()
-    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Отозвать документ № 12/2026?', danger: true }))
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Отозвать документ № 12/2026?', danger: true,
+      content: 'ТОО «Альфа»: клиент не сможет создавать новые заявки, пока не подпишет новый документ. Открытых заявок: 3, привязка к ним снимется.',
+    }))
     expect(api.revokeDocument).toHaveBeenCalledWith('c1', 'd1', { silent: true })
     expect(api.listDocuments).toHaveBeenCalledWith('c1', 'contract', { silent: true })
     expect(msg.success).toHaveBeenCalledWith('Документ отозван')
@@ -358,6 +364,17 @@ describe('StaffCompanyPage', () => {
     as('Declarant', ['rop'])
     await mountAt('/import-40/company?step=contract')
     expect(w.find('[data-doc-revoke]').exists()).toBe(false)
+  })
+
+  it('отзыв: карточка клиента не загрузилась — общий текст окна, отзыв доступен', async () => {
+    card.mockRejectedValueOnce(new Error('500'))
+    confirm.mockResolvedValueOnce(false)
+    setDocs('c1', [doc({ id: 'd1' })], [])
+    await mountAt('/import-40/company?step=contract')
+    w.get('[data-doc="d1"]').findComponent(ZDropdown).vm.$emit('select', 'revoke')
+    await flushPromises()
+    await flushPromises()
+    expect(confirm).toHaveBeenLastCalledWith(expect.objectContaining({ content: expect.stringContaining('Он перестанет быть действующим') }))
   })
 
   it('пока документы перечитываются после действия, «Сформировать» в состоянии загрузки, а не молча игнорирует клик', async () => {

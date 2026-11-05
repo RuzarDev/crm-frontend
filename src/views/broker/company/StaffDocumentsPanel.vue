@@ -9,6 +9,7 @@ import ZDropdown from '@/components/z/ZDropdown.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientSigexModal from '@/components/client/ClientSigexModal.vue'
 import { canReissuePoa, canRenewContract, import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
+import { clientCardApi } from '@/api/clientCard'
 import { extractServerText } from '@/api/client'
 import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
@@ -129,9 +130,13 @@ const openReissue = (d: Import40DocumentDto) => {
 const revokingId = ref<string | null>(null)
 const revoke = async (d: Import40DocumentDto) => {
   if (revokingId.value) return
+  // То же окно, что в карточке клиента: компания и число открытых заявок. Карточка не загрузилась — общий текст.
+  const card = await clientCardApi.card(props.clientId, { silent: true }).catch(() => null)
   const ok = await confirm({
     title: t('broker.company.revokeTitle', { no: no(d) }),
-    content: t('broker.company.revokeConfirm'),
+    content: card
+      ? t('broker.clientCard.doc.revokeConfirm', { company: card.companyName || card.username, n: card.totals.casesActive })
+      : t('broker.company.revokeConfirm'),
     okText: t('broker.company.revoke'),
     danger: true,
   })

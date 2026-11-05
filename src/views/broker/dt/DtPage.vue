@@ -18,7 +18,7 @@ import { canEditDt, canManageDeclarations, dtUserFrom, RELEASED_STATUS } from '@
 import DtBanners from './DtBanners.vue'
 import CaseCustomsRequests from '@/views/broker/case/CaseCustomsRequests.vue'
 import { useCustomsRequests } from '@/composables/useCustomsRequests'
-import { canManageCustoms, canRemindClient } from '@/utils/customsRequests'
+import { canManageBorderCustoms, canManageCustoms, canRemindClient } from '@/utils/customsRequests'
 import DtConditionalRelease from './DtConditionalRelease.vue'
 import DtHeaderBar from './DtHeaderBar.vue'
 import DtKedenChip from './DtKedenChip.vue'
@@ -1030,6 +1030,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
             :declarations="[]"
             :declaration-id="dtId"
             :can-manage="canManageCustoms(auth)"
+            :can-manage-border="canManageBorderCustoms(auth)"
             :can-remind="canRemindClient(auth)"
             :auto-create="customsAutoCreate"
             @changed="customs.reload()"

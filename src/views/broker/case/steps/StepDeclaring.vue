@@ -98,6 +98,7 @@ const submit = async () => {
   }
   const ok = await confirm({
     title: t('broker.case.declaring.confirmSubmit'),
+    content: t('broker.case.declaring.confirmSubmitHint'),
     okText: t('broker.case.declaring.confirmSubmitOk'),
     cancelText: t('common.cancel'),
   })
@@ -122,6 +123,7 @@ const releaseDisabled = computed(() => props.ctx.perms.actionDisabled('declarant
 const release = async () => {
   const ok = await confirm({
     title: t('import40Case.confirmRelease'),
+    content: t('import40Case.confirmReleaseHint'),
     okText: t('broker.case.declaring.confirmReleaseOk'),
     cancelText: t('common.cancel'),
   })
