@@ -356,9 +356,11 @@ describe('BrokerRequestsView', () => {
   it('«Excel» неактивна, когда строк нет', async () => {
     await mountAt('/import-40?tab=active')
     expect(w.get('[data-requests-excel]').attributes('disabled')).toBeUndefined()
+    expect(w.get('[data-requests-excel]').attributes('title')).toBeUndefined()
     await w.get('input[type="search"]').setValue('нет такого')
     await flushPromises()
     expect(w.get('[data-requests-excel]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-requests-excel]').attributes('title')).toBe('Нечего выгружать')
   })
 
   it('ширина таблицы — сумма колонок (+40 под выбор)', async () => {

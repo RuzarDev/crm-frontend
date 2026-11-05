@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ReestrEntry } from '@/types/api'
 import {
-  COLUMNS_STORAGE_KEY, DEFAULT_HIDDEN, cellText, formatAmount, formatContainer, formatQuantity, pageTotals,
+  COLUMNS_STORAGE_KEY, DEFAULT_HIDDEN, cellText, entryLabel, formatAmount, formatContainer, formatQuantity, pageTotals,
   readHiddenColumns, statusKey, statusTone, writeHiddenColumns,
 } from '../transit'
 
@@ -78,6 +78,14 @@ describe('transit: ячейки', () => {
     expect(cellText(e, 'cargo')).toBe('—')
     expect(cellText(e, 'td')).toBe('—')
     expect(cellText(e, 'consignee')).toBe('ТОО «Альфа»')
+  })
+
+  it('подпись записи в окне удаления: что есть из номера и контейнера', () => {
+    const t = (key: string, p: Record<string, unknown>) => `${key === 'transit.zapisNo' ? '№' : 'контейнер'} ${Object.values(p)[0]}`
+    expect(entryLabel({ '№': '12', 'Контейнер': 'MRSU4885849' }, t)).toBe('№ 12, контейнер MRSU 488584 9')
+    expect(entryLabel({ '№': '12', 'Контейнер': null }, t)).toBe('№ 12')
+    expect(entryLabel({ 'Контейнер': 'MRSU4885849' }, t)).toBe('контейнер MRSU 488584 9')
+    expect(entryLabel({ '№': ' ', 'Контейнер': '' }, t)).toBeUndefined()
   })
 
   it('контейнер, количества и суммы', () => {

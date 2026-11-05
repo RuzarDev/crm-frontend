@@ -31,7 +31,7 @@ import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
 import type { ZColumn, ZKey } from '@/ui/table'
 import {
-  DATA_KEY, OPTIONAL_COLUMNS, TRANSIT_COLUMNS, TRANSIT_STATUSES, cellText, formatAmount, formatContainer, formatQuantity,
+  DATA_KEY, OPTIONAL_COLUMNS, TRANSIT_COLUMNS, TRANSIT_STATUSES, cellText, entryLabel, formatAmount, formatContainer, formatQuantity,
   pageTotals, readHiddenColumns, statusKey, statusTone, transitAppliedQuery, transitRouteQuery, writeHiddenColumns, type TransitColumnId,
 } from './transit'
 
@@ -269,7 +269,7 @@ const onStatusChanged = () => {
 }
 
 const deleteOne = async (r: ReestrEntry) => {
-  const ok = await confirm({ title: t('transit.udalitEtuZapis'), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
+  const ok = await confirm({ title: t('transit.udalitEtuZapis'), content: entryLabel(r.data, t), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
   if (!ok) return
   await store.deleteEntry(r.id)
   selected.value = selected.value.filter((id) => id !== r.id)
@@ -277,7 +277,7 @@ const deleteOne = async (r: ReestrEntry) => {
 const deleteSelected = async () => {
   const ids = [...selected.value]
   if (!ids.length) return
-  const ok = await confirm({ title: t('transit.udalitVybrannyeZapisi'), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
+  const ok = await confirm({ title: t('transit.udalitVybrannyeZapisi', { n: ids.length }), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
   if (ok && (await store.deleteEntries(ids))) selected.value = []
 }
 const onRowMenu = (key: string, r: ReestrEntry) => {

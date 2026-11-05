@@ -43,12 +43,16 @@ describe('CaseCustomsRequests', () => {
     expect(card.find('[data-customs-remind]').exists()).toBe(true)
   })
 
-  it('«Ответить таможне» закрывает запрос с комментарием', async () => {
+  it('«Закрыть запрос»: кнопка, заголовок и подтверждение называются одинаково, смысл «ответ передан» в подсказке', async () => {
     api.close.mockResolvedValue(req({ status: 'closed' }))
     mountIt({ list: [req({ status: 'answered', answerText: 'Прикладываю', answeredAtUtc: new Date().toISOString() })] })
     expect(w.get('[data-customs-answer]').text()).toContain('Прикладываю')
+    expect(w.get('[data-customs-close]').text()).toBe('Закрыть запрос')
     await w.get('[data-customs-close]').trigger('click')
     await flushPromises()
+    const modal = document.querySelector('[data-customs-close-modal]')!
+    expect(modal.textContent).toContain('Закрыть запрос?')
+    expect(modal.textContent).toContain('Закрывайте, когда ответ уже передан в таможню')
     const note = document.querySelector('[data-customs-close-note]') as HTMLTextAreaElement
     note.value = 'Передано'
     note.dispatchEvent(new Event('input'))

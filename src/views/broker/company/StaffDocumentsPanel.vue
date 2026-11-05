@@ -17,7 +17,7 @@ import { saveBlob } from '@/ui/download'
 import { endOfDayUtc, isOpen, localDate, todayYmd, validDate } from '@/views/client/company/company'
 import { ncaSignErrorText, signDocumentWithNcaLayer } from '@/views/client/company/ncaSign'
 import DocSignedFiles from '@/views/broker/clients/DocSignedFiles.vue'
-import { docTagOf } from '@/views/broker/clients/clientCard'
+import { docDownloadKey, docTagOf } from '@/views/broker/clients/clientCard'
 import PoaReissueModal from './PoaReissueModal.vue'
 import { REVOKED, isExpired, multiBlocked, nextYearPoa, poaTargetYear, type DocKind, type SignSide } from './staffCompany'
 
@@ -101,7 +101,7 @@ const docErrors = ref<Record<string, string>>({})
 const setDocError = (id: string, text: string) => { docErrors.value = { ...docErrors.value, [id]: text } }
 watch(() => props.docs, () => { docErrors.value = {} })
 
-// ---- Скачать .docx ----
+// ---- Скачать .docx или PDF ----
 const downloadingId = ref<string | null>(null)
 const download = async (d: Import40DocumentDto, format?: 'pdf') => {
   if (downloadingId.value) return
@@ -338,7 +338,7 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
 
         <div class="flex flex-wrap gap-2">
           <ZButton :loading="downloadingId === d.id" :class="actionBtn" data-doc-download @click="download(d)">
-            <PhDownloadSimple :size="16" aria-hidden="true" />{{ t('broker.company.download') }}
+            <PhDownloadSimple :size="16" aria-hidden="true" />{{ t(docDownloadKey(d)) }}
           </ZButton>
           <ZButton :loading="downloadingId === `${d.id}:pdf`" :class="actionBtn" data-doc-pdf @click="download(d, 'pdf')">
             <PhDownloadSimple :size="16" aria-hidden="true" />PDF

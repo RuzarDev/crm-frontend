@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Import40Doc44ItemInput, Import40GoodsItemInput } from '@/types/api'
+import ru from '@/i18n/locales/ru'
+import kk from '@/i18n/locales/kk'
+import en from '@/i18n/locales/en'
 import { ensureOkeiUnits } from '../goods/editor/okei'
 import {
   dtFormFileName, loadNotice130Choice, notice130Forms, notice130GoodsKeys, notice130Missing, pickRows, saveNotice130Choice,
@@ -129,5 +132,15 @@ describe('dtFormFileName', () => {
   it('без запрещённых знаков и кавычек, пробелы — «_», дата ДД.ММ.ГГГГ', () => {
     expect(dtFormFileName('Уведомление_130', 'ТОО «ТЕСТ» / "Филиал"', '2026-10-23')).toBe('Уведомление_130_ТОО_ТЕСТ_Филиал_23.10.2026.docx')
     expect(dtFormFileName('Обязательство', null, '2026-10-23')).toBe('Обязательство_23.10.2026.docx')
+  })
+
+  it('имена файлов в словарях: на всех языках, без недопустимых для файла знаков и пробелов', () => {
+    for (const locale of [ru, kk, en]) {
+      const { notice, obligation } = locale.broker.dt.forms
+      for (const name of [notice.fileName, obligation.fileName]) {
+        expect(name).toBeTruthy()
+        expect(name).not.toMatch(/[\\/:*?"<>|«»'`\s]/u)
+      }
+    }
   })
 })

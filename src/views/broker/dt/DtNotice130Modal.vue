@@ -126,8 +126,7 @@ const generate = async () => {
       message.error(res.error)
       return
     }
-    // Имя файла — по-русски, как сам документ.
-    saveBlob(res.blob, dtFormFileName('Уведомление_130', props.declarant.name, day))
+    saveBlob(res.blob, dtFormFileName(tr('fileName'), props.declarant.name, day))
     saveNotice130Choice(props.dtId, notice130GoodsKeys(rows.value), selected.value, letters.value)
     if (addDoc44.value && props.canAddDoc44) emit('doc44', plan.map((f) => ({ number: f.number, date: day, indexes: f.indexes })))
     message.success(plan.length > 1 ? tr('doneMany', { n: plan.length }) : tr('done'))

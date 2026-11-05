@@ -85,7 +85,7 @@ const onKeydown = (e: KeyboardEvent) => {
 
 const remove = async (c: ReestrCommentDto) => {
   if (deleting.value) return
-  const ok = await confirm({ title: t('sales.udalitKommentariy'), okText: t('sales.da'), cancelText: t('sales.net'), danger: true })
+  const ok = await confirm({ title: t('sales.udalitKommentariy'), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
   if (!ok) return
   deleting.value = c.id
   try {

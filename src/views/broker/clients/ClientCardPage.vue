@@ -18,6 +18,7 @@ import StatStrip, { type StatItem } from '@/components/broker/StatStrip.vue'
 import StatusDot from '@/components/broker/StatusDot.vue'
 import { billingApi, type BrokerInvoice } from '@/api/billing'
 import { foreignContractsApi } from '@/api/foreignContracts'
+import { carriersApi } from '@/api/carriers'
 import { clientCardApi, type ClientCard, type ClientCardCase, type ClientCardDoc } from '@/api/clientCard'
 import { canReissuePoa as reissuablePoa, canRenewContract, import40ContractApi } from '@/api/import40Contract'
 import { clientRegistryApi } from '@/api/clientRegistry'
@@ -40,7 +41,7 @@ import { validity, type Validity } from './clientDocs'
 import { REQUISITE_LABEL_KEY, isIndividualEntrepreneur, joinList, profileMissing } from '@/views/client/company/company'
 import { blankFileName, clientStatusLabelKey, clientStatusTone, docKindLabelKey, inviteUntil, signMethodLabelKey } from './clients'
 import {
-  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, currentDocs, directorBasisOf, docTag, docsTabCount, hasNextPoa, nextPoaOf,
+  accountStatusOf, availableTabs, awaitingAqniet, canRenewPoa, caseTone, cardTitle, contactRows, contractsTabCount, currentDocs, directorBasisOf, docDownloadKey, docTag, docsTabCount, hasNextPoa, nextPoaOf,
   invoicesOf, liveInvoicesCount, matchesCase, recentCases, resolveTab, transitQuery, unpaidOf, type ClientCardTab,
 } from './clientCard'
 import DocSignedFiles from './DocSignedFiles.vue'
@@ -96,8 +97,9 @@ const billing = useBlock(canFinance.value, async () => {
   const clientId = id.value
   return invoicesOf(clientId, await billingApi.list({ clientId }, { silent: true }))
 })
-// 30.10.2026: счётчик на вкладке «Контракты», как у соседних вкладок (действующие, без архива).
+// 30.10.2026: счётчик на вкладке «Контракты и перевозчики», как у соседних вкладок (действующие, без архива).
 const foreignContracts = useBlock(true, () => foreignContractsApi.list(id.value, { includeArchived: false, silent: true }))
+const carriers = useBlock(true, () => carriersApi.list(id.value, { includeArchived: false, silent: true }))
 // 30.10.2026 (S-8): реестр документов клиента — для счётчика вкладки «Документы» (без архива, как в панели по умолчанию).
 const registryDocs = useBlock(true, () => clientRegistryApi.list(id.value, { includeArchived: false, silent: true }))
 
@@ -109,10 +111,12 @@ const load = async () => {
   reestr.reset()
   billing.reset()
   foreignContracts.reset()
+  carriers.reset()
   registryDocs.reset()
   void reestr.load()
   void billing.load()
   void foreignContracts.load()
+  void carriers.load()
   void registryDocs.load()
   try {
     const c = await clientCardApi.card(clientId, { silent: true })
@@ -145,7 +149,7 @@ const tabItems = computed<ZTabItem[]>(() => {
     transit: reestr.data?.totalCount,
     docs: docsTabCount(c?.documents.length, registryDocs.data?.length),
     invoices: billing.data ? liveInvoicesCount(billing.data) : undefined,
-    contracts: foreignContracts.data?.length,
+    contracts: contractsTabCount(foreignContracts.data?.length, carriers.data?.length),
   }
   return tabKeys.value.map((k) => ({ key: k, label: t(`broker.clientCard.tab.${k}`), count: count[k] }))
 })
@@ -370,9 +374,6 @@ const docColumns = computed<ZColumn<ClientCardDoc>[]>(() => [
   { key: 'signs', title: t('broker.clientCard.doc.col.signs'), width: 250 },
   { key: 'actions', title: '', width: 200, align: 'right' },
 ])
-// Подписанный документ — «Скачать» (документ с QR подписантов), «бланк» — только пока никто не подписал (02.11.2026:
-// владелец — у подписанных доверенности и договора стояло «Скачать бланк»).
-const blankLabel = (d: ClientCardDoc) => t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank')
 // Один список действий документа (05.11.2026): «Обзор» показывает его кнопками, вкладка «Документы» — главной кнопкой и
 // меню ⋯. Порядок — по важности: первое действие и есть главная кнопка строки.
 type DocAction = 'sign' | 'extend' | 'reissue' | 'renew' | 'blank' | 'pdf' | 'verify'
@@ -389,7 +390,7 @@ const docActions = (d: ClientCardDoc): DocAction[] => {
 const docActionLabel = (a: DocAction, d: ClientCardDoc): string => {
   if (a === 'sign') return t('broker.clientCard.doc.sign')
   if (a === 'extend') return t('broker.clientCard.doc.extend')
-  if (a === 'blank') return blankLabel(d)
+  if (a === 'blank') return t(docDownloadKey(d))
   if (a === 'pdf') return 'PDF'
   if (a === 'verify') return t('broker.company.verifyLink')
   return t('broker.company.reissue.action') // reissue и renew: одно действие для сотрудника, разный только путь

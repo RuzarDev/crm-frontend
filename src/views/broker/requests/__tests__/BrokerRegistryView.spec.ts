@@ -188,6 +188,7 @@ describe('BrokerRegistryView', () => {
     api.list.mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 25 })
     await mountView()
     expect(w.get('[data-registry-excel]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-registry-excel]').attributes('title')).toBe('Нечего выгружать')
   })
 
   it('пусто: «Заявок не нашлось»; с фильтром — «Сбросить фильтры» возвращает всё', async () => {

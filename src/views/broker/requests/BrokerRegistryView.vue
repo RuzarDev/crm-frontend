@@ -166,7 +166,7 @@ const resetFilters = () => {
         >{{ total }}</span>
       </div>
       <div class="ml-auto flex flex-wrap gap-2 max-sm:w-full">
-        <ZButton :loading="exporting" :disabled="!rows.length" class="max-sm:h-11 max-sm:flex-1" data-registry-excel @click="exportExcel">
+        <ZButton :loading="exporting" :disabled="!rows.length" :title="rows.length ? undefined : t('broker.list.exportEmpty')" class="max-sm:h-11 max-sm:flex-1" data-registry-excel @click="exportExcel">
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.excel') }}
         </ZButton>

@@ -482,6 +482,7 @@ describe('TransitView: действия', () => {
     await row(1).get('[data-item="delete"]').trigger('click')
     expect(confirmState.open).toBe(true)
     expect(confirmState.title).toBe('Удалить эту запись?')
+    expect(confirmState.content).toBe('№ 2026-0030, контейнер MRSU 488584 9')
     expect(confirmState.danger).toBe(true)
     confirmState.resolve(true)
     await flushPromises()
@@ -508,7 +509,7 @@ describe('TransitView: действия', () => {
 
     await w.findAll('tbody [role="checkbox"]')[0].trigger('click')
     await w.get('[data-bulk-delete]').trigger('click')
-    expect(confirmState.title).toBe('Удалить выбранные записи?')
+    expect(confirmState.title).toBe('Удалить выбранные записи: 1?')
     confirmState.resolve(true)
     await flushPromises()
     expect(api.bulkDelete).toHaveBeenCalledWith(['31'])

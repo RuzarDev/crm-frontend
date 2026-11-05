@@ -165,6 +165,35 @@ describe('«Счета и акты» (сотрудник)', () => {
     expect(parts(3)).toEqual(['Черновики', '1', 'не выставлены'])
   })
 
+  describe('ссылки строки по правам (аудит 05.11, № 31)', () => {
+    const caseLinks = () => w.findAll('a[data-billing-case-link]').map((a) => a.attributes('href'))
+    const clientLinks = () => w.findAll('[data-billing-client] a').map((a) => a.attributes('href'))
+
+    it('бухгалтер: /import-40 закрыт guard\'ом — заявка текстом, клиент ссылкой', async () => {
+      as('accountant', ['finance.read', 'finance.write', 'import40.read', 'clients.read'])
+      await mountView()
+      expect(useAuthStore().isFinanceOnly).toBe(true)
+      expect(caseLinks()).toEqual([])
+      expect(w.findAll('tbody tr')[0].get('[data-billing-case]').text()).toBe('ИМ-2026-0170')
+      expect(clientLinks().slice(0, 2)).toEqual(['/clients/c1', '/clients/c2'])
+    })
+
+    it('руководитель: заявка и клиент — ссылки; без заявки — текст', async () => {
+      as('manager', ['finance.read', 'import40.read', 'import40.assign', 'clients.read'])
+      await mountView()
+      expect(caseLinks()).toEqual(['/import-40/k1', '/import-40/k2'])
+      expect(w.findAll('tbody tr')[2].get('[data-billing-case]').text()).toBe('без заявки')
+      expect(clientLinks()).toHaveLength(ROWS.length)
+    })
+
+    it('без clients.read клиент остаётся текстом', async () => {
+      as('manager', ['finance.read', 'import40.read', 'import40.assign'])
+      await mountView()
+      expect(clientLinks()).toEqual([])
+      expect(w.findAll('tbody tr')[0].get('[data-billing-client]').text()).toContain('ТОО «Altyn Med»')
+    })
+  })
+
   it('колонки и ячейки: документ, клиент, статус, сумма с НДС, даты, чек', async () => {
     await mountView()
     expect(w.findAll('thead th').map((th) => th.text())).toEqual(['Документ', 'Клиент', 'Статус', 'Сумма', 'Даты', 'Чек клиента', ''])
