@@ -63,7 +63,8 @@ const showActiveTab = async () => {
   await nextTick()
   tabsNav.value?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
 }
-watch(tab, showActiveTab)
+// После загрузки вкладки шире (появляются счётчики): иначе активная снова заходит за край.
+watch([tab, () => cases.loading], showActiveTab)
 onMounted(showActiveTab)
 
 // ---- Поиск (?q=, replace — не плодим историю на каждую букву) ----

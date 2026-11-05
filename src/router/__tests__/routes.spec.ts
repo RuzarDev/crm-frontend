@@ -14,6 +14,13 @@ describe('маршруты Импорта 40', () => {
     expect(router.resolve(path).name).toBe(name)
   })
 
+  it('рабочие экраны справочников закрыты для клиента, разделы его меню — нет', () => {
+    expect(router.resolve('/tnved/timeline').meta).toMatchObject({ requiresReferences: true, staffOnly: true })
+    expect(router.resolve('/tnved/national-lists').meta).toMatchObject({ requiresReferences: true, staffOnly: true })
+    // Разделы из меню клиента открыты.
+    for (const path of ['/tnved/tree', '/tnved/currencies', '/tnved/regulations']) expect(router.resolve(path).meta.staffOnly).toBeUndefined()
+  })
+
   it('единый список «Документы» клиента: /documents → client-documents-all, только клиенту Импорта 40', () => {
     const r = router.resolve('/documents')
     expect(r.name).toBe('client-documents-all')

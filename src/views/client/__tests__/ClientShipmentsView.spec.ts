@@ -72,6 +72,16 @@ afterEach(() => {
 })
 
 describe('ClientShipmentsView', () => {
+  it('активная вкладка не остаётся за краем: прокрутка к ней и после загрузки списка', async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    await mountAt('/import-40?tab=done')
+    const last = scroll.mock.contexts.at(-1) as HTMLElement
+    expect(last.getAttribute('data-client-tab')).toBe('done')
+    expect(scroll).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' })
+    delete (Element.prototype as Partial<Element>).scrollIntoView
+  })
+
   it('«Себестоимость в Excel» — есть выпущенные поставки; выгружает все на языке интерфейса', async () => {
     cost.xlsx.mockResolvedValue({ blob: new Blob(['x']), fileName: 'costs-2026-10-17.xlsx' })
     await mountAt('/import-40')
