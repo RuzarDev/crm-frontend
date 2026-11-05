@@ -9,6 +9,7 @@
 //     документа («Cartons», «纸箱» → коробка); число упаковок — из столбца, иначе = мест при известном виде (В7).
 // №4  Страна происхождения — из файла; нет — опция defaultOriginCode (В8, по умолчанию выключено).
 // №9  Код — только действующий 10-значный, не номер документа; «Описание из ТН ВЭД» — название кода из справочника.
+//     «Из документов» (05.11.2026): отброшенный код остаётся в documentTnvedCode товара — подсказка под пустой гр. 33.
 // Импорт 2.0 (22.10.2026): описание из двуязычной ячейки — только русская часть (2.4); модель — из описания, если
 //     своего столбца нет (2.3); места текстом, которые однозначно не определить, — пусто с замечанием (2.5).
 import type { ClassifierItem, Import40GoodsItemInput } from '@/types/api'
@@ -28,7 +29,12 @@ export interface BuildOptions {
   defaultOriginCode?: string | null
   /** Перенести коды не из справочника как есть (по умолчанию — поле кода пустое). */
   keepInvalidCodes?: boolean
+  /** Записать отброшенный код в documentTnvedCode товара (только «Из документов»: у «Из Excel» есть предпросмотр). */
+  rejectedCodeToDocument?: boolean
 }
+
+/** Предел поля documentTnvedCode на сервере, как у кода ТН ВЭД: разбор бывает кладёт в код длинный текст. */
+const DOCUMENT_CODE_MAX = 20
 
 /** Значения по умолчанию решений владельца В8/В9 — одни для «Из Excel» (галочки) и «Из документов» (без предпросмотра). */
 export const SENDER_AS_MANUFACTURER_DEFAULT = false
@@ -102,16 +108,20 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     const code = r.tnvedCode ? normCode(r.tnvedCode) : null
     let codeInfo = code ? resolved?.byCode.get(code) ?? null : null
     const reason = code ? rejected.get(code) : undefined
+    const reject = (c: string) => {
+      g.tnvedCode = opts.keepInvalidCodes ? c : null
+      if (opts.rejectedCodeToDocument && !g.tnvedCode) g.documentTnvedCode = c.slice(0, DOCUMENT_CODE_MAX)
+    }
     if (code) {
       if (reason) {
         note('invalidCode', `${code}:${reason}`)
-        g.tnvedCode = opts.keepInvalidCodes ? code : null
+        reject(code)
         codeInfo = null
       } else if (failed || codeInfo?.valid) {
         g.tnvedCode = code
       } else {
         note('invalidCode', `${code}:notInDirectory`)
-        g.tnvedCode = opts.keepInvalidCodes ? code : null
+        reject(code)
       }
     }
     g.tnvedDescription = codeInfo?.valid ? codeInfo.name : null

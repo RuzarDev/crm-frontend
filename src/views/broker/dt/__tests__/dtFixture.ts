@@ -6,6 +6,7 @@ export const fullGoodsDto = (over: Partial<Import40GoodsItemDto> = {}): Import40
   sortOrder: 0,
   description: 'ВИНТЫ',
   tnvedCode: '7318150000',
+  documentTnvedCode: '9401719000',
   tnvedDescription: 'винты и болты',
   countryOfOrigin: 'CN',
   quantity: 100,

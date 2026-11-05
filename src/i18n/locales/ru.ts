@@ -2452,6 +2452,7 @@ export default {
             picker: 'Справочник',
             ai: 'С ИИ',
             notFound: 'Кода нет в справочнике ТН ВЭД — выберите через «Справочник»',
+            documentCodeHint: 'В документе: {code}, кода нет в ТН ВЭД',
             tnvedDescription: 'Описание из ТН ВЭД',
             tnvedDescriptionEmpty: 'Заполнится по коду: «Найти» или «Справочник»',
             description: 'Описание из инвойса',

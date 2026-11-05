@@ -273,7 +273,7 @@ export async function prepareDocumentsDeclaration(
     packageKinds,
     resolved,
     // В9: «производитель = отправитель» — тем же значением по умолчанию, что галочка «Из Excel» (по умолчанию выключено).
-    options: { senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT ? senderName : null },
+    options: { senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT ? senderName : null, rejectedCodeToDocument: true },
   })
 
   const notes: DocumentsNote[] = []

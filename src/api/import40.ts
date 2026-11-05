@@ -156,6 +156,8 @@ export interface Import40GoodsItemDto {
   statisticValueUsdCalc?: number | null
   // Часть разделения ЕТТ/ВТО (16.10): SortOrder товара исходной ДТ — по нему «Изменить разделение» переносит правки товара.
   splitSourceSortOrder?: number | null
+  // Код из документа, которого нет в ТН ВЭД (05.11.2026): подсказка под пустой гр. 33. Сервер до 05.11 — без него.
+  documentTnvedCode?: string | null
 }
 
 // Зеркалит Import40GoodsMarkingDto / Import40GoodsMarkingRequest на бэке (Task 2).

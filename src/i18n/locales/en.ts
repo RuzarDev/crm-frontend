@@ -2448,6 +2448,7 @@ export default {
             picker: 'Catalogue',
             ai: 'AI',
             notFound: 'Code is not in the HS reference — pick it via the catalogue',
+            documentCodeHint: 'In the document: {code}, this code is not in the HS',
             tnvedDescription: 'HS description',
             tnvedDescriptionEmpty: 'Filled from the code: "Find" or "Catalogue"',
             description: 'Invoice description',
