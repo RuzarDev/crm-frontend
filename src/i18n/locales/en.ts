@@ -4150,6 +4150,8 @@ export default {
           okEmpty: 'Recognise',
           perFile: 'Several wagons: files one by one, one declaration',
           speedHint: 'A scan takes about 10 seconds per page. Keep this page open while it runs.',
+          perFileAuto: 'Turned on automatically: large scans. One request reads only some of the pages.',
+          autoCleared: 'Case documents were unticked: the added files are read. Tick a case document if you need it.',
           perFileHint: 'Each file is read separately, all goods and waybills go into one declaration. Suits large scans: {n} files are read in turn.',
           titleExisting: 'From documents into this declaration',
           leadExisting: 'Tick the documents to recognise into this declaration. The invoice and packing list are ticked already.',
