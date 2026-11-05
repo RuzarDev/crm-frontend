@@ -77,6 +77,8 @@ export interface Import40DocumentDto {
   verifyUrl?: string | null
   /** 02.11.2026 (пакет I): доверенность действует, но текущая — перевыпущенная позже («0008/2026»); иначе null. */
   replacedBy?: string | null
+  /** Дата отзыва (05.11.2026). */
+  revokedAtUtc?: string | null
 }
 
 export interface Import40DocumentGenerateRequest {

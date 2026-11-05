@@ -7,7 +7,7 @@ import ZAskBanner from '@/components/z/ZAskBanner.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import PrivacyConsentPrompt from '@/components/privacy/PrivacyConsentPrompt.vue'
 import { buildClientNav, navAccessFromStore } from '@/shell/navModel'
-import { registrationBannerState, shouldRedirectToRegistration, type RegistrationSnapshot } from '@/shell/registrationBanner'
+import { registrationBannerState, shouldRedirectToRegistration, type RegistrationSnapshot, registrationBlock } from '@/shell/registrationBanner'
 import { useClientRegistration } from '@/composables/useClientRegistration'
 import { useAuthStore } from '@/stores/auth'
 import { REG_REDIRECT_FLAG as REDIRECT_FLAG } from '@/shell/resetSession'
@@ -29,6 +29,7 @@ const snapshot = (): RegistrationSnapshot => ({
   nextStep: registration.nextStep.value,
   doneCount: registration.doneCount.value,
   needNew: registration.needNew.value,
+  blockReason: registration.blockReason.value,
 })
 const banner = computed(() => registrationBannerState(snapshot(), route.path))
 const continueRegistration = () => {
@@ -63,6 +64,15 @@ watch(() => route.path, (path, prev) => {
         :title="t('registration.title')"
         :description="t('registration.text', { done: banner.done, next: t(`registration.step.${banner.next}`) })"
         :action-text="t('registration.continue')"
+        @action="continueRegistration"
+      />
+      <ZAskBanner
+        v-else-if="banner?.kind === 'block'"
+        class="mb-6"
+        :title="t(registrationBlock(banner.code, registration.needNew.value).title)"
+        :description="t(registrationBlock(banner.code, registration.needNew.value).text, registration.blockParams.value)"
+        :action-text="t('client.wizard.gate.openCompany')"
+        data-registration-block
         @action="continueRegistration"
       />
       <ZAlert

@@ -11,11 +11,13 @@ export interface RegistrationSnapshot {
   nextStep: RegistrationStep | null
   doneCount: number
   needNew: string | null
+  blockReason?: RegistrationBlockCode | null
 }
 
 export type RegistrationBanner =
   | { kind: 'waiting' }
   | { kind: 'todo'; done: number; next: RegistrationStep; to: string }
+  | { kind: 'block'; code: RegistrationBlockCode; to: string }
 
 const COMPANY = '/import-40/company'
 
@@ -27,6 +29,10 @@ const COMPANY = '/import-40/company'
 export function registrationBannerState(reg: RegistrationSnapshot, path: string): RegistrationBanner | null {
   if (!reg.isClient || !reg.loaded || reg.complete) return null
   if (path.startsWith(COMPANY)) return null
+  // Регистрация пройдена, документ отозван, истёк или занят (05.11.2026): называем причину, а не «завершите регистрацию».
+  if (reg.blockReason === 'revoked' || reg.blockReason === 'renew' || reg.blockReason === 'busy') {
+    return { kind: 'block', code: reg.blockReason, to: reg.needNew ? `${COMPANY}?step=${reg.needNew}` : COMPANY }
+  }
   if (!reg.nextStep) return { kind: 'waiting' }
   return { kind: 'todo', done: reg.doneCount, next: reg.nextStep, to: reg.needNew ? `${COMPANY}?step=${reg.needNew}` : COMPANY }
 }
@@ -45,7 +51,7 @@ export const shouldRedirectToRegistration = (reg: RegistrationSnapshot, path: st
  * экрана мастера, подсказка кнопки «Оформить новую поставку»; companyAction — кнопка ведёт в «Мою компанию» без
  * «Завершить регистрацию» (регистрация уже пройдена).
  */
-export function registrationBlock(code: RegistrationBlockCode | null): {
+export function registrationBlock(code: RegistrationBlockCode | null, needNew?: string | null): {
   title: string; text: string; tooltip: string; companyAction: boolean
 } {
   switch (code) {
@@ -53,6 +59,10 @@ export function registrationBlock(code: RegistrationBlockCode | null): {
       return { title: 'client.wizard.gate.awaitingAqniet.title', text: 'client.wizard.gate.awaitingAqniet.text', tooltip: 'clientHome.newLockedWait', companyAction: true }
     case 'busy':
       return { title: 'client.wizard.gate.busy.title', text: 'client.wizard.gate.busy.text', tooltip: 'clientHome.newLockedBusy', companyAction: true }
+    case 'revoked': {
+      const key = needNew === 'poa' ? 'revokedPoa' : 'revoked'
+      return { title: `client.wizard.gate.${key}.title`, text: `client.wizard.gate.${key}.text`, tooltip: 'clientHome.newLockedRevoked', companyAction: true }
+    }
     case 'renew':
       return { title: 'client.wizard.gate.renew.title', text: 'client.wizard.gate.renew.text', tooltip: 'clientHome.newLockedRenew', companyAction: true }
     default:

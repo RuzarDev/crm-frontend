@@ -71,6 +71,9 @@ const canOpenSigning = computed(() => canSignProvider.value && canImport.value)
 // S-5 (30.10.2026, решение владельца): менять реквизиты и выпускать договор/доверенность — администратор, руководитель,
 // декларант (как сервер); бухгалтер и продажи видят реквизиты только для просмотра.
 const canEditPapers = computed(() => canImport.value && canEditClientPapers(auth))
+// Нет действующего договора (не выпущен или отозван): выпуск прямо из блока, а не через «Изменить реквизиты» (05.11.2026).
+const needsContract = computed(() => canEditPapers.value
+  && !card.value?.documents.some((d) => d.kind === 'contract' && (d.status === 1 || d.status === 2)))
 
 const id = computed(() => String(route.params.id ?? ''))
 
@@ -638,6 +641,12 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
             <div class="flex min-w-0 flex-[1_1_340px] flex-col gap-4">
               <section aria-labelledby="card-docs-title" :class="panel" data-card-docs>
                 <h2 id="card-docs-title" :class="[panelTitle, 'mb-2.5']">{{ t('broker.clientCard.overview.docs') }}</h2>
+                <RouterLink
+                  v-if="needsContract"
+                  :to="signRoute"
+                  class="mb-2.5 inline-flex h-8 items-center rounded-field bg-navy px-3 text-sm font-semibold text-white no-underline outline-hidden focus-visible:shadow-focus max-sm:h-11 max-sm:px-4"
+                  data-card-issue-contract
+                >{{ t('broker.clientCard.overview.issueContract') }}</RouterLink>
                 <p v-if="!overviewDocs.length" class="m-0 text-sm text-muted" data-card-no-docs>{{ t('broker.clientCard.overview.noDocs') }}</p>
                 <ul v-else class="m-0 flex list-none flex-col gap-2.5 p-0">
                   <li v-for="d in overviewDocs" :key="d.id" class="flex flex-col gap-2 rounded-row border border-line p-3.5" :data-doc-card="d.kind">

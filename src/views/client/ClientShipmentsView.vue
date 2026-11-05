@@ -55,7 +55,7 @@ void cases.load()
 const locked = computed(() => registration.loaded.value && !registration.complete.value)
 // C-9 (30.10.2026): подсказка — правдивая причина (ждём AQNIET / документ занят поставкой № … / нужен новый).
 const lockedHint = computed(() => (locked.value
-  ? t(registrationBlock(registration.blockReason.value).tooltip, { number: registration.busyCaseNumber.value ?? '' })
+  ? t(registrationBlock(registration.blockReason.value, registration.needNew.value).tooltip, registration.blockParams.value)
   : ''))
 const newShipment = () => router.push('/import-40/new')
 

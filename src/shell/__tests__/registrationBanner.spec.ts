@@ -14,6 +14,12 @@ describe('registrationBannerState', () => {
   it('ждём AQNIET', () => {
     expect(registrationBannerState(reg({ nextStep: null }), '/home')).toEqual({ kind: 'waiting' })
   })
+  it('отозванный документ — своя плашка, а не «завершите регистрацию»', () => {
+    expect(registrationBannerState(reg({ blockReason: 'revoked', needNew: 'contract' }), '/home'))
+      .toEqual({ kind: 'block', code: 'revoked', to: '/import-40/company?step=contract' })
+    expect(registrationBannerState(reg({ blockReason: 'renew', needNew: 'poa' }), '/billing'))
+      .toEqual({ kind: 'block', code: 'renew', to: '/import-40/company?step=poa' })
+  })
   it('следующий шаг и ссылка с needNew', () => {
     expect(registrationBannerState(reg({ needNew: 'poa' }), '/billing')).toEqual({ kind: 'todo', done: 1, next: 'contract', to: '/import-40/company?step=poa' })
     expect(registrationBannerState(reg(), '/billing')).toEqual({ kind: 'todo', done: 1, next: 'contract', to: '/import-40/company' })
