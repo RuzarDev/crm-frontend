@@ -34,7 +34,9 @@ const props = withDefaults(defineProps<{
   readonly?: boolean
   /** Ссылка на ДТ (сотруднику); у клиента — только на поставку. */
   dtLinks?: boolean
-}>(), { backLabel: undefined, readonly: false, dtLinks: false })
+  /** false — номера ДТ простым текстом: бухгалтеру заявки закрыты, ссылка молча увела бы на «Финансы» (05.11.2026). */
+  caseLinks?: boolean
+}>(), { backLabel: undefined, readonly: false, dtLinks: false, caseLinks: true })
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
@@ -263,9 +265,10 @@ const h2 = 'm-0 text-md font-semibold text-ink'
         <ul v-else role="list" class="m-0 list-none rounded-row border border-solid border-line p-0">
           <li v-for="(s, i) in card.shipments" :key="s.declarationId" :class="cn('flex flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-4', i > 0 && 'border-0 border-t border-solid border-line')" :data-shipment="s.declarationId">
             <div class="min-w-0 flex-1">
-              <RouterLink :to="caseHref(s.caseId, s.declarationId)" class="text-sm font-semibold break-words text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus">
+              <RouterLink v-if="caseLinks" :to="caseHref(s.caseId, s.declarationId)" class="text-sm font-semibold break-words text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus">
                 {{ s.declarationNumber || t('foreignContracts.dtNoNumber') }}
               </RouterLink>
+              <span v-else class="text-sm font-semibold break-words text-ink" data-shipment-plain>{{ s.declarationNumber || t('foreignContracts.dtNoNumber') }}</span>
               <span class="block text-xs text-muted">{{ t('foreignContracts.shipmentCase', { n: s.caseNumber, date: day(s.dtDate) }) }}</span>
             </div>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end sm:text-right">

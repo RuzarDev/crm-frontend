@@ -6,14 +6,14 @@ import type { TeamMemberDto } from '@/types/api'
 
 const api = vi.hoisted(() => ({
   declarantProfile: vi.fn(), linkedClients: vi.fn(), editBroker: vi.fn(), editStaffClients: vi.fn(),
-  resetPassword: vi.fn(), deleteUser: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(), setPoa: vi.fn(), confirm: vi.fn(),
+  resetPassword: vi.fn(), deleteUser: vi.fn(), openCases: vi.fn(), catalog: vi.fn(), setUserRoles: vi.fn(), setPoa: vi.fn(), confirm: vi.fn(),
   places: vi.fn(), setPlaces: vi.fn(), listPosts: vi.fn(), listStations: vi.fn(),
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 vi.mock('@/api/users', () => ({
   usersApi: {
     declarantProfile: api.declarantProfile, linkedClients: api.linkedClients, editBroker: api.editBroker,
-    editStaffClients: api.editStaffClients, resetPassword: api.resetPassword, deleteUser: api.deleteUser,
+    editStaffClients: api.editStaffClients, resetPassword: api.resetPassword, deleteUser: api.deleteUser, openCases: api.openCases,
     places: api.places, setPlaces: api.setPlaces,
   },
 }))
@@ -84,6 +84,7 @@ beforeEach(() => {
   api.editBroker.mockResolvedValue(undefined)
   api.editStaffClients.mockResolvedValue(undefined)
   api.deleteUser.mockResolvedValue(undefined)
+  api.openCases.mockResolvedValue(0)
   api.resetPassword.mockResolvedValue({ username: 'd.seitkali', temporaryPassword: 'Tmp-Pass-4821' })
   api.confirm.mockResolvedValue(true)
   api.places.mockResolvedValue([])
@@ -357,6 +358,31 @@ describe('MemberDrawer: удаление', () => {
     expect(api.confirm.mock.calls[0][0].title).toBe('Удалить сотрудника Динара Сейткали?')
     expect(api.deleteUser).toHaveBeenCalledWith('m2', { silent: true })
     expect(w.emitted('deleted')).toHaveLength(1)
+  })
+
+  // 05.11.2026, аудит №8: назначения на заявках не снимаются — окно называет их число, удаление не запрещено.
+  it('открытые заявки: окно называет число и советует переназначить; удалить всё равно можно', async () => {
+    api.openCases.mockResolvedValue(3)
+    await mountIt()
+    await click('[data-member-delete]')
+    expect(api.openCases).toHaveBeenCalledWith('m2', { silent: true })
+    const content = api.confirm.mock.calls[0][0].content as string
+    expect(content).toContain('открытых заявок: 3')
+    expect(content).toContain('переназначьте')
+    expect(api.deleteUser).toHaveBeenCalledWith('m2', { silent: true })
+  })
+
+  it('заявок нет — обычный текст; счётчик не загрузился — окно говорит об этом и не мешает удалить', async () => {
+    await mountIt()
+    await click('[data-member-delete]')
+    expect(api.confirm.mock.calls[0][0].content).toBe('Доступ закроется сразу, действие нельзя отменить.')
+    w.unmount()
+    api.confirm.mockClear()
+    api.openCases.mockRejectedValue(err(500, 'сбой'))
+    await mountIt()
+    await click('[data-member-delete]')
+    expect(api.confirm.mock.calls[0][0].content).toContain('Не удалось проверить')
+    expect(api.deleteUser).toHaveBeenCalledTimes(2)
   })
 
   it('отказ — ничего не удаляется', async () => {

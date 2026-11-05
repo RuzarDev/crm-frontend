@@ -21,7 +21,7 @@ const titleId = `z-ask-${useId()}`
     </div>
     <div v-if="$slots.action || actionText" class="shrink-0 max-sm:w-full">
       <slot name="action">
-        <ZButton class="bg-surface enabled:hover:bg-gold-line max-sm:w-full" @click="emit('action', $event)">{{ actionText }}</ZButton>
+        <ZButton class="bg-surface enabled:hover:bg-gold-line max-sm:h-11 max-sm:w-full" @click="emit('action', $event)">{{ actionText }}</ZButton>
       </slot>
     </div>
   </div>

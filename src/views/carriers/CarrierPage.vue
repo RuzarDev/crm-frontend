@@ -7,7 +7,8 @@ import { backFrom } from '@/router/backFrom'
 import CarrierCard from './CarrierCard.vue'
 
 // Страница перевозчика: клиент — /carriers/:carrierId (свой), сотрудник — /clients/:id/carriers/:carrierId
-// (менять — с import40.read, как контракты и реестр документов; без него — просмотр).
+// (менять — с import40.read, как контракты и реестр документов; без него — просмотр). Бухгалтеру — только просмотр и номера
+// заявок простым текстом: guard закрывает ему /import-40 (05.11.2026, решение владельца).
 const route = useRoute()
 const auth = useAuthStore()
 const { t } = useI18n()
@@ -20,9 +21,9 @@ const from = computed(() => backFrom(route.query.from, isClient.value, t))
 const backTo = computed(() => from.value?.to ?? (isClient.value
   ? '/carriers'
   : auth.hasPermission('clients.read') ? `/clients/${encodeURIComponent(clientId.value)}?tab=contracts` : null))
-const readonly = computed(() => !isClient.value && !auth.hasPermission('import40.read'))
+const readonly = computed(() => !isClient.value && (!auth.hasPermission('import40.read') || auth.isFinanceOnly))
 </script>
 
 <template>
-  <CarrierCard v-if="clientId && carrierId" :client-id="clientId" :carrier-id="carrierId" :back-to="backTo" :back-label="from?.label" :readonly="readonly" />
+  <CarrierCard v-if="clientId && carrierId" :client-id="clientId" :carrier-id="carrierId" :back-to="backTo" :back-label="from?.label" :readonly="readonly" :case-links="!auth.isFinanceOnly" />
 </template>

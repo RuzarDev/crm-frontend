@@ -123,7 +123,7 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
         </div>
         <div v-if="showFooter" class="flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-6 py-4">
           <slot name="footer">
-            <ZButton variant="ghost" :disabled="cancelButtonProps.disabled" @click="close">
+            <ZButton variant="ghost" :disabled="cancelButtonProps.disabled" class="max-sm:h-11" @click="close">
               {{ cancelText || t('common.cancel') }}
             </ZButton>
             <ZButton
@@ -132,6 +132,7 @@ const contentStyle = computed(() => [{ '--w': cssSize(props.width) }, attrs.styl
               :html-type="okButtonProps.htmlType ?? 'button'"
               :form="okButtonProps.form"
               :loading="confirmLoading"
+              class="max-sm:h-11"
               @click="emit('ok', $event)"
             >
               {{ okText || t('z.confirm') }}

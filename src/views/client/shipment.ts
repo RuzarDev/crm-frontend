@@ -1,5 +1,5 @@
 import type { ClientShipment } from '@/api/clientShipments'
-import type { Import40CaseDto, Import40FileDto } from '@/api/import40'
+import type { Import40CaseDto, Import40CaseInvoiceDto, Import40FileDto } from '@/api/import40'
 import type { CustomsRequestDto } from '@/api/customsRequests'
 import { oldestWaiting, waitingForClient } from '@/utils/customsRequests'
 import type { ZTone } from '@/components/z/ZTag.vue'
@@ -11,7 +11,7 @@ import { briefOf } from '@/utils/conditionalRelease'
 // Одни на «Главную», список «Мои поставки» и карточку — чтобы экраны не расходились.
 
 export type ShipmentTab = 'active' | 'waiting' | 'drafts' | 'done'
-export type AskKind = 'customs' | 'problem' | 'returned' | 'draft' | 'paySvh' | 'preBorder'
+export type AskKind = 'customs' | 'problem' | 'returned' | 'draft' | 'paySvh' | 'payService' | 'preBorder'
 
 export const TOTAL_STEPS = 6
 
@@ -20,8 +20,9 @@ export type ShipmentCtx = { filesUnknown?: boolean }
 
 /**
  * «Нужно от вас» — ход клиента: запрос таможни без ответа (волна 17.10 — самый срочный), проблема (вопрос AQNIET), черновик (возврат на доработку — черновик с причиной),
- * счёт СВХ без загруженного чека, недостающее до прибытия на границу (поставка до границы, только начатая). Загруженный чек — уже не ход клиента (ждём подтверждения), даже пока оплату
- * не подтвердили; выполненная и отменённая поставка не спрашивает ничего. Без файлов (filesUnknown) про чек не гадаем.
+ * счёт СВХ без загруженного чека, счёт AQNIET за услуги без чека (поставка не закроется, пока он не оплачен, 05.11.2026), недостающее до прибытия на границу (поставка до границы,
+ * только начатая). Загруженный чек — уже не ход клиента (ждём подтверждения), даже пока оплату не подтвердили; выполненная и отменённая поставка не спрашивает ничего.
+ * Без файлов (filesUnknown) про чек не гадаем.
  */
 export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null {
   if (s.status === 9) return null
@@ -32,6 +33,7 @@ export function askFor(s: ClientShipment, ctx: ShipmentCtx = {}): AskKind | null
   if (s.isProblem) return 'problem'
   if (s.status === 0) return s.returnReason || s.reworkRequested ? 'returned' : 'draft'
   if (s.status === 6 && !s.paymentCheckUploaded && !ctx.filesUnknown) return 'paySvh'
+  if (s.status === 7 && s.serviceInvoiceToPayId) return 'payService'
   // Поставка до границы (очередь 4): клиент начал заполнять, а до прибытия чего-то не хватает — самое слабое «нужно».
   if (s.status === 1 && (s.preBorderMissing?.length ?? 0) > 0) return 'preBorder'
   return null
@@ -107,6 +109,11 @@ export const askHref = (s: ClientShipment): string => {
   return ask === 'draft' || ask === 'returned' ? `/import-40/new/${s.id}` : `/import-40/${s.id}`
 }
 
+/** Счёт AQNIET, который ждёт оплаты клиента: выставлен, чек не приложен, самый ранний — как сервер в списке поставок. */
+export const serviceInvoiceToPay = (list: Import40CaseInvoiceDto[]): Import40CaseInvoiceDto | null =>
+  list.filter((i) => i.kind === 'invoice' && i.status === 1 && !i.hasPaymentCheck)
+    .sort((a, b) => (a.issuedAtUtc ?? '').localeCompare(b.issuedAtUtc ?? ''))[0] ?? null
+
 /**
  * Лёгкая сводка из полной заявки (карточка поставки): те же поля, что отдаёт GET import40/client/shipments,
  * чтобы askFor/shipmentTag/segments карточки совпадали со списком. Шаг — как Import40Steps.StepOf на сервере
@@ -118,6 +125,7 @@ export function toShipmentSummary(
   customs: readonly Pick<CustomsRequestDto, 'status' | 'createdAtUtc' | 'stage'>[] = [],
   preBorderMissing: ClientShipment['preBorderMissing'] = [],
   serviceInvoiceIssued?: boolean,
+  toPay: Pick<Import40CaseInvoiceDto, 'id' | 'total'> | null = null,
 ): ClientShipment {
   return {
     id: c.id,
@@ -148,6 +156,8 @@ export function toShipmentSummary(
     borderArrived: !!c.borderArrivedAtUtc,
     returnedFromStatus: c.returnedFromStatus ?? null,
     serviceInvoiceIssued,
+    serviceInvoiceToPayId: toPay?.id ?? null,
+    serviceInvoiceToPayTotal: toPay?.total ?? null,
   }
 }
 

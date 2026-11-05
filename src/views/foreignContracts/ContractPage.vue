@@ -7,7 +7,8 @@ import { backFrom } from '@/router/backFrom'
 import ContractCard from './ContractCard.vue'
 
 // Страница контракта: клиент — /contracts/:contractId (свой), сотрудник — /clients/:id/contracts/:contractId
-// (менять — с import40.read, как реестр документов; без него — просмотр).
+// (менять — с import40.read, как реестр документов; без него — просмотр). Бухгалтеру — только просмотр и номера ДТ и заявок
+// простым текстом: guard закрывает ему /import-40 (05.11.2026, решение владельца).
 const route = useRoute()
 const auth = useAuthStore()
 const { t } = useI18n()
@@ -20,7 +21,7 @@ const from = computed(() => backFrom(route.query.from, isClient.value, t))
 const backTo = computed(() => from.value?.to ?? (isClient.value
   ? '/contracts'
   : auth.hasPermission('clients.read') ? `/clients/${encodeURIComponent(clientId.value)}?tab=contracts` : null))
-const readonly = computed(() => !isClient.value && !auth.hasPermission('import40.read'))
+const readonly = computed(() => !isClient.value && (!auth.hasPermission('import40.read') || auth.isFinanceOnly))
 </script>
 
 <template>
@@ -32,5 +33,6 @@ const readonly = computed(() => !isClient.value && !auth.hasPermission('import40
     :back-label="from?.label"
     :readonly="readonly"
     :dt-links="!isClient && auth.hasPermission('import40.read')"
+    :case-links="!auth.isFinanceOnly"
   />
 </template>

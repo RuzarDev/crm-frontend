@@ -2,6 +2,7 @@ import type { ZTone } from '@/components/z/ZTag.vue'
 import type { BrokerInvoice } from '@/api/billing'
 import type { ClientCard, ClientCardCase, ClientCardDoc, ClientCardProfile } from '@/api/clientCard'
 import type { ClientStatus } from '@/api/clientsOnboarding'
+import type { Import40DocumentDto } from '@/api/import40Contract'
 import type { ReestrEntry } from '@/types/api'
 import { matchesQuery } from '@/views/broker/list'
 import { stageTone } from '@/views/broker/requests/requests'
@@ -58,14 +59,33 @@ export const recentCases = (cases: ClientCardCase[], n = 3): ClientCardCase[] =>
 export const awaitingAqniet = (d: Pick<ClientCardDoc, 'kind' | 'status' | 'clientSigned' | 'providerSigned'>): boolean =>
   d.kind === 'contract' && d.status === 1 && d.clientSigned && !d.providerSigned
 
-/** Тег состояния документа: у действующего — «Истекает» (30 дней) и «Истёк» (срок прошёл), иначе как в «Клиентах». */
-export function docTag(d: Pick<ClientCardDoc, 'status' | 'daysLeft' | 'expiringSoon'> & { replacedBy?: string | null }): { tone: ZTone; labelKey: string } {
+/**
+ * Тег состояния документа — единственный источник статуса на всех экранах сотрудников (05.11.2026): карточка клиента,
+ * «Документы клиентов», окно документов, «Компания клиента». У действующего — «Истекает» (30 дней), «Истёк» (срок прошёл),
+ * иначе как в «Клиентах». Статус в базе срок сам не меняет: просроченный документ со статусом 2 не должен выглядеть зелёным.
+ */
+export function docTag(d: Pick<ClientCardDoc, 'status' | 'daysLeft' | 'expiringSoon'> & Partial<Pick<ClientCardDoc, 'isSingleUse' | 'consumedByCaseId'>> & { replacedBy?: string | null }): { tone: ZTone; labelKey: string } {
   if (d.status === 2 && d.daysLeft !== null && d.daysLeft < 0) return { tone: 'danger', labelKey: 'admin.istek' }
   // 02.11.2026 (пакет I): перевыпущенная доверенность подписана — прежняя ещё в сроке, но текущая уже новая.
   if (d.status === 2 && d.replacedBy) return { tone: 'neutral', labelKey: 'broker.company.reissue.replaced' }
+  // Разовый документ израсходован заявкой: в сроке, но для новой заявки не годится (как isDocumentEffective).
+  if (d.status === 2 && d.isSingleUse && d.consumedByCaseId) return { tone: 'neutral', labelKey: 'broker.company.consumedStatus' }
   if (d.status === 2 && d.expiringSoon) return { tone: 'wait', labelKey: 'broker.clientCard.doc.expiring' }
   return { tone: docStatusTone(d.status), labelKey: docStatusLabelKey(d.status) }
 }
+
+const DAY_MS = 86_400_000
+const SOON_DAYS = 30
+/** Остаток срока — как сервер (ClientCardEndpoints.Expiry), для экранов, где он приходит только датой. */
+export function docExpiry(d: Pick<Import40DocumentDto, 'status' | 'validUntilUtc'>, now = Date.now()): Pick<ClientCardDoc, 'daysLeft' | 'expiringSoon'> {
+  if (!d.validUntilUtc) return { daysLeft: null, expiringSoon: false }
+  const daysLeft = Math.floor((new Date(d.validUntilUtc).getTime() - now) / DAY_MS)
+  return { daysLeft, expiringSoon: d.status === 2 && daysLeft >= 0 && daysLeft <= SOON_DAYS }
+}
+
+/** docTag документа из GET …/documents: окно документов и «Компания клиента». */
+export const docTagOf = (d: Pick<Import40DocumentDto, 'status' | 'validUntilUtc' | 'replacedBy' | 'isSingleUse' | 'consumedByCaseId'>, now = Date.now()): { tone: ZTone; labelKey: string } =>
+  docTag({ ...d, ...docExpiry(d, now) })
 
 /**
  * «Выпустить новую»: доверенность действующая (2), срок которой истекает в ближайшие 30 дней или уже вышел, либо истёкшая (3).

@@ -7,12 +7,9 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import ZTooltip from '@/components/z/ZTooltip.vue'
 import ClientShipmentRow from '@/components/client/ClientShipmentRow.vue'
 import { clientShipmentsApi, type ClientShipment } from '@/api/clientShipments'
 import { useAuthStore } from '@/stores/auth'
-import { useClientRegistration } from '@/composables/useClientRegistration'
-import { registrationBlock } from '@/shell/registrationBanner'
 import { tabCounts, tabOf, type ShipmentTab } from '@/views/client/shipment'
 import { useBlock } from '@/views/home/useBlock'
 import { cn } from '@/ui/cn'
@@ -27,7 +24,6 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const registration = useClientRegistration()
 
 const TABS: ShipmentTab[] = ['active', 'waiting', 'drafts', 'done']
 
@@ -51,12 +47,8 @@ watch(() => route.query, (q) => {
 const cases = useBlock(!redirecting.value, () => clientShipmentsApi.list())
 void cases.load()
 
-// Пока регистрация не завершена, сервер заявку не примет — кнопка выключена, подсказка объясняет почему.
-const locked = computed(() => registration.loaded.value && !registration.complete.value)
-// C-9 (30.10.2026): подсказка — правдивая причина (ждём AQNIET / документ занят поставкой № … / нужен новый).
-const lockedHint = computed(() => (locked.value
-  ? t(registrationBlock(registration.blockReason.value, registration.needNew.value).tooltip, registration.blockParams.value)
-  : ''))
+// Кнопка не выключается: пока поставку оформить нельзя, мастер показывает экран блокировки с причиной и действием
+// (05.11.2026: подсказка у выключенной кнопки на телефоне не открывалась).
 const newShipment = () => router.push('/import-40/new')
 
 // ---- Вкладка (?tab=, по умолчанию «В работе» — без параметра) ----
@@ -145,14 +137,10 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
         <template #icon><PhFileXls :size="16" aria-hidden="true" /></template>
         {{ t('shipmentCost.excelAll') }}
       </ZButton>
-      <ZTooltip :title="lockedHint">
-        <span :tabindex="locked ? 0 : undefined" :class="cn('inline-flex rounded-row outline-hidden focus-visible:shadow-focus max-sm:w-full', !hasCost && 'ml-auto')">
-          <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
-            <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
-            {{ t('shell.client.newShipment') }}
-          </ZButton>
-        </span>
-      </ZTooltip>
+      <ZButton variant="primary" :class="cn(cta, !hasCost && 'ml-auto')" data-client-new @click="newShipment">
+        <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
+        {{ t('shell.client.newShipment') }}
+      </ZButton>
     </div>
 
     <!-- Ниже xl поиск сверху во всю ширину, вкладки под ним прокручиваются (колонка контента из-за боковой панели уже окна);
@@ -232,14 +220,10 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       <div v-else-if="!hasAny" class="rounded-panel border border-dashed border-line-strong" data-client-empty="none">
         <ZEmpty :title="t('clientHome.emptyTitle')" :hint="t('clientHome.emptyText')">
           <template #action>
-            <ZTooltip :title="lockedHint">
-              <span :tabindex="locked ? 0 : undefined" class="inline-flex rounded-row outline-hidden focus-visible:shadow-focus">
-                <ZButton variant="primary" :class="cta" :disabled="locked" data-client-new @click="newShipment">
-                  <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
-                  {{ t('shell.client.newShipment') }}
-                </ZButton>
-              </span>
-            </ZTooltip>
+            <ZButton variant="primary" :class="cta" data-client-new @click="newShipment">
+              <template #icon><PhPlus :size="16" weight="bold" aria-hidden="true" /></template>
+              {{ t('shell.client.newShipment') }}
+            </ZButton>
           </template>
         </ZEmpty>
       </div>

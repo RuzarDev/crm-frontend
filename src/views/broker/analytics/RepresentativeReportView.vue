@@ -27,7 +27,8 @@ import {
 // Отправки по почте нет: формат органа будет отдельно (решение владельца 17.10).
 const { t } = useI18n()
 const auth = useAuthStore()
-const canOpenCase = computed(() => auth.hasPermission('import40.read'))
+// Бухгалтеру заявки закрыты guard'ом: номера простым текстом, как в «Аналитике» (05.11.2026).
+const canOpenCase = computed(() => auth.hasPermission('import40.read') && !auth.isFinanceOnly)
 
 const today = new Date()
 const quarters = quickQuarters(today)

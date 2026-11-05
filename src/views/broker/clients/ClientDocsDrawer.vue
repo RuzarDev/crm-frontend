@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDownloadSimple, PhPaperclip } from '@phosphor-icons/vue'
+import { PhDownloadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZDrawer from '@/components/z/ZDrawer.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
-import { import40ContractApi, type Import40DocumentDto, type Import40DocumentFileDto } from '@/api/import40Contract'
+import { import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 import type { ClientOnboardingRow } from '@/api/clientsOnboarding'
 import { saveBlob } from '@/ui/download'
 import { formatDay } from '@/views/broker/list'
 import { validDate } from '@/views/client/company/company'
-import { blankFileName, clientName, docKindLabelKey, docStatusLabelKey, docStatusTone, signMethodLabelKey } from './clients'
+import DocSignedFiles from './DocSignedFiles.vue'
+import { docTagOf } from './clientCard'
+import { blankFileName, clientName, docKindLabelKey, signMethodLabelKey } from './clients'
 
 // Документы клиента (договор и доверенность): статус, подписи сторон, бланк и подписанные файлы. Открывают только
 // те, у кого есть import40.read, — иначе сервер отвечает 403 (проверяет родитель). Бланк сервер собирает по данным
@@ -73,12 +75,6 @@ const downloadPdf = (d: Import40DocumentDto) => {
   if (!c) return
   return run(`${d.id}:pdf`, async () => saveBlob(await import40ContractApi.downloadDocument(c.id, d.id, 'pdf'), blankFileName(kindLabel(d), d, 'pdf')))
 }
-const downloadSigned = (d: Import40DocumentDto, f: Import40DocumentFileDto) => {
-  const c = props.client
-  if (!c) return Promise.resolve()
-  return run(f.id, async () => saveBlob(await import40ContractApi.downloadDocumentSignedFile(c.id, d.id, f.id), f.originalFileName))
-}
-const fileLink = 'inline-flex max-w-full min-h-8 cursor-pointer items-center gap-1.5 rounded-field border-0 bg-transparent px-1 text-left font-sans text-sm text-zircon-ink outline-hidden hover:underline focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45 max-sm:min-h-11'
 </script>
 
 <template>
@@ -102,7 +98,7 @@ const fileLink = 'inline-flex max-w-full min-h-8 cursor-pointer items-center gap
             <div class="text-xs text-muted">{{ t('admin.sformirovanDate', { date: formatDay(d.generatedAtUtc) }) }}</div>
           </div>
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <ZTag :tone="docStatusTone(d.status)" data-doc-status>{{ t(docStatusLabelKey(d.status)) }}</ZTag>
+            <ZTag :tone="docTagOf(d).tone" data-doc-status>{{ t(docTagOf(d).labelKey) }}</ZTag>
             <span
               v-if="d.validUntilUtc"
               :class="['text-xs', isExpired(d.validUntilUtc) ? 'text-tone-danger-fg' : 'text-muted']"
@@ -124,19 +120,8 @@ const fileLink = 'inline-flex max-w-full min-h-8 cursor-pointer items-center gap
             <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
             PDF
           </ZButton>
-          <button
-            v-for="f in d.files"
-            :key="f.id"
-            type="button"
-            :class="fileLink"
-            :disabled="downloading !== null"
-            data-doc-file
-            @click="downloadSigned(d, f)"
-          >
-            <PhPaperclip :size="14" class="shrink-0" aria-hidden="true" />
-            <span class="truncate" :title="f.originalFileName">{{ f.originalFileName }}</span>
-          </button>
-          <span v-if="!d.files.length" class="text-sm text-muted">{{ t('admin.podpisannyhFaylovNet') }}</span>
+          <DocSignedFiles v-if="client && d.files.length" :client-id="client.id" :doc-id="d.id" :files="d.files" />
+          <span v-else class="text-sm text-muted">{{ t('admin.podpisannyhFaylovNet') }}</span>
         </div>
       </li>
     </ul>

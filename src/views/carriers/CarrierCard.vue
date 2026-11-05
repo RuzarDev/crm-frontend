@@ -37,7 +37,9 @@ const props = withDefaults(defineProps<{
   readonly?: boolean
   /** Ссылка на поставку: клиенту — /import-40/:id (его поставка), сотруднику — карточка заявки (тот же путь). */
   caseHref?: (caseId: string) => string
-}>(), { backLabel: undefined, readonly: false, caseHref: (id: string) => `/import-40/${encodeURIComponent(id)}` })
+  /** false — номер заявки простым текстом: бухгалтеру заявки закрыты, ссылка молча увела бы на «Финансы» (05.11.2026). */
+  caseLinks?: boolean
+}>(), { backLabel: undefined, readonly: false, caseHref: (id: string) => `/import-40/${encodeURIComponent(id)}`, caseLinks: true })
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
@@ -261,9 +263,10 @@ const iconBtn = 'inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-cen
                   </ZTag>
                 </p>
                 <p class="m-0 mt-0.5 text-xs break-words text-muted">
-                  <RouterLink v-if="i.caseId" :to="caseHref(i.caseId)" class="text-zircon-ink no-underline hover:underline focus-visible:shadow-focus" data-invoice-case>
+                  <RouterLink v-if="i.caseId && caseLinks" :to="caseHref(i.caseId)" class="text-zircon-ink no-underline hover:underline focus-visible:shadow-focus" data-invoice-case>
                     {{ t('carriers.invoice.forCase', { n: i.caseNumber ?? '—' }) }}
                   </RouterLink>
+                  <span v-else-if="i.caseId" data-invoice-case-plain>{{ t('carriers.invoice.forCase', { n: i.caseNumber ?? '—' }) }}</span>
                   <span v-else>{{ t('carriers.invoice.noCaseShort') }}</span>
                   <template v-if="i.note"> · {{ i.note }}</template>
                 </p>

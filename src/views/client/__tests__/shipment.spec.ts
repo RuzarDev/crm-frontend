@@ -3,7 +3,8 @@ import ru from '@/i18n/locales/ru'
 import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import type { ClientShipment } from '@/api/clientShipments'
-import { askFor, askHref, condRelBriefOfCase, segments, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
+import type { Import40CaseInvoiceDto } from '@/api/import40'
+import { askFor, askHref, condRelBriefOfCase, segments, serviceInvoiceToPay, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
 import { caseDto, declaration, fileDto } from './caseFixture'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
@@ -25,7 +26,9 @@ describe('askFor / tabOf', () => {
     ['ДТ подана, проблема', { status: 3, step: 3, isProblem: true }, 'problem', 'waiting'],
     ['счёт СВХ без чека', { status: 6, step: 5 }, 'paySvh', 'waiting'],
     ['счёт СВХ, чек загружен', { status: 6, step: 5, paymentCheckUploaded: true }, null, 'active'],
-    ['оплата услуг', { status: 7, step: 6 }, null, 'active'],
+    ['оплата услуг: счёта ещё нет', { status: 7, step: 6 }, null, 'active'],
+    ['оплата услуг: счёт ждёт оплаты', { status: 7, step: 6, serviceInvoiceIssued: true, serviceInvoiceToPayId: 'i1' }, 'payService', 'waiting'],
+    ['оплата услуг: счёт с чеком на проверке', { status: 7, step: 6, serviceInvoiceIssued: true, serviceInvoiceToPayId: null }, null, 'active'],
     ['выполнена', { status: 8, step: 6, isProblem: true }, null, 'done'],
     ['отменена', { status: 9, step: 1, returnReason: 'x' }, null, 'done'],
   ] as const)('%s', (_, o, ask, tab) => {
@@ -62,10 +65,23 @@ describe('shipmentTag', () => {
     const keys = ['cancelled', 'done', 'needDoc', 'returned', 'draft', 'paySvh', 'checkReview', 'payService', 'waitInvoice', 'released', 'sent', 'atBorder', 'processing', 'customs', 'preBorder']
     for (const loc of [ru, kk, en]) {
       expect(Object.keys(loc.client.tag).sort()).toEqual([...keys].sort())
-      for (const k of ['customs', 'problem', 'returned', 'draft', 'paySvh', 'preBorder'] as const) expect(loc.client.ask[k].title).toBeTruthy()
+      for (const k of ['customs', 'problem', 'returned', 'draft', 'paySvh', 'payService', 'preBorder'] as const) expect(loc.client.ask[k].title).toBeTruthy()
       expect(loc.client.ask.preBorder.text).toContain('{list}')
       expect(loc.client.ask.paySvh.text).toContain('{sum}')
+      expect(loc.client.ask.payService.text).toContain('{sum}')
+      expect(loc.client.ask.payService.rowSum).toContain('{sum}')
     }
+  })
+})
+
+describe('serviceInvoiceToPay', () => {
+  const inv = (o: Partial<Import40CaseInvoiceDto>): Import40CaseInvoiceDto => ({
+    id: 'i', kind: 'invoice', status: 1, number: '1', year: 2026, total: 100, issuedAtUtc: '2026-10-02T00:00:00Z', paidAtUtc: null, ...o,
+  })
+  it('выставленный счёт без чека, самый ранний; акт, оплаченный и с чеком не в счёт', () => {
+    expect(serviceInvoiceToPay([])).toBeNull()
+    expect(serviceInvoiceToPay([inv({ kind: 'act' }), inv({ status: 2 }), inv({ hasPaymentCheck: true })])).toBeNull()
+    expect(serviceInvoiceToPay([inv({ id: 'late' }), inv({ id: 'early', issuedAtUtc: '2026-10-01T00:00:00Z' })])?.id).toBe('early')
   })
 })
 

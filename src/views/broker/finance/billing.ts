@@ -102,7 +102,7 @@ export function billingStats(rows: BrokerInvoice[], now: Date = new Date()): Bil
   return s
 }
 
-export type BillingAction = 'issue' | 'markPaid' | 'markSigned' | 'remind' | 'pdf' | 'edit' | 'delete' | 'cancel'
+export type BillingAction = 'issue' | 'markPaid' | 'markSigned' | 'remind' | 'pdf' | 'edit' | 'delete' | 'unmarkPaid' | 'cancel'
 
 /**
  * Главная кнопка строки (только при праве записи — проверяет экран): черновик — «Выставить»; выставленный счёт
@@ -120,10 +120,12 @@ export function primaryAction(r: BrokerInvoice): 'issue' | 'markPaid' | 'markSig
  * Пункты меню «⋯»: PDF — всем; остальное — при праве записи и тех же условиях, что раньше:
  * «Напомнить» — выставленный счёт (акт не оплачивают), «Отметить оплату» — выставленный счёт,
  * «Изменить» (S-39, 30.10.2026) и «Удалить черновик» — черновик, «Аннулировать» — выставленный или оплаченный.
- * Главная кнопка в меню не повторяется.
+ * «Снять отметку оплаты» (05.11.2026) — оплаченный счёт, те же условия, что на шаге 6 заявки; право своё (canUnmark),
+ * руководитель может не иметь finance.write. Главная кнопка в меню не повторяется.
  */
-export function menuActions(r: BrokerInvoice, canWrite: boolean): BillingAction[] {
+export function menuActions(r: BrokerInvoice, canWrite: boolean, canUnmark = false): BillingAction[] {
   const out: BillingAction[] = ['pdf']
+  if (canUnmark && r.kind === 'invoice' && r.status === ST_PAID) out.push('unmarkPaid')
   if (!canWrite) return out
   const primary = primaryAction(r)
   if (r.status === ST_ISSUED && r.kind !== 'act' && primary !== 'remind') out.push('remind')

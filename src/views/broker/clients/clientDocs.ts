@@ -1,10 +1,10 @@
 import type { ClientDocumentRow } from '@/api/clientCard'
-import { docStatusLabelKey } from './clients'
+import { docTag } from './clientCard'
 import { matchesQuery } from '@/views/broker/list'
 import { validDate } from '@/views/client/company/company'
 
 // Чистая логика реестра «Документы клиентов» (редизайн, волна 3б): фильтры, счётчики, срок действия, Excel.
-// Тоны и подписи статуса документа — те же, что у списка «Клиенты» (clients.ts).
+// Тон и подпись статуса — docTag (clientCard.ts), те же, что в карточке клиента.
 
 export type DocKind = 'all' | 'contract' | 'poa'
 export type DocState = 'all' | 'active' | 'expiring' | 'awaiting' | 'aqniet'
@@ -15,10 +15,12 @@ export const DOC_STATES: DocState[] = ['all', 'active', 'expiring', 'awaiting', 
 /** Договор: клиент подписал, AQNIET — нет (договор не отозван и не истёк). */
 export const needsAqniet = (r: Pick<ClientDocumentRow, 'kind' | 'status' | 'clientSigned' | 'providerSigned'>): boolean => r.kind === 'contract' && r.status === 1 && r.clientSigned && !r.providerSigned
 
+const EXPIRING_LABEL = 'broker.clientCard.doc.expiring'
 const inState = (r: ClientDocumentRow, state: DocState): boolean => {
+  // Сегменты совпадают с тегом строки: истёкший и заменённый (статус 2 в базе) под «Действуют» не попадают.
   switch (state) {
-    case 'active': return r.status === 2
-    case 'expiring': return r.expiringSoon
+    case 'active': return docTag(r).tone === 'done' || docTag(r).labelKey === EXPIRING_LABEL
+    case 'expiring': return docTag(r).labelKey === EXPIRING_LABEL
     case 'awaiting': return r.status === 1
     case 'aqniet': return needsAqniet(r)
     default: return true
@@ -99,7 +101,7 @@ export function docExcelRows(rows: ClientDocumentRow[], t: (k: string) => string
     [t('broker.clientDocs.xlsEmail')]: r.clientEmail,
     [t('broker.clientDocs.col.doc')]: t(r.kind === 'contract' ? 'admin.dogovor' : 'admin.doverennost'),
     [t('broker.clientDocs.xlsNumber')]: `${r.number}/${r.year}`,
-    [t('broker.clientDocs.col.status')]: t(docStatusLabelKey(r.status)),
+    [t('broker.clientDocs.col.status')]: t(docTag(r).labelKey),
     [t('broker.clientDocs.singleUse')]: yn(r.isSingleUse),
     [t('broker.clientDocs.xlsClientSigned')]: yn(r.clientSigned),
     [t('broker.clientDocs.xlsProviderSigned')]: yn(r.providerSigned),

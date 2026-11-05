@@ -79,7 +79,7 @@ describe('«Документы клиентов»: список', () => {
     expect(r[0].get('[data-doc-generated]').text()).toBe('сформирован 02.10.2026')
     expect(r[2].get('[data-doc-title]').text()).toBe('Доверенность № 9/2026')
     expect(r[3].get('[data-doc-generated]').text()).toBe('сформирован 02.10.2026 · разовый')
-    expect(w.findAll('[data-doc-status]').map((s) => s.text())).toEqual(['Действует', 'Ждёт подписи', 'Действует', 'Действует', 'Истёк', 'Ждёт подписи'])
+    expect(w.findAll('[data-doc-status]').map((s) => s.text())).toEqual(['Действует', 'Ждёт подписи', 'Истекает', 'Действует', 'Истёк', 'Ждёт подписи'])
     expect(r[0].get('[data-doc-status]').classes()).toContain('bg-tone-done-bg')
     expect(r[1].get('[data-doc-status]').classes()).toContain('bg-tone-wait-bg')
     expect(r[4].get('[data-doc-status]').classes()).toContain('bg-tone-danger-bg')

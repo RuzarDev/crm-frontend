@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -7,14 +6,10 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { ClientShipment } from '@/api/clientShipments'
 
 const api = vi.hoisted(() => ({ list: vi.fn() }))
-const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown, blockReason: null as unknown, busyCaseNumber: null as unknown }))
 const cost = vi.hoisted(() => ({ xlsx: vi.fn(), saveBlob: vi.fn() }))
 vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
 vi.mock('@/api/shipmentCost', () => ({ shipmentCostApi: { xlsx: cost.xlsx } }))
 vi.mock('@/ui/download', () => ({ saveBlob: cost.saveBlob }))
-vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ needNew: { value: null }, blockParams: { get value() { return { number: (reg.busyCaseNumber as { value: string | null } | null)?.value ?? '', date: '' } } }, loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
-}))
 
 import ClientShipmentsView from '../ClientShipmentsView.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -65,10 +60,6 @@ beforeEach(() => {
       { path: '/:p(.*)*', component: stub },
     ],
   })
-  reg.loaded = ref(true)
-  reg.blockReason = ref(null)
-  reg.busyCaseNumber = ref(null)
-  reg.complete = ref(true)
   const auth = useAuthStore()
   auth.role = 'Client'
   auth.modules = ['import40']
@@ -216,9 +207,12 @@ describe('ClientShipmentsView', () => {
     expect(router.currentRoute.value.fullPath).toBe('/import-40/new')
   })
 
-  it('пока регистрация не завершена, «Оформить поставку» выключена', async () => {
-    reg.complete = ref(false)
+  it('«Оформить поставку» не выключается и ведёт в мастер: причину блокировки показывает он', async () => {
     await mountAt('/import-40')
-    expect(w.get('[data-client-new]').attributes('disabled')).toBeDefined()
+    const btn = w.get('[data-client-new]')
+    expect(btn.attributes('disabled')).toBeUndefined()
+    await btn.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/import-40/new')
   })
 })

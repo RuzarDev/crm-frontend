@@ -103,6 +103,15 @@ describe('«Отчёт представителя»', () => {
     expect(cells[1].text()).toContain('1')
   })
 
+  it('бухгалтеру номера ДТ — простым текстом: заявки ему закрыты, ссылка молча увела бы на «Финансы»', async () => {
+    useAuthStore().permissions = ['analytics.read', 'import40.read', 'finance.read', 'finance.write']
+    await mountView()
+    await w.findAll('[data-rep-post-toggle]')[0].trigger('click')
+    const dt = w.get('[data-rep-post-rows]').findAll('[data-rep-dt]')[0]
+    expect(dt.find('[data-rep-dt-link]').exists()).toBe(false)
+    expect(dt.find('a').exists()).toBe(false)
+  })
+
   it('раскрытие поста: ДТ поста со ссылкой на заявку, статусом и пометкой ВТО', async () => {
     await mountView()
     expect(w.find('[data-rep-post-rows]').exists()).toBe(false)

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -8,12 +7,8 @@ import type { BrokerInvoice } from '@/api/billing'
 import type { ClientShipment } from '@/api/clientShipments'
 
 const api = vi.hoisted(() => ({ list: vi.fn(), invoices: vi.fn() }))
-const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unknown, blockReason: null as unknown, busyCaseNumber: null as unknown }))
 vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.invoices } }))
-vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ needNew: { value: null }, blockParams: { get value() { return { number: (reg.busyCaseNumber as { value: string | null } | null)?.value ?? '', date: '' } } }, loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
-}))
 
 import ClientHomeView from '../ClientHomeView.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -55,10 +50,6 @@ beforeEach(async () => {
   await router.push('/home')
   await router.isReady()
   homeAttention.value = null
-  reg.loaded = ref(true)
-  reg.blockReason = ref(null)
-  reg.busyCaseNumber = ref(null)
-  reg.complete = ref(true)
   const auth = useAuthStore()
   auth.role = 'Client'
   auth.modules = ['import40']
@@ -217,10 +208,10 @@ describe('ClientHomeView', () => {
     expect(homeAttention.value).toBe(5)
   })
 
-  it('регистрация не завершена — «Оформить новую поставку» выключена', async () => {
-    reg.complete = ref(false)
+  it('«Оформить новую поставку» не выключается: причину блокировки показывает мастер', async () => {
     await mountIt()
-    expect(newButton().attributes('disabled')).toBeDefined()
+    expect(newButton().attributes('disabled')).toBeUndefined()
+    expect(w.findComponent({ name: 'ZTooltip' }).exists()).toBe(false)
   })
 
   it('пустой список — «Поставок пока нет», счёта нет — карточки нет', async () => {
