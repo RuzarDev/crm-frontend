@@ -23,6 +23,7 @@ import InvoiceModal from './InvoiceModal.vue'
 import { CONTRACT_TONE, KZ_CODE, carrierFieldsOf, invoiceFieldsOf, invoiceTotals } from './carriers'
 import { contractHint } from './contractHint'
 import { DOC_MAX_MB } from '@/utils/uploadLimits'
+import { useAuthStore } from '@/stores/auth'
 
 // Карточка перевозчика клиента (очередь 4, задача 2): реквизиты и контакты, договор перевозки (из реестра документов,
 // срок и статус), счета перевозчика (фрахт) — сумма в валюте и ≈ в тенге по курсу НБ РК на дату счёта, оплачен или нет,
@@ -43,6 +44,7 @@ const props = withDefaults(defineProps<{
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
+const auth = useAuthStore()
 
 const card = shallowRef<CarrierCard | null>(null)
 const state = ref<'loading' | 'error' | 'notFound' | 'ready'>('loading')
@@ -197,7 +199,7 @@ const iconBtn = 'inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-cen
           <h1 class="m-0 text-[24px] leading-8 font-semibold tracking-[-0.02em] break-words text-ink" data-carrier-title>{{ c.name }}</h1>
           <p class="m-0 mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-3">
             <ZTag v-if="c.isArchived" tone="neutral" size="sm" data-carrier-archived>{{ t('carriers.archivedTag') }}</ZTag>
-            <span class="text-xs text-muted">{{ t(c.addedByClient ? 'carriers.addedByClient' : 'carriers.addedByStaff') }}</span>
+            <span class="text-xs text-muted">{{ t(c.addedByClient ? (auth.isClient ? 'carriers.addedByYou' : 'carriers.addedByClient') : 'carriers.addedByStaff') }}</span>
           </p>
         </div>
         <div class="flex w-full flex-wrap gap-2 sm:w-auto">

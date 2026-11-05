@@ -44,6 +44,7 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   const requiresSales = meta.requiresSales === true
   const requiresReferences = meta.requiresReferences === true
   const requiresClientTransit = meta.requiresClientTransit === true
+  const staffOnly = meta.staffOnly === true
 
   const normalizedRole = (a.role || '').trim().toLowerCase()
 
@@ -78,6 +79,11 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   } else if (
     // ТН ВЭД — то же условие, что и группа в меню: references.read, admin и client всегда.
     requiresReferences && !(normalizedRole === 'administrator' || normalizedRole === 'client' || a.hasPermission('references.read'))
+  ) {
+    return '/'
+  } else if (
+    // Рабочие экраны сотрудников внутри справочников: в меню клиента их нет, по адресу тоже не открываем.
+    staffOnly && normalizedRole === 'client'
   ) {
     return '/'
   } else if (

@@ -81,12 +81,12 @@ function cardTitle(kind: DocKind, d: Import40DocumentDto | null) {
 function cardMeta(kind: DocKind, d: Import40DocumentDto | null) {
   if (!d) return t(`client.documents.company.${kind}None`)
   return [
-    t(d.isSingleUse ? 'client.company.doc.single' : 'client.company.doc.multi'),
+    t(`client.company.${kind === 'poa' ? 'poa.forms' : 'doc'}.${d.isSingleUse ? 'single' : 'multi'}`),
     d.validUntilUtc ? t('client.documents.company.until', { date: validDate(d.validUntilUtc) }) : null,
   ].filter(Boolean).join(' · ')
 }
-const statusText = (s: CompanyCardStatus) =>
-  s === 'none' ? t('client.documents.company.none') : t(`client.company.doc.status.${s}`)
+const statusText = (s: CompanyCardStatus, kind: DocKind) =>
+  s === 'none' ? t('client.documents.company.none') : t(`client.company.${kind === 'poa' ? 'poa.forms' : 'doc'}.status.${s}`)
 const companyTo = (kind: DocKind) => ({ path: '/import-40/company', query: { step: kind } })
 
 // Скачать договор или доверенность прямо отсюда, как файлы поставок ниже (05.11.2026).
@@ -259,7 +259,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
                   data-company-new
                 >{{ t(`client.documents.company.newAwaiting.${c.kind}`) }}</span>
               </span>
-              <ZTag :tone="STATUS_TONE[c.status]" class="flex-none" data-company-tag>{{ statusText(c.status) }}</ZTag>
+              <ZTag :tone="STATUS_TONE[c.status]" class="flex-none" data-company-tag>{{ statusText(c.status, c.kind) }}</ZTag>
             </RouterLink>
             <!-- Действия и ссылка на поставку — рядом с карточкой, а не внутри (карточка сама ссылка) -->
             <div v-if="c.doc || c.needSign || c.busyCase" class="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 max-sm:gap-x-2">

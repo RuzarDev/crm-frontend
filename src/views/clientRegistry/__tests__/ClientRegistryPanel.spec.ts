@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import { confirmState } from '@/ui/confirm'
 import { regDoc } from './registryFixture'
@@ -16,6 +17,7 @@ vi.mock('@/ui/message', () => ({ message: msg }))
 vi.mock('@/ui/download', () => ({ saveBlob: vi.fn() }))
 
 import ClientRegistryPanel from '../ClientRegistryPanel.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const DOCS = [
   regDoc({ id: 'a', category: 'certificate', number: 'KZ-1', status: 'expiring', daysLeft: 12, validUntil: '2026-10-29' }),
@@ -32,6 +34,7 @@ const mountPanel = async () => {
 const ids = () => w.findAll('[data-registry-doc]').map((r) => r.attributes('data-registry-doc'))
 
 beforeEach(() => {
+  setActivePinia(createPinia())
   api.list.mockResolvedValue(DOCS)
 })
 afterEach(() => {
@@ -42,6 +45,16 @@ afterEach(() => {
 })
 
 describe('ClientRegistryPanel', () => {
+  it('кто добавил: клиенту о нём самом — «добавили вы», сотруднику — «добавил клиент»', async () => {
+    await mountPanel()
+    expect(w.get('[data-registry-doc="a"] [data-registry-added-by]').text()).toBe('добавил клиент')
+    w.unmount()
+    useAuthStore().role = 'client'
+    await mountPanel()
+    expect(w.get('[data-registry-doc="a"] [data-registry-added-by]').text()).toBe('добавили вы')
+    expect(w.get('[data-registry-doc="b"] [data-registry-added-by]').text()).toBe('добавил AQNIET')
+  })
+
   it('список: категории, статусы, срок, кто добавил; плашка про истекающие и истёкшие', async () => {
     await mountPanel()
     expect(api.list).toHaveBeenCalledWith('c1', { includeArchived: false, silent: true })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhFileXls, PhPlus } from '@phosphor-icons/vue'
@@ -57,6 +57,15 @@ const tab = computed<ShipmentTab>(() => {
   return TABS.includes(v as ShipmentTab) ? (v as ShipmentTab) : 'active'
 })
 const tabTo = (k: ShipmentTab) => ({ query: { ...route.query, tab: k === 'active' ? undefined : k } })
+// На телефоне вкладки не влезают, а полоса прокрутки скрыта: активная (и по ссылке ?tab=done) не должна оставаться за краем.
+const tabsNav = ref<HTMLElement>()
+const showActiveTab = async () => {
+  await nextTick()
+  tabsNav.value?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+}
+// После загрузки вкладки шире (появляются счётчики): иначе активная снова заходит за край.
+watch([tab, () => cases.loading], showActiveTab)
+onMounted(showActiveTab)
 
 // ---- Поиск (?q=, replace — не плодим историю на каждую букву) ----
 const queryQ = () => (typeof route.query.q === 'string' ? route.query.q : '')
@@ -159,6 +168,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
         @update:value="onSearch"
       />
       <nav
+        ref="tabsNav"
         :aria-label="t('client.list.tabsLabel')"
         class="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] xl:order-1 xl:shadow-none [&::-webkit-scrollbar]:hidden"
       >

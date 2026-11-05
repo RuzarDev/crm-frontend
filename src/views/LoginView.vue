@@ -10,7 +10,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { afterLoginPath } from '@/router/safePath'
 import type { ZRule } from '@/ui/validation'
-import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/components/auth/classes'
+import { authLabelClass as labelClass, authLinkClass as linkClass, authLinkTouchClass } from '@/components/auth/classes'
 
 // Вход брокеров и клиентов. Ошибку входа (неверный пароль, блокировка) показывает перехватчик axios — здесь
 // только проверка заполненности. Подписи свои, а не label у ZField: у пароля в строке подписи ссылка
@@ -85,7 +85,7 @@ onMounted(() => {
         />
         <RouterLink
           to="/forgot-password"
-          :class="[linkClass, 'absolute right-0 top-0 text-sm font-medium no-underline']"
+          :class="[linkClass, 'absolute right-0 top-0 text-sm font-medium no-underline max-sm:-top-4 max-sm:inline-flex max-sm:min-h-11 max-sm:items-end max-sm:pb-2']"
         >{{ t('login.forgot') }}</RouterLink>
       </ZField>
       <ZButton variant="primary" html-type="submit" size="lg" block :loading="loading">{{ t('login.submit') }}</ZButton>
@@ -94,7 +94,7 @@ onMounted(() => {
     <template #footer>
       <p class="m-0 text-center text-[14px] text-ink-3">
         {{ t('login.noAccount') }}
-        <RouterLink to="/register" :class="[linkClass, 'font-semibold underline underline-offset-2']">{{ t('auth.registerCompany') }}</RouterLink>
+        <RouterLink to="/register" :class="[linkClass, authLinkTouchClass, 'font-semibold underline underline-offset-2']">{{ t('auth.registerCompany') }}</RouterLink>
       </p>
     </template>
   </AuthLayout>

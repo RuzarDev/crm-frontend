@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { BrokerInvoice } from '@/api/billing'
-import { defaultInvoiceId, dueDayMonth, groupInvoices, invoiceState, isOverdue, requisiteRows } from '../invoices'
+import ru from '@/i18n/locales/ru'
+import en from '@/i18n/locales/en'
+import { defaultInvoiceId, dueDayMonth, groupInvoices, invoiceFileName, invoiceState, isOverdue, requisiteRows } from '../invoices'
 
 const inv = (o: Partial<BrokerInvoice>): BrokerInvoice => ({
   id: 'i', clientId: 'c', clientName: '', caseId: null, caseNumber: null, kind: 'invoice', status: 1, number: '1', year: 2026,
@@ -10,6 +12,14 @@ const inv = (o: Partial<BrokerInvoice>): BrokerInvoice => ({
 const NOW = new Date(2026, 9, 10, 12)
 
 describe('invoices helpers', () => {
+  it('имя файла — на языке кабинета, без названия организации', () => {
+    const billing = (m: { billing: Record<string, unknown> }) => (key: string) => String(m.billing[key.split('.')[1]])
+    expect(invoiceFileName(billing(ru), { kind: 'invoice', number: '12' })).toBe('Счёт-12.pdf')
+    expect(invoiceFileName(billing(en), { kind: 'invoice', number: '12' })).toBe('Invoice-12.pdf')
+    expect(invoiceFileName(billing(en), { kind: 'act', number: '7' })).toBe('Act-7.pdf')
+    expect(invoiceFileName(billing(ru), { kind: 'invoice', number: '' })).toBe('Счёт-Черновик.pdf')
+  })
+
   it('срок — дата из строки без сдвига пояса; просрочен со следующего дня', () => {
     expect(dueDayMonth('2026-10-15T00:00:00Z')).toBe('15.10')
     expect(dueDayMonth(null)).toBe('')

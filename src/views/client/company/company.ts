@@ -26,9 +26,17 @@ export function currentDoc(docs: Import40DocumentDto[]): Import40DocumentDto | n
   return sorted.find(isOpen) ?? sorted.find((d) => isDocumentEffective(d)) ?? null
 }
 
+/** Действующий документ, пока актуальным стал новый, ещё не подписанный: его показываем рядом, а не в истории. */
+export function effectiveBehind(docs: Import40DocumentDto[]): Import40DocumentDto | null {
+  const cur = currentDoc(docs)
+  if (!cur || !isOpen(cur)) return null
+  return sortDocs(docs).find((d) => d !== cur && isDocumentEffective(d)) ?? null
+}
+
 export function historyDocs(docs: Import40DocumentDto[]): Import40DocumentDto[] {
   const cur = currentDoc(docs)
-  return sortDocs(docs).filter((d) => d !== cur)
+  const behind = effectiveBehind(docs)
+  return sortDocs(docs).filter((d) => d !== cur && d !== behind)
 }
 
 export type HistoryStatus = 'effective' | 'awaiting' | 'consumed' | 'expired' | 'revoked'

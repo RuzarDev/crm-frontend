@@ -317,7 +317,7 @@ const linkBtn = 'inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-
       </div>
     </template>
 
-    <PreBorderModal v-model:open="editOpen" :case-id="caseId" :data="d" @saved="emit('changed', $event)" />
+    <PreBorderModal v-model:open="editOpen" :case-id="caseId" :data="d" :audience="audience" @saved="emit('changed', $event)" />
     <SerialsModal v-model:open="serialsOpen" :case-id="caseId" :existing="d?.serialCount ?? 0" @saved="onSerialsSaved" />
 
     <ZModal v-model:open="listOpen" :title="t('preBorder.serials.title')" :footer="null" :width="520" data-serials-list>

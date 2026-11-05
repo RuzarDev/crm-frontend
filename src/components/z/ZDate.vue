@@ -217,11 +217,15 @@ const clear = () => {
 }
 defineExpose({ focus: () => inputEl.value?.focus(), blur: () => inputEl.value?.blur() })
 
-const iconButton = 'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted'
-const navButton = 'flex size-7 cursor-pointer items-center justify-center rounded-[7px] border-0 bg-transparent p-0 text-ink-2 outline-hidden hover:bg-sunken focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45'
+// На телефоне размер значка в поле не меняется, растёт только зона касания (after): поле остаётся той же высоты.
+const iconButton = 'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted max-sm:relative max-sm:after:absolute max-sm:after:-inset-x-1.5 max-sm:after:-inset-y-3'
+const navButton = 'flex size-7 cursor-pointer items-center justify-center rounded-[7px] border-0 bg-transparent p-0 text-ink-2 outline-hidden hover:bg-sunken focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45 max-sm:size-11'
+// Семь дней по 44px + поля окна — 332px: на узком телефоне (320px) день сужается, чтобы окно не выходило за экран.
+const dayWidthPhone = 'max-sm:w-[min(44px,calc((100vw-40px)/7))]'
 // Сегодня — полужирный цирконовый, выбранная — тёмно-синяя, вне месяца и вне min/max — бледные.
 const cellClass = cn(
-  'flex size-8 cursor-pointer select-none items-center justify-center rounded-[7px] text-sm tabular-nums text-ink outline-hidden',
+  'flex size-8 cursor-pointer select-none items-center justify-center rounded-[7px] text-sm tabular-nums text-ink outline-hidden max-sm:h-11',
+  dayWidthPhone,
   'transition-colors duration-150 ease-out motion-reduce:transition-none focus-visible:shadow-focus',
   'hover:not-data-[selected]:not-data-[disabled]:bg-sunken',
   'data-[today]:font-semibold data-[today]:not-data-[selected]:text-zircon-ink',
@@ -309,7 +313,7 @@ const cellClass = cn(
         <DatePickerGrid v-for="month in grid" :key="month.value.toString()" class="w-full border-collapse select-none">
           <DatePickerGridHead>
             <DatePickerGridRow class="flex">
-              <DatePickerHeadCell v-for="day in weekDays" :key="day" class="w-8 pb-1 text-xs font-normal text-muted">{{ day }}</DatePickerHeadCell>
+              <DatePickerHeadCell v-for="day in weekDays" :key="day" :class="cn('w-8 pb-1 text-xs font-normal text-muted', dayWidthPhone)">{{ day }}</DatePickerHeadCell>
             </DatePickerGridRow>
           </DatePickerGridHead>
           <DatePickerGridBody>

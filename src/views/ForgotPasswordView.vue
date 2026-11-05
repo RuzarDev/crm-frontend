@@ -9,7 +9,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import { authApi } from '@/api/passwordReset'
 import type { ZRule } from '@/ui/validation'
-import { authLabelClass as labelClass, authLinkClass as linkClass, authPrimaryLinkClass } from '@/components/auth/classes'
+import { authLabelClass as labelClass, authLinkClass as linkClass, authLinkTouchClass, authPrimaryLinkClass } from '@/components/auth/classes'
 
 // «Забыли пароль»: отправка ссылки восстановления на почту (до этого забывший пароль клиент был в тупике —
 // аудит 2026-09-22, п.3). Раскладка и герой — как у входа. Ошибку запроса (503 «почта не настроена» и прочие)
@@ -85,7 +85,7 @@ onMounted(() => {
 
     <template v-if="!sent" #footer>
       <p class="m-0 text-center text-[14px]">
-        <RouterLink to="/login" :class="[linkClass, 'font-semibold no-underline']">{{ t('reset.toLogin') }}</RouterLink>
+        <RouterLink to="/login" :class="[linkClass, authLinkTouchClass, 'font-semibold no-underline']">{{ t('reset.toLogin') }}</RouterLink>
       </p>
     </template>
   </AuthLayout>

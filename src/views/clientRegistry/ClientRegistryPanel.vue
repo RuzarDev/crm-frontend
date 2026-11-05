@@ -15,6 +15,7 @@ import {
   type RegistryDocument, type RegistryFields, type RegistryFile,
 } from '@/api/clientRegistry'
 import { DOC_ACCEPT } from '@/views/client/wizard/useShipmentFiles'
+import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
@@ -30,6 +31,9 @@ import {
 // Один и тот же раздел у клиента («Документы») и у сотрудника (карточка клиента). Удаления нет — «В архив».
 // readonly — просмотр без правки (сотрудник с clients.read без import40.read: сервер тоже не даст писать).
 const props = withDefaults(defineProps<{ clientId: string; readonly?: boolean }>(), { readonly: false })
+// Клиенту о нём самом: «добавили вы», сотруднику — «добавил клиент».
+const auth = useAuthStore()
+const addedByClientKey = computed(() => (auth.isClient ? 'clientRegistry.addedByYou' : 'clientRegistry.addedByClient'))
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const uid = useId()
@@ -288,7 +292,7 @@ defineExpose({ reload: load })
             {{ d.validUntil ? t('clientRegistry.until', { date: validDate(d.validUntil) }) : t('clientRegistry.hint.unlimited') }}
           </span>
           <span v-if="d.validUntil" :class="cn('text-xs', hintClass(d))" data-registry-hint>{{ validityHint(d, t) }}</span>
-          <span class="text-xs text-muted" data-registry-added-by>{{ t(d.addedByClient ? 'clientRegistry.addedByClient' : 'clientRegistry.addedByStaff') }}</span>
+          <span class="text-xs text-muted" data-registry-added-by>{{ t(d.addedByClient ? addedByClientKey : 'clientRegistry.addedByStaff') }}</span>
           <div v-if="!readonly" class="-mr-1.5 mt-1 flex flex-wrap gap-x-1 sm:justify-end">
             <button v-if="!d.isArchived" type="button" :class="actionBtn" :disabled="busy === d.id" data-registry-edit @click="openEdit(d)">
               <PhPencilSimple :size="14" aria-hidden="true" />{{ t('clientRegistry.edit') }}

@@ -35,6 +35,15 @@ describe('guardRedirect', () => {
     expect(guardRedirect('/privacy', { requiresAuth: false }, auth({ role: 'client' }))).toBeNull()
     expect(guardRedirect('/privacy', { requiresAuth: false }, auth({ role: 'client', mustChangePassword: true }))).toBeNull()
   })
+  // Рабочие экраны справочников: клиенту закрыты по адресу, у сотрудников условие то же (references.read).
+  it('staffOnly: клиенту — на /, сотруднику с references.read — открыто', () => {
+    const meta = { requiresReferences: true, staffOnly: true }
+    expect(guardRedirect('/tnved/timeline', meta, auth({ role: 'client' }))).toBe('/')
+    expect(guardRedirect('/tnved/national-lists', meta, auth({ role: 'client' }))).toBe('/')
+    expect(guardRedirect('/tnved/timeline', meta, auth({ perms: ['references.read'] }))).toBeNull()
+    expect(guardRedirect('/tnved/national-lists', meta, auth({ role: 'administrator' }))).toBeNull()
+    expect(guardRedirect('/tnved/timeline', meta, auth())).toBe('/')
+  })
   it('вошедший на /login — на /', () => {
     expect(guardRedirect('/login', { requiresAuth: false }, auth())).toBe('/')
   })

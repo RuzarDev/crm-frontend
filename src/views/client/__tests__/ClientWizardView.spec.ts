@@ -196,12 +196,17 @@ describe('ClientWizardView', () => {
     const nextBtn = () => w.get('[data-wz-next]')
     expect(nextBtn().text()).toBe('Далее: транспорт')
     expect(nextBtn().attributes('disabled')).toBeDefined()
+    // Причина видна сразу: под кнопкой, а не после касания поля.
+    const why = w.get('[data-wz-next-why]')
+    expect(why.text()).toBe('Опишите груз хотя бы парой слов')
+    expect(nextBtn().attributes('aria-describedby')).toBe(why.attributes('id'))
     expect(w.find('[data-wz-status]').exists()).toBe(false)
     // Будущие шаги недоступны, пока груз не описан.
     expect(w.get('[data-wz-step="transport"]').attributes('disabled')).toBeDefined()
 
     await w.get('[data-wz-cargo]').setValue('Ноутбуки Lenovo ThinkPad, 120 шт.')
     expect(nextBtn().attributes('disabled')).toBeUndefined()
+    expect(w.find('[data-wz-next-why]').exists()).toBe(false)
     await nextBtn().trigger('click')
     await flushPromises()
 

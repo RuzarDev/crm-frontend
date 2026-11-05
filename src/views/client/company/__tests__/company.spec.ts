@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Import40DocumentDto } from '@/api/import40Contract'
 import {
-  basisOrDefault, companySteps, currentDoc, endOfDayUtc, historyDocs, historyStatus, isIndividualEntrepreneur, joinList,
+  basisOrDefault, companySteps, currentDoc, effectiveBehind, endOfDayUtc, historyDocs, historyStatus, isIndividualEntrepreneur, joinList,
   missingRequisites, profileMissing, validDate, type RegistrationSnapshot,
 } from '../company'
 
@@ -18,8 +18,17 @@ describe('company helpers', () => {
     const open = doc({ id: 'open', isSingleUse: true, generatedAtUtc: '2026-10-05T06:00:00Z' })
     const old = doc({ id: 'old', status: 4, generatedAtUtc: '2026-01-01T06:00:00Z' })
     expect(currentDoc([eff, old, open])?.id).toBe('open')
-    expect(historyDocs([eff, old, open]).map((d) => d.id)).toEqual(['eff', 'old'])
+    expect(historyDocs([eff, old, open]).map((d) => d.id)).toEqual(['old'])
     expect(currentDoc([old])).toBeNull()
+  })
+
+  it('новый ждёт подписи — действующий рядом, а не в истории; новый подписан — рядом никого', () => {
+    const eff = doc({ id: 'eff', status: 2, generatedAtUtc: '2026-09-01T06:00:00Z' })
+    const open = doc({ id: 'open', generatedAtUtc: '2026-10-05T06:00:00Z' })
+    expect(effectiveBehind([eff, open])?.id).toBe('eff')
+    expect(effectiveBehind([eff])).toBeNull()
+    expect(effectiveBehind([open])).toBeNull()
+    expect(historyDocs([eff])).toEqual([])
   })
 
   it('статусы истории', () => {

@@ -20,7 +20,7 @@ import { dayMonth, emptyPreBorderFields, preBorderErrors, preBorderFieldsOf } fr
 // Правка поставки до границы одним окном: оплата поставщику (оплаты внешнеторговых контрактов клиента или «после
 // поставки»), погрузка (дата, город, склад, пломбы), в пути (перевозчик, номера транспорта по виду, контейнер,
 // ожидаемая дата на границе). Тягач/прицеп/вагон — поля заявки: их же видят КПП и ДТ.
-const props = defineProps<{ open: boolean; caseId: string; data: PreBorder | null }>()
+const props = defineProps<{ open: boolean; caseId: string; data: PreBorder | null; audience?: 'client' | 'staff' }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; saved: [dto: PreBorder] }>()
 const { t, locale } = useI18n()
 
@@ -101,7 +101,7 @@ const h3 = 'm-0 text-[13px] font-semibold text-ink-2 sm:col-span-2'
     @update:open="emit('update:open', $event)"
     @ok="save"
   >
-    <template #description>{{ t('preBorder.editHint') }}</template>
+    <template #description>{{ t(audience === 'client' ? 'preBorder.editHintClient' : 'preBorder.editHint') }}</template>
     <form class="grid grid-cols-1 gap-4 pb-2 sm:grid-cols-2" novalidate @submit.prevent="save">
       <!-- 1. Оплата поставщику -->
       <h3 :class="h3">{{ t('preBorder.sub.pay') }}</h3>

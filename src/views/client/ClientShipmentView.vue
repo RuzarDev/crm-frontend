@@ -28,7 +28,8 @@ import { stagesApi, type CaseStages } from '@/api/stages'
 import { billingApi } from '@/api/billing'
 import { referencesApi } from '@/api/references'
 import type { RefCodeItem } from '@/types/api'
-import { serviceInvoiceToPay, shipmentTag, toShipmentSummary } from '@/views/client/shipment'
+import { serviceInvoiceForLink, serviceInvoiceToPay, shipmentTag, toShipmentSummary } from '@/views/client/shipment'
+import { invoiceFileName } from '@/views/client/invoices/invoices'
 import { dayMonthOf } from '@/views/client/shipment/util'
 import { saveBlob } from '@/ui/download'
 import { countryName } from '@/utils/countries'
@@ -159,6 +160,10 @@ const onPreBorderChanged = (dto: PreBorder) => {
 // «Перевести (ИИ)» у документов: какие уже переведены.
 const translations = useTranslations(() => id.value)
 const hasServiceInvoice = computed(() => invoices.value.some((i) => i.kind === 'invoice' && (i.status === 1 || i.status === 2)))
+const serviceInvoiceId = computed(() => serviceInvoiceForLink(invoices.value)?.id ?? null)
+// «Перейти к сведениям» из панели «Нужно от вас»: блок ниже таймлайна, на телефоне до него далеко.
+const preBorderEl = ref<{ $el?: HTMLElement } | null>(null)
+const goToPreBorder = () => { preBorderEl.value?.$el?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }) }
 // Счета не загрузились — про счёт AQNIET тег не гадает (прежнее «Оплата услуг», 30.10.2026, аудит C-27).
 const summary = computed(() => (kase.value
   ? toShipmentSummary(kase.value, files.value, customs.list.value, preBorder.data.value?.missing ?? [], invoicesError.value ? undefined : hasServiceInvoice.value, serviceInvoiceToPay(invoices.value))
@@ -218,7 +223,7 @@ const downloadInvoicePdf = async (inv: Import40CaseInvoiceDto) => {
   if (pdfBusy.value) return
   pdfBusy.value = inv.id
   try {
-    saveBlob(await billingApi.pdf(inv.id), `${inv.kind === 'act' ? 'Акт' : 'Счёт'}-${inv.number || 'черновик'}.pdf`)
+    saveBlob(await billingApi.pdf(inv.id), invoiceFileName(t, inv))
   } catch (e: unknown) {
     if (!(e as { response?: unknown })?.response) message.error(t('billing.actionError'))
   } finally {
@@ -304,7 +309,7 @@ const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}${fromSh
           v-if="files.length"
           variant="secondary"
           :loading="zipping"
-          class="ml-auto h-[38px] rounded-[9px] border border-line-strong bg-surface px-3.5 font-medium enabled:hover:bg-sunken max-sm:hidden"
+          class="ml-auto h-[38px] rounded-[9px] border border-line-strong bg-surface px-3.5 font-medium enabled:hover:bg-sunken max-sm:ml-0 max-sm:h-11 max-sm:w-full"
           data-ship-zip
           @click="downloadAll"
         >
@@ -320,8 +325,10 @@ const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}${fromSh
         :case-dto="kase"
         :files="files"
         :has-service-invoice="hasServiceInvoice"
+        :service-invoice-id="serviceInvoiceId"
         :files-unknown="filesError"
         @changed="reload"
+        @open-pre-border="goToPreBorder"
       />
 
       <!-- Отменённая поставка — загружать нечего (сервер ответит 409). -->
@@ -341,6 +348,8 @@ const carrierHref = (id: string) => `/carriers/${encodeURIComponent(id)}${fromSh
       <!-- Поставка до границы (очередь 4): оплата, погрузка, путь, прибытие — необязательно. -->
       <PreBorderPanel
         v-if="preBorderVisible"
+        ref="preBorderEl"
+        class="scroll-mt-20"
         :case-id="kase.id"
         :data="preBorder.data.value"
         :state="preBorder.state.value"

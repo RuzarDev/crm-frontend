@@ -29,7 +29,7 @@ const go = (p: number) => {
 }
 
 const base = cn(
-  'inline-flex h-8 min-w-8 items-center justify-center rounded-field border-0 px-2 text-sm tabular-nums select-none',
+  'inline-flex h-8 min-w-8 items-center justify-center rounded-field border-0 px-2 text-sm tabular-nums select-none max-sm:h-11 max-sm:min-w-11',
   'outline-hidden focus-visible:shadow-focus transition-colors duration-150 ease-out motion-reduce:transition-none',
 )
 const pageClass = (p: number) => cn(
@@ -54,7 +54,7 @@ const arrowClass = cn(
         </button>
       </li>
       <li v-for="(item, i) in items" :key="item === '…' ? `gap-${i}` : item">
-        <span v-if="item === '…'" aria-hidden="true" class="inline-flex h-8 min-w-6 items-center justify-center text-sm text-ink-3">…</span>
+        <span v-if="item === '…'" aria-hidden="true" class="inline-flex h-8 min-w-6 items-center justify-center text-sm text-ink-3 max-sm:h-11">…</span>
         <button
           v-else
           type="button"

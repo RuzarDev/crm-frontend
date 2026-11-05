@@ -384,7 +384,7 @@ const router = createRouter({
           path: '/tnved/timeline',
           name: 'tnved-timeline',
           component: () => import('@/views/broker/references/changes/ChangesPage.vue'),
-          meta: { requiresReferences: true },
+          meta: { requiresReferences: true, staffOnly: true },
         },
         {
           // Старая «Аналитика ТН ВЭД» стала видом «Статистика» экрана «Изменения».
@@ -398,7 +398,7 @@ const router = createRouter({
           path: '/tnved/national-lists',
           name: 'tnved-national-lists',
           component: () => import('@/views/broker/references/national/NationalListsPage.vue'),
-          meta: { requiresReferences: true },
+          meta: { requiresReferences: true, staffOnly: true },
         },
         {
           // «Обновления ЕЭК»: редакции ЕТТ из PDF ЕЭК, сверка с КЕДЕН — по праву tnved.manage, как и сервер.

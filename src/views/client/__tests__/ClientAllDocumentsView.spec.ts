@@ -184,7 +184,9 @@ describe('ClientAllDocumentsView', () => {
     const p = company('poa')
     expect(p.text()).toContain('Доверенность № 3/2026')
     expect(p.attributes('data-company-status')).toBe('expired')
-    expect(p.get('[data-company-tag]').text()).toBe('Истёк')
+    // Доверенность — она: «Истекла», у договора «Истёк».
+    expect(p.get('[data-company-tag]').text()).toBe('Истекла')
+    expect(p.text()).toContain('Многоразовая')
   })
 
   it('договор скачивается прямо с карточки; неподписанный — ещё и «Подписать» в «Мою компанию»', async () => {

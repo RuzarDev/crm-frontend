@@ -48,7 +48,7 @@ const HOVER: Record<ZButtonVariant, string> = {
 const SIZE: Record<ZButtonSize, string> = {
   sm: 'h-7 px-2.5 text-xs gap-1.5',
   md: 'h-9 px-3.5 text-sm gap-2',
-  lg: 'h-[42px] px-5 rounded-[9px] text-[15px] gap-2',
+  lg: 'h-[42px] px-5 rounded-[9px] text-[15px] gap-2 max-sm:h-11',
 }
 
 const interactive = computed(() => !props.disabled && !props.loading)

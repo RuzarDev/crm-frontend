@@ -278,6 +278,8 @@ const stepOk = (i: number) => (i === 0 ? isCargoOk(draft.cargo) : i === 2 ? isBi
 const canOpen = (i: number) => i <= step.value || Array.from({ length: i }, (_, k) => k).every(stepOk)
 const stepDone = (i: number) => i !== step.value && i < reached.value && stepOk(i)
 const canNext = computed(() => stepOk(step.value))
+// «Далее» выключена — причина под кнопкой, как на шаге документов: у поля она появлялась только после касания.
+const nextBlock = computed(() => (canNext.value ? '' : t(step.value === 0 ? 'client.wizard.cargo.cargoShort' : 'client.wizard.parties.binInvalid')))
 
 const rootEl = ref<HTMLElement>()
 const stepHost = ref<HTMLElement>()
@@ -787,6 +789,7 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 variant="primary"
                 :disabled="!canNext"
                 :loading="advancing"
+                :aria-describedby="nextBlock ? `${uid}-next-why` : undefined"
                 :class="cn(primaryBtn, 'sm:ml-auto')"
                 data-wz-next
                 @click="next"
@@ -802,6 +805,12 @@ const backBtn = 'h-[42px] rounded-row border border-solid border-line-strong bg-
                 @click="submit"
               >{{ t('client.wizard.submit') }}</ZButton>
             </div>
+            <p
+              v-if="step < LAST && nextBlock"
+              :id="`${uid}-next-why`"
+              class="m-0 text-[12.5px] text-muted max-sm:text-center sm:text-right"
+              data-wz-next-why
+            >{{ nextBlock }}</p>
             <p v-if="submittedId" class="m-0 text-center sm:text-right" data-wz-submitted>
               <RouterLink
                 :to="`/import-40/${submittedId}`"

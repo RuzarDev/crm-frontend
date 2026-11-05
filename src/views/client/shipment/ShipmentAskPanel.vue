@@ -15,6 +15,8 @@ import ShipmentReworkList from '@/views/client/shipment/ShipmentReworkList.vue'
 import type { ClientShipment } from '@/api/clientShipments'
 import { askFor } from '@/views/client/shipment'
 import { dayMonthOf } from '@/views/client/shipment/util'
+import { DOC_ACCEPT } from '@/views/client/wizard/useShipmentFiles'
+import { missingText } from '@/utils/preBorder'
 import { saveBlob } from '@/ui/download'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
@@ -31,10 +33,12 @@ const props = defineProps<{
   files: Import40FileDto[]
   /** По поставке уже есть счёт AQNIET (для ссылки на «Счета» на этапе 6). */
   hasServiceInvoice: boolean
+  /** Счёт, который открывает ссылка «Перейти в „Счета“»: без него — общий список. */
+  serviceInvoiceId?: string | null
   /** Файлы не загрузились: загружен ли чек — неизвестно, поэтому панель оплаты и «чек на проверке» не показываем. */
   filesUnknown?: boolean
 }>()
-const emit = defineEmits<{ changed: [] }>()
+const emit = defineEmits<{ changed: []; openPreBorder: [] }>()
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -50,7 +54,7 @@ const svhPayStage = computed(() => status.value === 6)
 const isDraft = computed(() => status.value === 0)
 
 // Форматы и размер — как проверяет сервер (ReestrDocumentRules, MaxFileSizeBytes, 100 МБ — DOC_MAX_MB).
-const ACCEPT = '.pdf,.jpg,.jpeg,.png,.docx,.xlsx'
+const ACCEPT = DOC_ACCEPT.join(',')
 
 // ---- Оплата склада ----
 const svhSum = computed(() => (props.shipment.svhInvoiceAmount != null ? formatMoney(props.shipment.svhInvoiceAmount) : ''))
@@ -84,6 +88,7 @@ const downloadSvh = async () => {
 // ---- Оплата услуг AQNIET (05.11.2026): счёт и чек — на экране «Счета» ----
 const serviceSum = computed(() => (props.shipment.serviceInvoiceToPayTotal != null ? formatMoney(props.shipment.serviceInvoiceToPayTotal) : ''))
 const serviceInvoiceTo = computed(() => ({ path: '/billing', query: { id: props.shipment.serviceInvoiceToPayId ?? undefined } }))
+const paidInvoiceTo = computed(() => ({ path: '/billing', query: { id: props.serviceInvoiceId ?? undefined } }))
 
 // ---- Загрузка файла (чек / документ к ответу) ----
 const uploading = ref<'payment-check' | 'documents' | null>(null)
@@ -284,6 +289,26 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
     >{{ t('client.card.payService.open') }}</RouterLink>
   </section>
 
+  <!-- Тег «Нужны сведения о пути» без панели оставлял клиента искать, что делать: сам блок ниже таймлайна. -->
+  <section
+    v-else-if="ask === 'preBorder'"
+    :aria-labelledby="titleId"
+    :class="cn(panel, 'border-gold-line bg-gold-soft sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-5')"
+    data-ask="preBorder"
+  >
+    <div class="flex min-w-0 items-start gap-3.5">
+      <span aria-hidden="true" :class="cn(badge, 'bg-gold text-navy')"><PhPencilSimpleLine :size="18" weight="bold" /></span>
+      <div class="flex min-w-0 flex-col gap-1">
+        <p :class="eyebrow" data-ask-eyebrow>{{ t('client.ask.eyebrow') }}</p>
+        <h2 :id="titleId" :class="h2">{{ t('client.ask.preBorder.title') }}</h2>
+        <p :class="text" data-pre-border-ask-text>{{ t('client.ask.preBorder.text', { list: missingText(shipment.preBorderMissing ?? [], t) }) }}</p>
+      </div>
+    </div>
+    <ZButton variant="primary" :class="cn(mainBtn, 'mt-1 sm:mt-0')" data-pre-border-go @click="emit('openPreBorder')">
+      {{ t('client.card.preBorder.open') }}
+    </ZButton>
+  </section>
+
   <section
     v-else-if="ask === 'problem'"
     :aria-labelledby="titleId"
@@ -430,7 +455,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         <p v-else-if="caseDto.cancelReason" :class="cn(text, 'whitespace-pre-line [overflow-wrap:anywhere]')">{{ caseDto.cancelReason }}</p>
         <RouterLink
           v-if="notice === 'paid' && hasServiceInvoice"
-          to="/billing"
+          :to="paidInvoiceTo"
           class="mt-1 inline-flex min-h-11 items-center self-start rounded-field text-sm font-semibold text-zircon-ink no-underline outline-hidden hover:text-ink focus-visible:shadow-focus sm:min-h-0"
           data-paid-link
         >{{ t('client.card.paid.link') }}</RouterLink>

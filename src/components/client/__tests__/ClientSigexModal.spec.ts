@@ -54,6 +54,15 @@ describe('ClientSigexModal', () => {
     expect(w.emitted('update:open')).toBeUndefined()
   })
 
+  it('на телефоне сначала кнопка eGov Mobile, QR ниже; текст без «отсканируйте»', async () => {
+    api.sigexStartSigningDocument.mockResolvedValue(START)
+    await mountModal()
+    expect($('[data-sigex-apps]')?.className).toContain('max-sm:order-1')
+    expect($('[data-sigex-qr-box]')?.className).toContain('max-sm:order-2')
+    expect($('[data-sigex-scan-phone]')?.textContent).toContain('Откройте eGov Mobile')
+    expect($('[data-sigex-scan-phone]')?.textContent).not.toContain('Отсканируйте')
+  })
+
   it('side="provider" (сотрудник подписывает за AQNIET) — завершение со стороной provider; ошибка — текст сервера', async () => {
     api.sigexStartSigningDocument.mockResolvedValue(START)
     api.sigexPollDocument.mockResolvedValue({ pending: false, sign: 's' })
