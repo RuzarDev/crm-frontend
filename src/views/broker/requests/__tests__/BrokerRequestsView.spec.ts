@@ -364,11 +364,11 @@ describe('BrokerRequestsView', () => {
   it('ширина таблицы — сумма колонок (+40 под выбор)', async () => {
     const width = () => (w.get('table').element as HTMLElement).style.getPropertyValue('--z-table-x')
     await mountAt('/import-40?tab=active')
-    expect(width()).toBe('1046px')
+    expect(width()).toBe('1076px')
     w.unmount()
     asStaff(['import40.read', 'import40.declarant'])
     await mountAt('/import-40?tab=active')
-    expect(width()).toBe('1006px')
+    expect(width()).toBe('1036px')
   })
 
   it('сотрудники: пока грузятся — «Загрузка…»; упали — меню при открытии запрашивает снова', async () => {
