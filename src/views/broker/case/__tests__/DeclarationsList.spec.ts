@@ -631,21 +631,17 @@ describe('DeclarationsList: «Из документов»', () => {
     return files
   }
 
-  it('«Каждый файл — отдельная ДТ»: по разбору и по ДТ на файл, остаёмся в списке', async () => {
+  it('несколько вагонов: файлы по очереди, одна ДТ со всеми товарами', async () => {
     api.extractBatch.mockResolvedValue(result())
-    api.createDeclaration.mockResolvedValueOnce(declaration({ id: 'n1' })).mockResolvedValueOnce(declaration({ id: 'n2' }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
     mount(USERS.declarant)
-    const before = router.currentRoute.value.path
     const files = await pickPerFile(['w1.pdf', 'w2.pdf'])
     expect(api.extractBatch).toHaveBeenCalledTimes(2)
     expect(api.extractBatch).toHaveBeenNthCalledWith(1, 'c1', [files[0]], [])
     expect(api.extractBatch).toHaveBeenNthCalledWith(2, 'c1', [files[1]], [])
-    expect(api.createDeclaration).toHaveBeenCalledTimes(2)
-    // Вагон заявки в ДТ не подставляется: у каждой ДТ свой; гр. 18 пуста — замечание с именем файла.
-    expect(api.createDeclaration.mock.calls[0][2]).toEqual({ skipCaseTransport: true })
-    expect(w.get('[data-issues-warnings]').text()).toContain('w1.pdf: Номер вагона в документе не найден')
-    expect(msg.success).toHaveBeenCalledWith('Создано ДТ: 2 из 2')
-    expect(router.currentRoute.value.path).toBe(before)
+    expect(api.createDeclaration).toHaveBeenCalledTimes(1)
+    expect(w.get('[data-issues-warnings]').text()).toContain('Номер вагона в документе не найден')
+    expect(msg.success).toHaveBeenCalledWith('ДТ создана: прочитано файлов 2 из 2')
   })
 
   it('сбой одного файла не останавливает остальные и виден с именем файла', async () => {
@@ -654,7 +650,7 @@ describe('DeclarationsList: «Из документов»', () => {
     mount(USERS.declarant)
     await pickPerFile(['w1.pdf', 'w2.pdf'])
     expect(api.createDeclaration).toHaveBeenCalledTimes(1)
-    expect(msg.success).toHaveBeenCalledWith('Создано ДТ: 1 из 2')
+    expect(msg.success).toHaveBeenCalledWith('ДТ создана: прочитано файлов 1 из 2')
     expect(w.get('[data-issues-critical]').text()).toContain('w1.pdf: Не удалось распознать пакет документов')
   })
 

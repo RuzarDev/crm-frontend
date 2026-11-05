@@ -30,6 +30,7 @@ import ExtractionIssuesModal, { type ExtractionIssues } from './ExtractionIssues
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import { invoiceNumbers } from './extractDocs'
 import CopyDtModal from './CopyDtModal.vue'
+import { combineDeclarations, distinctCurrencies } from './combineDeclarations'
 import { prepareDocumentsDeclaration, railDocWithoutNumber, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from './documentsSources'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
@@ -234,60 +235,65 @@ interface BatchOutcome {
   usedExcel: boolean
 }
 
-/** Один разбор в новую ДТ. Ошибка не бросается: { failed } — текст с этапом, на котором остановились. */
-const extractIntoDt = async (
-  files: File[], fileIds: readonly string[], perFile = false,
-): Promise<BatchOutcome | { failed: string }> => {
+interface PreparedPackage {
+  result: Import40ExtractionResult
+  prepared: Awaited<ReturnType<typeof prepareDocumentsDeclaration>>
+}
+
+const extractFailed = (e: unknown) =>
+  extractionRefusalText(e, t) ?? t('broker.case.declaring.batch.failedExtract')
+
+/** Разбор документов и сборка тела ДТ, без создания. Ошибка не бросается: { failed } — текст для декларанта. */
+const preparePackage = async (files: File[], fileIds: readonly string[]): Promise<PreparedPackage | { failed: string }> => {
   const caseId = kase.value.id
-  let stage: 'extract' | 'create' = 'extract'
-  let extractError: unknown = null
   try {
-    const result = await import40Api.extractBatch(caseId, files, fileIds).catch((e: unknown) => {
-      extractError = e
-      throw e
-    })
-    // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, гр. 41 / гр. 31,
-    // упаковка, страна, отправитель с адресом), гр. 44 инвойса, упаковочного и транспортного документа.
+    const result = await import40Api.extractBatch(caseId, files, fileIds)
+    // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, упаковка, страна, отправитель с адресом), гр. 44
     const [docs, packageKinds, docKindNames] = await Promise.all([
       readExcelDocs(caseId, files, fileIds, props.ctx.files),
       loadPackageKinds(),
       loadDocKindNames(),
     ])
-    // CMR в наборе (вид документа «CMR» или «cmr» в имени) — гр. 44 02015, а не документ по виду транспорта заявки.
+    // CMR в наборе (вид документа «CMR» или «cmr» в имени) — гр. 44 02015, а не документ по виду заявки
     const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, {
       docKindNames, cmrInBatch: cmrInBatch(files, fileIds, props.ctx.files),
     })
-    stage = 'create'
-    const created = perFile
-      ? await import40Api.createDeclaration(caseId, prepared.body, { skipCaseTransport: true })
-      : await import40Api.createDeclaration(caseId, prepared.body)
-    // Сервер взял адрес получателя из профиля компании клиента — «адрес из реестра по БИН» не показываем (ревью 22.10).
+    return { result, prepared }
+  } catch (e) {
+    // Пакет больше предела распознавания (02.11.2026) или сервис занят (04.11.2026) — понятный текст
+    return { failed: extractFailed(e) }
+  }
+}
+
+/** Один разбор в новую ДТ. Ошибка не бросается: { failed } — текст с этапом. */
+const extractIntoDt = async (files: File[], fileIds: readonly string[]): Promise<BatchOutcome | { failed: string }> => {
+  const caseId = kase.value.id
+  const pack = await preparePackage(files, fileIds)
+  if ('failed' in pack) return pack
+  const { result, prepared } = pack
+  try {
+    const created = await import40Api.createDeclaration(caseId, prepared.body)
+    // Сервер взял адрес получателя из профиля компании клиента — «адрес из реестра» неверно (ревью 22.10)
     const profileAddress = receiverAddressReplaced(prepared.body, created)
     const warnings = prepared.notes.filter((n) => !(profileAddress && n.key === 'receiverByBin')).map(noteText)
-    if (perFile && !created.arrivalTransportNumbers?.some((m) => m.number?.trim())) {
-      warnings.push(t('broker.case.declaring.batch.perFileNoTransport'))
-    }
     // Заявка «ЖД», а накладной в пакете нет (05.11.2026, правка №5): гр. 44 взята по виду заявки — декларант должен это увидеть.
     if (railDocWithoutNumber(created.doc44Items)) warnings.push(t('broker.case.declaring.batch.railDocDefault'))
-    // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить. Тем же
-    // правилом, что сервер (БИН, без БИН — название); нет профиля клиента — не с чем сравнить, без предупреждения.
+    // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля
     if (prepared.receiverName && receiverIsClient(created) === false) {
       warnings.push(t('broker.case.declaring.batch.receiverMismatch', { name: prepared.receiverName }))
     }
-    // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто не привязана к ДТ.
+    // Сверка документов этого разбора — к созданной ДТ (17.10); не вышло — сверка просто без привязки
     if (result.documentCheckId) {
       await documentChecksApi.link(caseId, result.documentCheckId, created.id).catch(() => undefined)
     }
-    // Zircon AI берёт товары одного инвойса (04.11.2026): без предупреждения стоимость ДТ занижена без следов.
+    // Zircon AI берёт товары одного инвойса (04.11.2026): без предупреждения стоимость ДТ занижена
     const invoices = invoiceNumbers(result.extras?.documents)
     const critical = invoices.length > 1
       ? [t('broker.case.declaring.batch.severalInvoices', { n: invoices.length, list: invoices.join(', ') })]
       : []
     return { dtId: created.id, extracted: result, warnings, critical, usedExcel: prepared.usedExcelGoods }
   } catch {
-    // Пакет больше предела распознавания (02.11.2026) или сервис занят (04.11.2026) — понятный текст, а не «не удалось распознать».
-    const refusal = stage === 'extract' ? extractionRefusalText(extractError, t) : null
-    return { failed: refusal ?? t(stage === 'extract' ? 'broker.case.declaring.batch.failedExtract' : 'broker.case.declaring.batch.failedCreate') }
+    return { failed: t('broker.case.declaring.batch.failedCreate') }
   }
 }
 
@@ -343,6 +349,7 @@ const fromDocsBusyText = computed(() => `${perFileProgress.value
 
 const runPerFile = async (files: File[], fileIds: readonly string[]) => {
   if ((!files.length && !fileIds.length) || busy()) return
+  const caseId = kase.value.id
   const units = [
     ...fileIds.map((id) => ({
       name: props.ctx.files.find((f) => f.id === id)?.originalFileName ?? id, files: [] as File[], fileIds: [id],
@@ -350,34 +357,48 @@ const runPerFile = async (files: File[], fileIds: readonly string[]) => {
     ...files.map((f) => ({ name: f.name, files: [f], fileIds: [] as string[] })),
   ]
   const merged: ExtractionIssues = { warnings: [], criticalWarnings: [], conflicts: [] }
-  let created = 0
+  const parts: PreparedPackage[] = []
+  let dtId: string | null = null
   perFileProgress.value = { done: 0, total: units.length }
   await props.ctx.actions.mutate('dt-batch', async () => {
     for (const [i, unit] of units.entries()) {
       perFileProgress.value = { done: i, total: units.length }
-      const out = await extractIntoDt(unit.files, unit.fileIds, true)
       const named = (text: string) => `${unit.name}: ${text}`
-      if ('failed' in out) {
-        merged.criticalWarnings!.push(named(out.failed))
+      const pack = await preparePackage(unit.files, unit.fileIds)
+      if ('failed' in pack) {
+        merged.criticalWarnings!.push(named(pack.failed))
         continue
       }
-      created += 1
-      const critical = [...(out.extracted.criticalWarnings ?? []), ...out.critical].map(named)
+      parts.push(pack)
+      const critical = (pack.result.criticalWarnings ?? []).map(named)
       merged.criticalWarnings!.push(...critical)
-      merged.warnings.push(...critical, ...[...out.extracted.warnings, ...out.warnings]
-        .filter((w) => !out.extracted.criticalWarnings?.includes(w)).map(named))
-      merged.conflicts.push(...out.extracted.conflicts.map((c) => ({ ...c, fieldLabel: named(c.fieldLabel) })))
+      merged.warnings.push(...critical, ...[...pack.result.warnings, ...pack.prepared.notes.map(noteText)]
+        .filter((w) => !pack.result.criticalWarnings?.includes(w)).map(named))
+      merged.conflicts.push(...pack.result.conflicts.map((c) => ({ ...c, fieldLabel: named(c.fieldLabel) })))
+    }
+    if (!parts.length) return
+    const bodies = parts.map((p) => p.prepared.body)
+    const currencies = distinctCurrencies(bodies)
+    if (currencies.length > 1) merged.criticalWarnings!.push(t('broker.case.declaring.batch.severalCurrencies', { list: currencies.join(', ') }))
+    const created = await import40Api.createDeclaration(caseId, combineDeclarations(bodies))
+    dtId = created.id
+    if (!created.arrivalTransportNumbers?.some((m) => m.number?.trim())) merged.warnings.push(t('broker.case.declaring.batch.perFileNoTransport'))
+    if (railDocWithoutNumber(created.doc44Items)) merged.warnings.push(t('broker.case.declaring.batch.railDocDefault'))
+    for (const p of parts) {
+      if (p.result.documentCheckId) await documentChecksApi.link(caseId, p.result.documentCheckId, created.id).catch(() => undefined)
     }
   })
   perFileProgress.value = null
-  if (created) message.success(t('broker.case.declaring.batch.perFileDone', { n: created, total: units.length }))
+  if (dtId) message.success(t('broker.case.declaring.batch.perFileDone', { n: parts.length, total: units.length }))
   else message.error(t('broker.case.declaring.batch.perFileFailed'))
   merged.warnings.push(...merged.criticalWarnings!.filter((w) => !merged.warnings.includes(w)))
   if (merged.conflicts.length || merged.warnings.length) {
     issues.value = merged
-    pendingDt = null
+    pendingDt = dtId
     issuesOpen.value = true
+    return
   }
+  if (dtId) await router.push(dtPath(caseId, dtId))
 }
 const closeIssues = () => {
   issuesOpen.value = false
