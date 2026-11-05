@@ -37,4 +37,11 @@ describe('documentsImport: отброшенный код остаётся у с�
     // Окно замечаний по-прежнему называет отброшенные коды, каждый один раз.
     expect(notes.filter((n) => n.key === 'codesRejected').map((n) => n.params?.code)).toEqual(['9401719000', '9401799000'])
   })
+
+  it('номер инвойса в колонке кода — не код из документа, подсказки нет', async () => {
+    const result = { ...extraction(['2026020201']), extras: { invoiceNumber: '2026020201', hintCodes: [], goods: [] } } as unknown as Import40ExtractionResult
+    const { body } = await prepareDocumentsDeclaration(result, [], {}, [])
+    expect(body.goodsItems![0]).toMatchObject({ tnvedCode: null })
+    expect(body.goodsItems![0].documentTnvedCode ?? null).toBeNull()
+  })
 })

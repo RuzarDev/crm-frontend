@@ -108,14 +108,14 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     const code = r.tnvedCode ? normCode(r.tnvedCode) : null
     let codeInfo = code ? resolved?.byCode.get(code) ?? null : null
     const reason = code ? rejected.get(code) : undefined
-    const reject = (c: string) => {
+    const reject = (c: string, isCode = true) => {
       g.tnvedCode = opts.keepInvalidCodes ? c : null
-      if (opts.rejectedCodeToDocument && !g.tnvedCode) g.documentTnvedCode = c.slice(0, DOCUMENT_CODE_MAX)
+      if (opts.rejectedCodeToDocument && isCode && !g.tnvedCode) g.documentTnvedCode = c.slice(0, DOCUMENT_CODE_MAX)
     }
     if (code) {
       if (reason) {
         note('invalidCode', `${code}:${reason}`)
-        reject(code)
+        reject(code, reason !== 'docNumber')   // номер инвойса в колонке кода — не код из документа
         codeInfo = null
       } else if (failed || codeInfo?.valid) {
         g.tnvedCode = code
