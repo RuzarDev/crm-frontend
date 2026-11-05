@@ -170,7 +170,9 @@ describe('ClientInvoicesView', () => {
     expect(w.find('[data-invoice-checks]').exists()).toBe(false)
 
     const input = w.get('[data-invoice-panel] input[type="file"]')
-    expect(input.attributes('accept')).toBe('.pdf,.jpg,.jpeg,.png')
+    // Те же форматы, что у чека за склад (ACCEPT в ShipmentAskPanel), и фото с iPhone (convert-heic).
+    expect(input.attributes('accept')).toContain('.pdf,.jpg,.jpeg,.png,.docx,.xlsx')
+    expect(input.attributes('accept')).toContain('.heic')
     Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
     await input.trigger('change')
     await flushPromises()

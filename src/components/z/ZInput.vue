@@ -137,7 +137,7 @@ const clear = () => {
       v-if="allowClear && value && !disabled && !readonly"
       type="button"
       :aria-label="t('common.clear')"
-      class="-mr-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus"
+      class="-mr-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-pill border-0 bg-transparent p-0 text-muted outline-hidden hover:bg-sunken hover:text-ink focus-visible:shadow-focus max-sm:relative max-sm:after:absolute max-sm:after:-inset-3"
       @click="clear"
     >
       <PhX :size="12" weight="bold" />

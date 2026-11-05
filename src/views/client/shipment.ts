@@ -114,6 +114,13 @@ export const serviceInvoiceToPay = (list: Import40CaseInvoiceDto[]): Import40Cas
   list.filter((i) => i.kind === 'invoice' && i.status === 1 && !i.hasPaymentCheck)
     .sort((a, b) => (a.issuedAtUtc ?? '').localeCompare(b.issuedAtUtc ?? ''))[0] ?? null
 
+/** Счёт за услуги для ссылки в «Счета»: сначала ждущий оплаты, иначе последний выставленный или оплаченный; черновики клиент не видит. */
+export const serviceInvoiceForLink = (list: Import40CaseInvoiceDto[]): Import40CaseInvoiceDto | null =>
+  serviceInvoiceToPay(list)
+    ?? list.filter((i) => i.kind === 'invoice' && (i.status === 1 || i.status === 2))
+      .sort((a, b) => (b.issuedAtUtc ?? '').localeCompare(a.issuedAtUtc ?? ''))[0]
+    ?? null
+
 /**
  * Лёгкая сводка из полной заявки (карточка поставки): те же поля, что отдаёт GET import40/client/shipments,
  * чтобы askFor/shipmentTag/segments карточки совпадали со списком. Шаг — как Import40Steps.StepOf на сервере

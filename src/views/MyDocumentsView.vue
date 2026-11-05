@@ -33,13 +33,13 @@ const sectionFilter = ref<ReestrDocumentSection | null>(null)
 let requestSeq = 0
 
 const sectionOptions = computed(() => [
-  { value: 'client', label: t('transit.dokumentyKlienta') },
-  { value: 'broker', label: t('transit.dokumentyBrokera') },
+  { value: 'client', label: t('transit.myDocsYours') },
+  { value: 'broker', label: t('transit.myDocsProvider') },
 ])
 const columns = computed<ZColumn<MyReestrDocumentListItem>[]>(() => [
   { key: 'container', title: t('transit.konteyner'), dataIndex: 'container', width: 150, ellipsis: true },
   { key: 'reestrStatus', title: t('transit.status'), width: 160 },
-  { key: 'section', title: t('transit.sekciya'), width: 120 },
+  { key: 'section', title: t('transit.myDocsOwner'), width: 140 },
   { key: 'originalFileName', title: t('transit.fayl'), dataIndex: 'originalFileName', ellipsis: true },
   { key: 'sizeBytes', title: t('transit.razmer'), width: 100 },
   { key: 'createdAtUtc', title: t('transit.zagruzhen'), width: 150 },
@@ -127,9 +127,9 @@ const LINK = 'max-sm:min-h-11'
       <ZSelect
         v-model:value="sectionFilter"
         allow-clear
-        :placeholder="t('transit.vseSekcii')"
+        :placeholder="t('transit.myDocsAll')"
         :options="sectionOptions"
-        :aria-label="t('transit.sekciya')"
+        :aria-label="t('transit.myDocsOwner')"
         class="w-full sm:w-[200px]"
         data-my-docs-section
         @change="handleFilterChange"
@@ -149,7 +149,7 @@ const LINK = 'max-sm:min-h-11'
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'section'">
-          {{ record.section === 'client' ? t('transit.klient') : t('transit.broker') }}
+          {{ record.section === 'client' ? t('transit.myDocsYours') : t('transit.myDocsProvider') }}
         </template>
         <StatusDot
           v-else-if="column.key === 'reestrStatus'"

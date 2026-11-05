@@ -45,6 +45,10 @@ export const defaultInvoiceId = (groups: InvoiceGroup[]): string | null =>
 /** «0214/2026»; без номера (у выставленного так не бывает) — прочерк. */
 export const invoiceNo = (i: BrokerInvoice) => (i.number ? `${i.number}/${i.year}` : '—')
 
+/** Имя файла PDF счёта или акта на языке кабинета: «Счёт-12.pdf», «Invoice-12.pdf». */
+export const invoiceFileName = (t: (key: string) => string, i: { kind: string; number?: string | null }) =>
+  `${t(i.kind === 'act' ? 'billing.act' : 'billing.fileInvoice')}-${i.number || t('billing.draftNo')}.pdf`
+
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /**

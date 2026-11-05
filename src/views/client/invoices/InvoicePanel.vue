@@ -8,7 +8,8 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { billingApi, type BillingRequisites, type BrokerInvoice, type PaymentCheckFile } from '@/api/billing'
-import { invoiceNo, invoiceState, isPayable, localDate, requisiteRows } from '@/views/client/invoices/invoices'
+import { invoiceFileName, invoiceNo, invoiceState, isPayable, localDate, requisiteRows } from '@/views/client/invoices/invoices'
+import { DOC_ACCEPT } from '@/views/client/wizard/useShipmentFiles'
 import { saveBlob } from '@/ui/download'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
@@ -77,6 +78,8 @@ const uploading = computed(() => uploadingId.value === inv.value.id)
 const checks = computed<PaymentCheckFile[]>(() =>
   [...(inv.value.paymentChecks ?? [])].sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc)))
 
+// Чек за услуги — те же форматы и тот же перевод HEIC, что у чека за склад: сервер проверяет их одним правилом (ReestrDocumentRules).
+const CHECK_ACCEPT = DOC_ACCEPT.join(',')
 const upload = async ({ file }: { file: File }) => {
   const id = inv.value.id
   uploadingId.value = id
@@ -97,7 +100,7 @@ const downloadPdf = async () => {
   if (pdfBusyId.value) return
   pdfBusyId.value = i.id
   try {
-    saveBlob(await billingApi.pdf(i.id), `${i.kind === 'act' ? 'Акт' : 'Счёт'}-${i.number || i.id}.pdf`)
+    saveBlob(await billingApi.pdf(i.id), invoiceFileName(t, i))
   } catch (e: unknown) {
     if (!(e as { response?: unknown })?.response) message.error(t('client.invoices.pdfError'))
   } finally {
@@ -228,7 +231,8 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
     <div class="flex flex-wrap items-center gap-3">
       <ZUpload
         v-if="payable"
-        accept=".pdf,.jpg,.jpeg,.png"
+        :accept="CHECK_ACCEPT"
+        convert-heic
         :max-size-mb="DOC_MAX_MB"
         button-variant="primary"
         :loading="uploading"

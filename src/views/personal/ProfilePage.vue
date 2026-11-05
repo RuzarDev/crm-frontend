@@ -126,5 +126,16 @@ const poasReload = ref(0)
       </ProfileCard>
       <PasswordCard v-else-if="c === 'password'" />
     </template>
+
+    <!-- После входа ссылки на политику больше нигде нет; в новой вкладке, как на страницах входа. -->
+    <p v-if="auth.isClient" class="m-0 text-sm text-ink-3">
+      <a
+        href="/privacy"
+        target="_blank"
+        rel="noopener"
+        class="inline-flex items-center rounded-[4px] text-zircon-ink underline underline-offset-2 outline-hidden hover:text-ink focus-visible:shadow-focus max-sm:min-h-11"
+        data-profile-privacy
+      >{{ t('privacy.link') }}</a>
+    </p>
   </div>
 </template>

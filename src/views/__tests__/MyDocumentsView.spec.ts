@@ -48,7 +48,10 @@ describe('MyDocumentsView', () => {
     expect(text).toContain('DRYU9953726')
     expect(text).toContain('invoice.pdf')
     expect(text).toContain('Выпущено')
-    expect(text).toContain('Клиент')
+    // Клиенту без внутренних слов «Секция», «Брокер» (05.11.2026).
+    expect(text).toContain('Чьи документы')
+    expect(text).toContain('Ваши')
+    expect(text).not.toContain('Секция')
     expect(text).toContain('2.0 КБ')
     expect(text).toContain('01.10.2026')
   })

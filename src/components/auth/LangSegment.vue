@@ -25,7 +25,7 @@ const select = (l: AppLocale) => {
       :aria-pressed="l === current ? 'true' : 'false'"
       :title="t(`lang.${l}`)"
       :class="cn(
-        'h-[26px] min-w-[34px] cursor-pointer rounded-[6px] border-0 px-2 font-sans text-[13px] leading-none outline-hidden',
+        'h-[26px] min-w-[34px] cursor-pointer rounded-[6px] border-0 px-2 font-sans text-[13px] leading-none outline-hidden max-sm:h-11 max-sm:min-w-11',
         'transition-colors duration-150 ease-out motion-reduce:transition-none focus-visible:shadow-focus',
         l === current ? 'bg-sunken font-semibold text-ink' : 'bg-transparent font-normal text-ink-3 hover:bg-sunken hover:text-ink',
       )"

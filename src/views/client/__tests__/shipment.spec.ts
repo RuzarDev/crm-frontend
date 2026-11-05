@@ -4,7 +4,7 @@ import kk from '@/i18n/locales/kk'
 import en from '@/i18n/locales/en'
 import type { ClientShipment } from '@/api/clientShipments'
 import type { Import40CaseInvoiceDto } from '@/api/import40'
-import { askFor, askHref, condRelBriefOfCase, segments, serviceInvoiceToPay, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
+import { askFor, askHref, condRelBriefOfCase, segments, serviceInvoiceForLink, serviceInvoiceToPay, shipmentHref, shipmentTag, stepNo, tabCounts, tabOf, toShipmentSummary } from '../shipment'
 import { caseDto, declaration, fileDto } from './caseFixture'
 
 const ship = (o: Partial<ClientShipment>): ClientShipment => ({
@@ -82,6 +82,20 @@ describe('serviceInvoiceToPay', () => {
     expect(serviceInvoiceToPay([])).toBeNull()
     expect(serviceInvoiceToPay([inv({ kind: 'act' }), inv({ status: 2 }), inv({ hasPaymentCheck: true })])).toBeNull()
     expect(serviceInvoiceToPay([inv({ id: 'late' }), inv({ id: 'early', issuedAtUtc: '2026-10-01T00:00:00Z' })])?.id).toBe('early')
+  })
+})
+
+describe('serviceInvoiceForLink', () => {
+  const inv = (o: Partial<Import40CaseInvoiceDto>): Import40CaseInvoiceDto => ({
+    id: 'i', kind: 'invoice', status: 1, number: '1', year: 2026, total: 100, issuedAtUtc: '2026-10-01T00:00:00Z', paidAtUtc: null, ...o,
+  })
+  it('сначала ждущий оплаты; иначе последний выставленный или оплаченный; акты и черновики не в счёт', () => {
+    const paid = inv({ id: 'paid', status: 2, issuedAtUtc: '2026-10-05T00:00:00Z' })
+    const toPay = inv({ id: 'pay', issuedAtUtc: '2026-09-01T00:00:00Z' })
+    const withCheck = inv({ id: 'check', hasPaymentCheck: true, issuedAtUtc: '2026-10-09T00:00:00Z' })
+    expect(serviceInvoiceForLink([paid, toPay])?.id).toBe('pay')
+    expect(serviceInvoiceForLink([paid, withCheck])?.id).toBe('check')
+    expect(serviceInvoiceForLink([inv({ id: 'act', kind: 'act' }), inv({ id: 'draft', status: 0 })])).toBeNull()
   })
 })
 

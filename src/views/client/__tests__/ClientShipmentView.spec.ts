@@ -111,6 +111,12 @@ describe('ClientShipmentView', () => {
     await mountCard({ status: 1 })
     expect(w.get('[data-ship-tag]').text()).toBe('Нужны сведения о пути')
     expect(w.get('[data-pre-border-missing]').text()).toContain('оплата поставщику')
+    // Под тегом — панель хода клиента со ссылкой к блоку ниже таймлайна.
+    expect(w.get('[data-ask="preBorder"] [data-pre-border-ask-text]').text()).toContain('оплата поставщику')
+    const scroll = vi.fn()
+    ;(w.get('[data-pre-border]').element as HTMLElement).scrollIntoView = scroll
+    await w.get('[data-pre-border-go]').trigger('click')
+    expect(scroll).toHaveBeenCalled()
     const subs = w.get('[data-stage-substeps]')
     expect(subs.attributes('data-substeps-step')).toBe('2')
     expect(subs.findAll('[data-sub]').map((x) => x.attributes('data-sub'))).toEqual(['pay', 'load', 'transit', 'arrival'])
@@ -129,7 +135,10 @@ describe('ClientShipmentView', () => {
     expect(w.get('h1').text()).toBe('Серверное оборудование')
     expect(w.get('[data-ship-tag]').text()).toBe('Оформляем')
     expect(w.get('[data-ship-meta]').text()).toBe('ИМ-2026-0166 · Германия · пост «Нур-Жолы» · создана 24.09')
-    expect(w.find('[data-ship-zip]').exists()).toBe(true)
+    // Архив всех файлов — и на телефоне: другого способа скачать всё сразу там нет.
+    const zip = w.get('[data-ship-zip]')
+    expect(zip.classes()).not.toContain('max-sm:hidden')
+    expect(zip.classes()).toContain('max-sm:h-11')
   })
 
   it('без файлов кнопки «Все файлы (.zip)» нет', async () => {
@@ -349,7 +358,8 @@ describe('ClientShipmentView', () => {
     await mountCard({ status: 7 }, [], [inv])
     expect(w.find('[data-ask="payService"]').exists()).toBe(false)
     expect(w.get('[data-notice="paid"]').text()).toContain('Склад оплачен')
-    expect(w.get('[data-paid-link]').attributes('href')).toBe('/billing')
+    // «Перейти в „Счета“» открывает счёт этой поставки, а не общий список.
+    expect(w.get('[data-paid-link]').attributes('href')).toBe('/billing?id=i1')
     const row = w.get('[data-service-row]')
     expect(row.text()).toContain('Счёт AQNIET № 42/2026')
     expect(row.text()).toContain('Выставлен')

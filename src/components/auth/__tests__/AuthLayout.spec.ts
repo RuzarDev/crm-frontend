@@ -16,7 +16,7 @@ afterEach(() => {
 
 const props = {
   title: 'Вход',
-  subtitle: 'Брокеры и клиенты входят по одному адресу',
+  subtitle: 'Продолжите работу с поставками и декларациями',
   heroTitle: 'Таможенное оформление без бумажной суеты',
   heroText: 'Заявки и документы в одном окне',
   points: ['Пункт 1', 'Пункт 2', 'Пункт 3'],
@@ -26,7 +26,7 @@ describe('AuthLayout', () => {
   it('заголовок, подзаголовок, герой, пункты, копирайт с текущим годом, слоты', () => {
     w = mountWithI18n(AuthLayout, { props, slots: { default: '<form data-t="form"/>', footer: '<p data-t="footer">Нет аккаунта?</p>' } })
     expect(w.find('h2').text()).toBe('Вход')
-    expect(w.text()).toContain('Брокеры и клиенты входят по одному адресу')
+    expect(w.text()).toContain('Продолжите работу с поставками и декларациями')
     // h1 на любой ширине ровно один: ниже lg — sr-only в полосе с логотипом, от lg — видимый в панели героя.
     const h1s = w.findAll('h1')
     expect(h1s.map((h) => h.text())).toEqual([props.heroTitle, props.heroTitle])

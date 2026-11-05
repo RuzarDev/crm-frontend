@@ -11,7 +11,7 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { message } from '@/ui/message'
 import { authApi } from '@/api/passwordReset'
 import type { ZRule } from '@/ui/validation'
-import { authLabelClass as labelClass, authLinkClass as linkClass, authPrimaryLinkClass } from '@/components/auth/classes'
+import { authLabelClass as labelClass, authLinkClass as linkClass, authLinkTouchClass, authPrimaryLinkClass } from '@/components/auth/classes'
 
 // Установка нового пароля по ссылке из письма: проверка ссылки (скелетон) → форма | ссылка недействительна,
 // после сохранения — «Пароль изменён». Несовпадение паролей — ошибка под полем повтора (правило), не тост.
@@ -130,7 +130,7 @@ const submit = async () => {
 
     <template v-if="state === 'invalid'" #footer>
       <p class="m-0 text-center text-[14px]">
-        <RouterLink to="/login" :class="[linkClass, 'font-semibold no-underline']">{{ t('reset.toLogin') }}</RouterLink>
+        <RouterLink to="/login" :class="[linkClass, authLinkTouchClass, 'font-semibold no-underline']">{{ t('reset.toLogin') }}</RouterLink>
       </p>
     </template>
   </AuthLayout>

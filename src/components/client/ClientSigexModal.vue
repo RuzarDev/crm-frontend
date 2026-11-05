@@ -144,8 +144,10 @@ const appLink = 'inline-flex h-10 items-center justify-center gap-2 rounded-row 
     </div>
 
     <div v-else-if="step === 'qr'" class="flex flex-col gap-4 pb-4" data-sigex-step="qr">
-      <p class="m-0 text-base text-ink-2">{{ t('client.company.sigex.scan') }}</p>
-      <div class="flex justify-center">
+      <!-- Своим телефоном QR не отсканировать: на телефоне сначала кнопка приложения, QR ниже (порядок задан order). -->
+      <p class="m-0 text-base text-ink-2 max-sm:hidden">{{ t('client.company.sigex.scan') }}</p>
+      <p class="m-0 text-base text-ink-2 sm:hidden" data-sigex-scan-phone>{{ t('client.company.sigex.scanPhone') }}</p>
+      <div class="flex justify-center max-sm:order-2" data-sigex-qr-box>
         <img
           v-if="qrCode"
           :src="`data:image/png;base64,${qrCode}`"
@@ -156,7 +158,7 @@ const appLink = 'inline-flex h-10 items-center justify-center gap-2 rounded-row 
           data-sigex-qr
         />
       </div>
-      <div class="flex flex-wrap justify-center gap-2">
+      <div class="flex flex-wrap justify-center gap-2 max-sm:order-1" data-sigex-apps>
         <a
           v-if="mobileLink"
           :href="mobileLink"
@@ -178,7 +180,7 @@ const appLink = 'inline-flex h-10 items-center justify-center gap-2 rounded-row 
           <PhArrowSquareOut :size="17" aria-hidden="true" />{{ t('client.company.sigex.openBusiness') }}
         </a>
       </div>
-      <div class="flex flex-col items-stretch gap-2 border-0 border-t border-solid border-line pt-4">
+      <div class="flex flex-col items-stretch gap-2 border-0 border-t border-solid border-line pt-4 max-sm:order-3">
         <p class="m-0 text-center text-sm text-ink-3">{{ t('client.company.sigex.afterSign') }}</p>
         <!-- Живая область смонтирована всегда (иначе экранный диктор может не прочитать первое сообщение), меняется только текст -->
         <p

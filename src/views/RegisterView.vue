@@ -15,7 +15,7 @@ import { useBinLookup } from '@/composables/useBinLookup'
 import { isBinLike, type CompanyLookupDto } from '@/api/companyLookup'
 import { message } from '@/ui/message'
 import type { ZRule } from '@/ui/validation'
-import { authLabelClass as labelClass, authLinkClass as linkClass } from '@/components/auth/classes'
+import { authLabelClass as labelClass, authLinkClass as linkClass, authLinkTouchClass } from '@/components/auth/classes'
 
 // Саморегистрация клиента (путь клиента 2026-09-21): email = логин, БИН обязателен, реквизиты — из ГБД ЮЛ
 // по кнопке «Найти по БИН/ИИН». Подписи свои, как на входе (без звёздочек): обязательно всё, кроме телефона —
@@ -210,7 +210,7 @@ onMounted(() => {
     <template #footer>
       <p class="m-0 text-center text-[14px] text-ink-3">
         {{ t('register.haveAccount') }}
-        <RouterLink to="/login" :class="[linkClass, 'font-semibold underline underline-offset-2']">{{ t('register.login') }}</RouterLink>
+        <RouterLink to="/login" :class="[linkClass, authLinkTouchClass, 'font-semibold underline underline-offset-2']">{{ t('register.login') }}</RouterLink>
       </p>
     </template>
   </AuthLayout>

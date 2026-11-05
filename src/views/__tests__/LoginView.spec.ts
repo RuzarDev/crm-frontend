@@ -47,17 +47,25 @@ const submit = async () => {
 }
 
 describe('LoginView', () => {
+  it('страница входа — без внутреннего кода формата и слова «брокеры»', () => {
+    w = mountIt()
+    expect(w.text()).toContain('Продолжите работу с поставками и декларациями')
+    expect(w.text()).toContain('Декларация выгружается в КЕДЕН готовым файлом')
+    expect(w.text()).not.toContain('R.055')
+    expect(w.text().toLowerCase()).not.toContain('брокер')
+  })
+
   it('пустая отправка — ошибки под обоими полями, вход не вызывается', async () => {
     const login = vi.spyOn(useAuthStore(), 'login').mockResolvedValue(true)
     w = mountIt()
     await submit()
-    expect(w.text()).toContain('Введите логин или e-mail')
+    expect(w.text()).toContain('Введите логин или email')
     expect(w.text()).toContain('Введите пароль')
     expect(login).not.toHaveBeenCalled()
     // Первое поле с ошибкой получает фокус.
     expect(document.activeElement).toBe(userInput().element)
     // Ошибка связана с полем: aria-invalid и aria-describedby на текст ошибки.
-    for (const [input, text] of [[userInput(), 'Введите логин или e-mail'], [passInput(), 'Введите пароль']] as const) {
+    for (const [input, text] of [[userInput(), 'Введите логин или email'], [passInput(), 'Введите пароль']] as const) {
       expect(input.attributes('aria-invalid')).toBe('true')
       const ids = input.attributes('aria-describedby')?.split(' ') ?? []
       expect(ids.map((id) => document.getElementById(id)?.textContent)).toContain(text)
@@ -123,7 +131,7 @@ describe('LoginView', () => {
     await flushPromises()
     const user = w.find('input[autocomplete="username"]')
     const pass = w.find('input[autocomplete="current-password"]')
-    expect(w.find(`label[for="${user.attributes('id')}"]`).text()).toBe('Логин или e-mail')
+    expect(w.find(`label[for="${user.attributes('id')}"]`).text()).toBe('Логин или email')
     expect(w.find(`label[for="${pass.attributes('id')}"]`).text()).toBe('Пароль')
     expect(user.attributes('aria-required')).toBe('true')
     expect(document.activeElement).toBe(user.element)

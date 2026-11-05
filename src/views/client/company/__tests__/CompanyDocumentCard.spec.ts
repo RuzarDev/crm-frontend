@@ -152,6 +152,31 @@ describe('CompanyDocumentCard', () => {
     expect(w.get('[data-history-doc="r"]').text()).toContain('Отозван')
   })
 
+  it('доверенность — женский род: «Многоразовая», «сформирована», «Отозвана», «Истекла»; договор — мужской', async () => {
+    const revoked = doc({ id: 'r', kind: 'poa', number: '3', status: 4, generatedAtUtc: '2026-01-01T06:00:00Z' })
+    const expired = doc({ id: 'e', kind: 'poa', number: '7', status: 2, validUntilUtc: '2026-02-01T06:00:00Z', generatedAtUtc: '2026-01-05T06:00:00Z' })
+    await mountCard({ kind: 'poa', docs: [doc({ kind: 'poa' }), revoked, expired] })
+    expect(w.get('[data-doc-meta]').text()).toBe('Многоразовая · сформирована 08.10')
+    expect(w.get('[data-history-doc="r"]').text()).toContain('Отозвана')
+    expect(w.get('[data-history-doc="e"]').text()).toContain('Истекла')
+    w.unmount()
+    await mountCard({ docs: [doc({})] })
+    expect(w.get('[data-doc-meta]').text()).toBe('Многоразовый · сформирован 08.10')
+  })
+
+  it('новый ждёт подписи, прежний действует — оба на виду, прежний не в истории и скачивается', async () => {
+    const fresh = doc({ id: 'c1', number: '13', isSingleUse: true, generatedAtUtc: at(2026, 10, 20) })
+    api.downloadDocument.mockResolvedValue(new Blob(['x']))
+    await mountCard({ docs: [ACTIVE, fresh] })
+    expect(w.get('[data-doc-title]').text()).toContain('№ 13/2026')
+    const behind = w.get('[data-doc-behind="c0"]')
+    expect(behind.text()).toContain('Сейчас действует № 12/2026')
+    expect(w.find('[data-doc-history]').exists()).toBe(false)
+    await behind.findAll('button')[0].trigger('click')
+    await flushPromises()
+    expect(api.downloadDocument).toHaveBeenCalledWith('cl1', 'c0', undefined)
+  })
+
   it('доверенность: нет плашки AQNIET; израсходованная разовая — в истории, «Действующей доверенности нет»', async () => {
     const consumed = doc({ id: 'p0', kind: 'poa', status: 2, isSingleUse: true, consumedByCaseId: 'case1', clientSigned: true })
     await mountCard({ kind: 'poa', docs: [consumed] })

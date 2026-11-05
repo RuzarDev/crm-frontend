@@ -15,7 +15,7 @@ import { message } from '@/ui/message'
 import { cn } from '@/ui/cn'
 import { saveBlob } from '@/ui/download'
 import {
-  currentDoc, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
+  currentDoc, effectiveBehind, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
   type DocKind, type HistoryStatus,
 } from './company'
 import { formatDay } from '@/views/broker/list'
@@ -48,15 +48,20 @@ const titleId = `company-doc-${uid}`
 const k = (key: string) => `client.company.${props.kind}.${key}`
 const current = computed(() => currentDoc(props.docs))
 const history = computed(() => historyDocs(props.docs))
+// Новый документ ждёт подписи, а прежний ещё действует: показываем оба, а не прячем действующий в историю.
+const behind = computed(() => effectiveBehind(props.docs))
 // Последний документ отозван (05.11.2026): клиент видит номер и дату, а не три причины через «или».
 const revokedLast = computed(() => (history.value[0]?.status === 4 ? history.value[0] : null))
 const hasProvider = computed(() => props.kind === 'contract')
 
+// Договор — он, доверенность — она: подписи с родом у доверенности свои (client.company.poa.forms).
+const form = (key: string) => `client.company.${props.kind === 'poa' ? 'poa.forms' : 'doc'}.${key}`
+
 const docTitle = (d: Import40DocumentDto) => t(k('title'), { no: `${d.number}/${d.year}` })
 const metaParts = (d: Import40DocumentDto) => [
-  t(d.isSingleUse ? 'client.company.doc.single' : 'client.company.doc.multi'),
+  t(form(d.isSingleUse ? 'single' : 'multi')),
   d.validUntilUtc ? t('client.company.doc.validUntil', { date: validDate(d.validUntilUtc) }) : null,
-  t('client.company.doc.generated', { date: localDate(d.generatedAtUtc) }),
+  t(form('generated'), { date: localDate(d.generatedAtUtc) }),
 ].filter(Boolean).join(' · ')
 
 const signedText = (at: string | null, method: string | null) => {
@@ -220,6 +225,31 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
 
     <!-- Актуальный документ -->
     <template v-if="current">
+      <!-- Прежний документ ещё действует, новый ждёт подписи -->
+      <div v-if="behind" class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-row border border-line bg-canvas px-[18px] py-3" :data-doc-behind="behind.id">
+        <span class="min-w-0 flex-1 basis-56">
+          <span class="block text-sm font-medium text-ink">{{ t('client.company.doc.behindTitle', { no: `${behind.number}/${behind.year}` }) }}</span>
+          <span class="block text-[13px] text-ink-3">{{ metaParts(behind) }}</span>
+        </span>
+        <ZButton
+          variant="ghost"
+          :loading="downloadingId === behind.id"
+          :aria-label="t('client.company.doc.downloadLabel', { no: `${behind.number}/${behind.year}` })"
+          class="h-8 px-2.5 max-sm:h-11 max-sm:px-3"
+          @click="download(behind)"
+        >
+          <PhDownloadSimple :size="16" aria-hidden="true" />.docx
+        </ZButton>
+        <ZButton
+          variant="ghost"
+          :loading="downloadingId === `${behind.id}:pdf`"
+          class="h-8 px-2.5 max-sm:h-11 max-sm:px-3"
+          @click="download(behind, 'pdf')"
+        >
+          <PhDownloadSimple :size="16" aria-hidden="true" />.pdf
+        </ZButton>
+      </div>
+
       <!-- На телефоне заголовок — на всю ширину, статус и «Скачать» — строкой ниже (иначе зажатый между ними
            «Договор № …» ломался по слову в строку). -->
       <div class="flex flex-wrap items-start gap-3 max-sm:items-center">
@@ -406,7 +436,7 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
             <span class="block text-sm font-medium text-ink">№ {{ d.number }}/{{ d.year }}</span>
             <span class="block text-[13px] text-ink-3">{{ metaParts(d) }}</span>
           </span>
-          <ZTag :tone="HISTORY_TONE[historyStatus(d)]" size="sm">{{ t(`client.company.doc.status.${historyStatus(d)}`) }}</ZTag>
+          <ZTag :tone="HISTORY_TONE[historyStatus(d)]" size="sm">{{ t(form(`status.${historyStatus(d)}`)) }}</ZTag>
           <ZButton
             variant="ghost"
             :loading="downloadingId === d.id"

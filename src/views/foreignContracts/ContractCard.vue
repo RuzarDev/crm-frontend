@@ -20,6 +20,7 @@ import { cn } from '@/ui/cn'
 import ContractModal from './ContractModal.vue'
 import PaymentModal from './PaymentModal.vue'
 import { DEADLINE_TONE, day, deadlineHint, deliveredPercent, fieldsOf, money } from './contracts'
+import { useAuthStore } from '@/stores/auth'
 
 // Карточка внешнеторгового контракта (17.10, задача 3): условия, баланс «оплачено / поставлено» в валюте контракта,
 // сроки (репатриация, окончание, снятие УНК), поставки по ДТ (курс НБ РК на дату ДТ), оплаты поставщику, Excel.
@@ -40,6 +41,7 @@ const props = withDefaults(defineProps<{
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
 const router = useRouter()
+const auth = useAuthStore()
 
 const card = shallowRef<ForeignContractCard | null>(null)
 const state = ref<'loading' | 'error' | 'notFound' | 'ready'>('loading')
@@ -195,7 +197,7 @@ const h2 = 'm-0 text-md font-semibold text-ink'
           <p class="m-0 mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-3">
             <span class="min-w-0 break-words">{{ c.supplierName }}</span>
             <ZTag v-if="c.isArchived" tone="neutral" size="sm" data-contract-archived>{{ t('foreignContracts.archivedTag') }}</ZTag>
-            <span class="text-xs text-muted">{{ t(c.addedByClient ? 'foreignContracts.addedByClient' : 'foreignContracts.addedByStaff') }}</span>
+            <span class="text-xs text-muted">{{ t(c.addedByClient ? (auth.isClient ? 'foreignContracts.addedByYou' : 'foreignContracts.addedByClient') : 'foreignContracts.addedByStaff') }}</span>
           </p>
         </div>
         <div class="flex w-full flex-wrap gap-2 sm:w-auto">

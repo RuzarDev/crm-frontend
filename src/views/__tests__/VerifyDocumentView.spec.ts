@@ -54,10 +54,10 @@ describe('VerifyDocumentView', () => {
     expect(legacy.classes()).not.toContain('text-tone-done-fg')
   })
 
-  it('израсходованный разовый (C-20) — «Исполнен»', async () => {
+  it('израсходованный разовый (C-20) — «Использован»', async () => {
     api.get.mockResolvedValue({ ...DOC, status: 'consumed' })
     await mount('/verify/tok')
-    expect(w.get('[data-verify-status]').text()).toBe('Исполнен')
+    expect(w.get('[data-verify-status]').text()).toBe('Использован')
   })
 
   it('неверная ссылка — «Документ не найден»', async () => {

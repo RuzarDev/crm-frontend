@@ -148,6 +148,18 @@ describe('ProfilePage: шапка и карточки', () => {
     expect(router.currentRoute.value.path).toBe('/import-40/company')
   })
 
+  it('ссылка на политику конфиденциальности — клиенту, в новой вкладке', async () => {
+    as('client', [], { modules: ['import40'] })
+    await open()
+    const link = w.get('[data-profile-privacy]')
+    expect(link.attributes('href')).toBe('/privacy')
+    expect(link.attributes('target')).toBe('_blank')
+    w.unmount()
+    as('broker')
+    await open()
+    expect(w.find('[data-profile-privacy]').exists()).toBe(false)
+  })
+
   it('ошибка загрузки профиля — блок с «Повторить», а не пустые формы; повтор подтягивает карточки', async () => {
     api.profileGet.mockRejectedValueOnce(new Error('boom'))
     await open()
