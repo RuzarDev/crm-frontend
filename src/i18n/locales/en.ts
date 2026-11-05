@@ -330,7 +330,7 @@ export default {
     svhInvoiceEmpty: 'Invoice not issued',
     closeSvh: 'Close DT at TWH',
     confirmCloseSvh: 'Close the DT at the warehouse?',
-    confirmCloseSvhHint: 'Next the checkpoint officer issues the warehouse invoice, and the client is notified "Warehouse processing completed". Only a manager or an administrator can step back.',
+    confirmCloseSvhHint: 'Next the checkpoint officer issues the warehouse invoice, and the client sees "Warehouse processing completed" in the case history. Only a manager or an administrator can step back.',
     issueInvoice: 'Issue TWH invoice',
     paid: 'paid',
     paymentCheckTitle: 'Payment receipt',
