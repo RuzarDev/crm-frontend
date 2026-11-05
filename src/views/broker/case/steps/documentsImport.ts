@@ -112,6 +112,16 @@ export async function resolveOnBehalfSender(o: OnBehalfSender, notes: DocumentsN
 
 const digits = (s: string | null | undefined) => (s ?? '').replace(/\D/g, '')
 
+/** Zircon AI нашёл в пакете сам CMR, а не упоминание о нём в другом документе (05.11.2026): как на сервере RoadWaybillIn. */
+export function aiFoundCmr(documents: readonly { code?: string | null; flags?: string[] }[] | null | undefined): boolean {
+  return !!documents?.some((d) => d.code === '02015' && !d.flags?.includes('referenced_only'))
+}
+
+/** В гр. 44 ЖД накладная без номера: сервер поставил её по виду заявки, в документах накладной нет (05.11.2026). */
+export function railDocWithoutNumber(items: readonly { docTypeCode?: string | null; docNumber?: string | null }[] | null | undefined): boolean {
+  return !!items?.some((d) => d.docTypeCode === '02013' && !d.docNumber?.trim())
+}
+
 /**
  * Получатель созданной ДТ — компания клиента? Тем же правилом, что IsClientCompany на сервере (В17): тот же БИН, а без БИН —
  * то же название без форм собственности и кавычек. Компания клиента — декларант новой ДТ: его сервер ставит из профиля
@@ -234,7 +244,7 @@ export async function prepareDocumentsDeclaration(
   const extras = result.extras ?? null
   const excel = applyExcelFallback(result.declaration, docs, {
     extras, transportMode: kase.transportMode ?? null, hasCaseContract: !!kase.foreignContractId,
-    docKindNames: extra.docKindNames, countries: extra.countries, road: extra.cmrInBatch,
+    docKindNames: extra.docKindNames, countries: extra.countries, road: extra.cmrInBatch || aiFoundCmr(extras?.documents),
   })
   const invoiceNo = extras?.invoiceNumber ?? docs.find((d) => d.header.kind === 'invoice')?.header.number ?? null
   const [resolved] = await Promise.all([

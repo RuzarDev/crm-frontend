@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import { PhArrowElbowDownRight, PhCode, PhCopy, PhDotsThree, PhDownloadSimple, PhPlus, PhSparkle } from '@phosphor-icons/vue'
@@ -30,7 +30,7 @@ import ExtractionIssuesModal, { type ExtractionIssues } from './ExtractionIssues
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import { invoiceNumbers } from './extractDocs'
 import CopyDtModal from './CopyDtModal.vue'
-import { prepareDocumentsDeclaration, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
+import { prepareDocumentsDeclaration, railDocWithoutNumber, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from './documentsSources'
 import CondRelTag from '@/components/condrel/CondRelTag.vue'
 import { briefOf } from '@/utils/conditionalRelease'
@@ -267,6 +267,8 @@ const extractIntoDt = async (
     if (perFile && !created.arrivalTransportNumbers?.some((m) => m.number?.trim())) {
       warnings.push(t('broker.case.declaring.batch.perFileNoTransport'))
     }
+    // Заявка «ЖД», а накладной в пакете нет (05.11.2026, правка №5): гр. 44 взята по виду заявки — декларант должен это увидеть.
+    if (railDocWithoutNumber(created.doc44Items)) warnings.push(t('broker.case.declaring.batch.railDocDefault'))
     // Получатель из документов не совпал с компанией клиента — сервер не взял поля профиля (В17): предупредить. Тем же
     // правилом, что сервер (БИН, без БИН — название); нет профиля клиента — не с чем сравнить, без предупреждения.
     if (prepared.receiverName && receiverIsClient(created) === false) {
@@ -321,9 +323,23 @@ defineExpose({ runBatch })
 // Каждый файл — своя ДТ (04.11.2026): вагоны идут отдельными ДТ, в файле своя накладная и свой инвойс. Файлы разбираются
 // по очереди, сбой одного не останавливает остальные; остаёмся в списке ДТ.
 const perFileProgress = ref<{ done: number; total: number } | null>(null)
-const fromDocsBusyText = computed(() => perFileProgress.value
+// Сколько уже идёт разбор (05.11.2026, правка №6): скан читается около 10 с на страницу, без счётчика кнопка выглядит зависшей.
+const batchSeconds = ref(0)
+let batchTimer: ReturnType<typeof setInterval> | null = null
+const stopBatchTimer = () => {
+  if (batchTimer) clearInterval(batchTimer)
+  batchTimer = null
+}
+watch(() => pending('dt-batch'), (on) => {
+  stopBatchTimer()
+  batchSeconds.value = 0
+  if (on) batchTimer = setInterval(() => { batchSeconds.value += 1 }, 1000)
+})
+onBeforeUnmount(stopBatchTimer)
+const batchElapsed = computed(() => `${Math.floor(batchSeconds.value / 60)}:${String(batchSeconds.value % 60).padStart(2, '0')}`)
+const fromDocsBusyText = computed(() => `${perFileProgress.value
   ? t('broker.case.declaring.list.fromDocsProgress', { n: perFileProgress.value.done + 1, total: perFileProgress.value.total })
-  : t('broker.case.declaring.list.fromDocsBusy'))
+  : t('broker.case.declaring.list.fromDocsBusy')} ${batchElapsed.value}`)
 
 const runPerFile = async (files: File[], fileIds: readonly string[]) => {
   if ((!files.length && !fileIds.length) || busy()) return
