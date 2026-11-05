@@ -208,7 +208,7 @@ const dtLink = (r: KedenRow) => (r.caseId && r.declarationId ? `/import-40/${r.c
             <span v-else class="text-muted">—</span>
           </template>
           <ZTag v-else-if="column.key === 'type'" tone="neutral" :title="record.type ? typeFull(record.type) : undefined" data-keden-type>{{ record.type ? typeShort(record.type) : '—' }}</ZTag>
-          <StatusDot v-else-if="column.key === 'status'" :tone="statusTone(record.statusCode, record.statusName)" :label="record.statusName || '—'" />
+          <StatusDot v-else-if="column.key === 'status'" :tone="statusTone(record.statusCode, record.statusName)" :label="record.statusName || '—'" wrap />
           <span v-else-if="column.key === 'post'" class="block truncate" :class="record.customsPost ? 'text-ink-2' : 'text-muted'" :title="record.customsPost ?? undefined">{{ record.customsPost || '—' }}</span>
           <template v-else-if="column.key === 'declarant'">
             <template v-if="record.declarantName || record.declarantXin">
