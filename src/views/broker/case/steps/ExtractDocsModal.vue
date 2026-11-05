@@ -28,20 +28,29 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:open': [open: boolean]; submit: [payload: { fileIds: string[]; uploads: File[]; perFile: boolean }] }>()
 const { t } = useI18n()
+const LARGE_SCAN_BYTES = 10 * 1024 * 1024
 const tx = (key: string, p?: Record<string, unknown>) => t(`broker.case.declaring.extract.${key}`, p ?? {})
 
 const caseFiles = computed(() => extractableCaseFiles(props.files))
 const selected = ref<Set<string>>(new Set())
 const uploads = ref<File[]>([])
 const perFile = ref(false)
+// Отметку поставили или сняли руками: автоматика её больше не трогает.
+const perFileTouched = ref(false)
+// Отмечено окном само (инвойс и упаковочный заявки), а не декларантом.
+const autoSelected = ref<Set<string>>(new Set())
+const autoCleared = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 // При каждом открытии — заново: отмечены инвойс и упаковочный лист (или defaultIds), файлов с компьютера нет.
 watch(() => props.open, (open) => {
   if (!open) return
   selected.value = new Set(props.defaultIds ?? preselectedIds(caseFiles.value))
+  autoSelected.value = new Set(props.defaultIds ? [] : selected.value)
+  autoCleared.value = false
   uploads.value = []
   perFile.value = false
+  perFileTouched.value = false
 }, { immediate: true })
 const existing = computed(() => props.target === 'existing')
 const isNew = (f: Import40FileDto) => !!props.newIds?.includes(f.id)
@@ -52,6 +61,7 @@ const lead = computed(() => {
 })
 
 const toggle = (id: string, on: boolean) => {
+  autoSelected.value.delete(id)
   const next = new Set(selected.value)
   if (on) next.add(id)
   else next.delete(id)
@@ -65,12 +75,30 @@ const onPick = (e: Event) => {
   const picked = input.files ? Array.from(input.files) : []
   input.value = ''
   uploads.value = [...uploads.value, ...picked]
+  // Свои файлы — другой набор: инвойс заявки, отмеченный окном, попал бы в разбор и подменил товары (05.11.2026).
+  if (picked.length && autoSelected.value.size) {
+    selected.value = new Set([...selected.value].filter((id) => !autoSelected.value.has(id)))
+    autoSelected.value = new Set()
+    autoCleared.value = true
+  }
 }
 const removeUpload = (i: number) => { uploads.value = uploads.value.filter((_, j) => j !== i) }
 
 const count = computed(() => selected.value.size + uploads.value.length)
 // Несколько вагонов (04.11.2026): отметка видна, только когда есть что делить и создаётся новая ДТ.
 const canSplit = computed(() => !existing.value && count.value > 1)
+// Несколько больших сканов (05.11.2026): одним запросом разбор успевает лишь часть страниц и молча теряет инвойсы.
+const pickedSizes = computed(() => [
+  ...uploads.value.map((f) => f.size),
+  ...caseFiles.value.filter((f) => selected.value.has(f.id)).map((f) => f.sizeBytes ?? 0),
+])
+const largeScans = computed(() => pickedSizes.value.filter((size) => size >= LARGE_SCAN_BYTES).length >= 2)
+const perFileAuto = computed(() => canSplit.value && largeScans.value && !perFileTouched.value)
+watch(perFileAuto, (on) => { perFile.value = on })
+const setPerFile = (on: boolean) => {
+  perFileTouched.value = true
+  perFile.value = on
+}
 const submit = () => {
   if (!count.value || props.busy) return
   emit('submit', {
@@ -114,14 +142,16 @@ const submit = () => {
             <ZButton variant="ghost" size="sm" :aria-label="tx('remove', { name: f.name })" @click="removeUpload(i)"><PhX :size="14" aria-hidden="true" /></ZButton>
           </li>
         </ul>
+        <p v-if="autoCleared" class="m-0 text-xs text-muted" data-extract-auto-cleared>{{ tx('autoCleared') }}</p>
         <ZButton variant="secondary" size="sm" class="self-start" data-extract-add @click="fileInput?.click()">
           <PhFileArrowUp :size="15" aria-hidden="true" />{{ tx('add') }}
         </ZButton>
         <input ref="fileInput" type="file" multiple :accept="EXTRACT_ACCEPT" class="hidden" data-extract-input @change="onPick" />
       </div>
       <div v-if="canSplit" class="rounded-row bg-sunken px-3 py-2" data-extract-per-file>
-        <ZCheckbox v-model:checked="perFile" data-extract-per-file-check>{{ tx('perFile') }}</ZCheckbox>
+        <ZCheckbox :checked="perFile" data-extract-per-file-check @update:checked="setPerFile">{{ tx('perFile') }}</ZCheckbox>
         <p class="m-0 mt-1 text-xs text-muted">{{ tx('perFileHint', { n: count }) }}</p>
+        <p v-if="perFileAuto" class="m-0 mt-1 text-xs text-muted" data-extract-per-file-auto>{{ tx('perFileAuto') }}</p>
       </div>
       <p class="m-0 text-xs text-muted">{{ tx('note') }}</p>
       <p class="m-0 text-xs text-muted" data-extract-speed>{{ tx('speedHint') }}</p>

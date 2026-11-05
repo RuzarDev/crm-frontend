@@ -930,6 +930,58 @@ describe('ExtractDocsModal: каждый файл — отдельная ДТ', 
     expect(m.emitted('submit')?.[0]?.[0]).toMatchObject({ fileIds: ['a', 'b'], perFile: true })
   })
 
+  describe('большие сканы и авто-выбор (05.11.2026)', () => {
+    const big = (name: string) => {
+      const f = new File(['x'], name)
+      Object.defineProperty(f, 'size', { value: 30 * 1024 * 1024 })
+      return f
+    }
+    const pick = async (m: ReturnType<typeof mountModal>, picked: File[]) => {
+      const input = m.find('[data-extract-input]')
+      Object.defineProperty(input.element, 'files', { value: picked, configurable: true })
+      await input.trigger('change')
+      await flushPromises()
+    }
+    const openAuto = () => mountModal(ExtractDocsModal, {
+      props: { open: true, files: [
+        { id: 'inv', originalFileName: 'инвойс.pdf', docKind: 'invoice', section: 'documents', sizeBytes: 1000, createdAtUtc: '2026-11-01T00:00:00Z' },
+      ] as never },
+      global: { plugins: [i18n], stubs: { ZModal: ModalStub } },
+    })
+    const submitted = (m: ReturnType<typeof mountModal>) => {
+      (m.vm as unknown as { submit: () => void }).submit()
+      return m.emitted('submit')?.[0]?.[0]
+    }
+
+    it('два больших файла: «по очереди» включено само', async () => {
+      const m = openAuto()
+      await pick(m, [big('1.pdf'), big('2.pdf')])
+      expect(m.find('[data-extract-per-file-auto]').exists()).toBe(true)
+      expect(submitted(m)).toMatchObject({ perFile: true })
+    })
+
+    it('снятую вручную отметку автоматика не возвращает', async () => {
+      const m = openAuto()
+      await pick(m, [big('1.pdf'), big('2.pdf')])
+      await m.find('[data-extract-per-file] [role="checkbox"], [data-extract-per-file] input').trigger('click')
+      await pick(m, [big('3.pdf')])
+      expect(submitted(m)).toMatchObject({ perFile: false })
+    })
+
+    it('маленькие файлы: отметка сама не ставится', async () => {
+      const m = openAuto()
+      await pick(m, [new File(['x'], '1.pdf'), new File(['y'], '2.pdf')])
+      expect(submitted(m)).toMatchObject({ perFile: false })
+    })
+
+    it('свои файлы снимают документ заявки, отмеченный окном', async () => {
+      const m = openAuto()
+      await pick(m, [new File(['x'], '1.pdf')])
+      expect(m.find('[data-extract-auto-cleared]').exists()).toBe(true)
+      expect(submitted(m)).toMatchObject({ fileIds: [] })
+    })
+  })
+
   it('в уже созданную ДТ отметки нет', () => {
     expect(openModal(['a', 'b'], 'existing').find('[data-extract-per-file]').exists()).toBe(false)
   })
