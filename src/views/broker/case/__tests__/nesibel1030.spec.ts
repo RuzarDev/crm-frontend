@@ -17,7 +17,7 @@ const doc = (source: string, kind: ImportDoc['kind'], rows: Partial<ImportRow>[]
   ({ source, kind, rows: rows.map((x) => r({ source, ...x })) })
 
 describe('E1. Гр. 31: русская часть описания', () => {
-  it('двуязычная ячейка «贴面板↵Подвесная панель» — только русская часть', () => {
+  it('двуязычная ячейка «贴面板↵Подвесная панель» — китайская часть убрана', () => {
     expect(russianPart('贴面板\nПодвесная панель')).toBe('Подвесная панель')
     expect(hasRussianPart('贴面板\nПодвесная панель')).toBe(true)
     expect(chineseOnly('贴面板')).toBe(true)
