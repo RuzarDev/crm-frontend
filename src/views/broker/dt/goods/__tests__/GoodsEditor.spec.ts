@@ -469,6 +469,32 @@ describe('GoodsEditor: «Похожие коды», «ОТСУТСТВУЕТ» �
     expect(q('[data-goods-similar]')).toBeNull()
   })
 
+  // 05.11.2026: код из документа, которого нет в ТН ВЭД, виден, пока гр. 33 пуста; данные поля не трогаются.
+  it('код из документа: подсказка при пустой гр. 33, выбрал код — скрыта, очистил — снова видна', async () => {
+    tnved.classify.mockResolvedValue({ data: { matches: [], exactCodeInfo: null, suggestedGroup: null } })
+    const hint = 'В документе: 9401719000, кода нет в ТН ВЭД'
+    const gr33 = () => q('[data-goods-field="tnvedCode"]')!.textContent
+    await mount([item({ tnvedCode: null, tnvedDescription: null, documentTnvedCode: '9401719000' })], { query: '&item=1' })
+    expect(gr33()).toContain(hint)
+    expect(field('tnvedCode').value).toBe('')
+
+    await type('tnvedCode', '9401710000')
+    expect(gr33()).not.toContain(hint)
+    expect(form.goodsItems[0].documentTnvedCode).toBe('9401719000')
+
+    await type('tnvedCode', '')
+    expect(gr33()).toContain(hint)
+  })
+
+  it('код из документа: у товара с кодом в гр. 33 и у товара без поля подсказки нет', async () => {
+    tnved.classify.mockResolvedValue({ data: { matches: [], exactCodeInfo: null, suggestedGroup: null } })
+    await mount([item({ documentTnvedCode: '9401719000' })], { query: '&item=1' })
+    expect(q('[data-goods-field="tnvedCode"]')!.textContent).not.toContain('В документе')
+    w.unmount()
+    await mount([item({ tnvedCode: null, tnvedDescription: null })], { query: '&item=1' })
+    expect(q('[data-goods-field="tnvedCode"]')!.textContent).not.toContain('В документе')
+  })
+
   it('товарный знак пуст — серая подсказка «ОТСУТСТВУЕТ», как у марки и модели', async () => {
     writeCharsMode('cards')
     await mount([item({ characteristics: [{ manufacturerName: 'YIWU' }] })], { query: '&item=1' })

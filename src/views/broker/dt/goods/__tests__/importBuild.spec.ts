@@ -79,6 +79,40 @@ describe('importBuild №9: код только действующий, не н�
     expect(noteDetails(notes, 'invalidCode')).toEqual(['7304399209:notInDirectory', '2026020201:docNumber'])
     expect(buildGoods(rows, ctx(r, { keepInvalidCodes: true })).goods.map((g) => g.tnvedCode)).toEqual(['7304399209', '2026020201'])
   })
+
+  describe('отброшенный код в documentTnvedCode товара («Из документов», 05.11.2026)', () => {
+    const rejectedCtx = (r: ResolveResult) => ctx(r, { rejectedCodeToDocument: true })
+
+    it('у каждого товара свой код, один код — у нескольких; действующий код поля не получает', () => {
+      const r = resolved({ '9401719000': { valid: false }, '9401799000': { valid: false }, '7323990000': {} })
+      const rows = ['9401 71 900 0', '7323990000', '9401799000', '9401719000'].map((tnvedCode) => row({ tnvedCode }))
+      const { goods } = buildGoods(rows, rejectedCtx(r))
+      expect(goods.map((g) => g.tnvedCode)).toEqual([null, '7323990000', null, null])
+      expect(goods.map((g) => g.documentTnvedCode)).toEqual(['9401719000', null, '9401799000', '9401719000'])
+    })
+
+    it('сервер не вернул код вовсе — тоже отброшен и записан', () => {
+      const { goods, notes } = buildGoods([row({ tnvedCode: '9401719000' })], rejectedCtx(resolved({})))
+      expect(goods[0]).toMatchObject({ tnvedCode: null, documentTnvedCode: '9401719000' })
+      expect(noteDetails(notes, 'invalidCode')).toEqual(['9401719000:notInDirectory'])
+    })
+
+    it('длиннее 20 знаков — обрезается до предела поля на сервере', () => {
+      const code = '9'.repeat(25)
+      const r: ResolveResult = { ...resolved({}), rejected: [{ code, reason: 'notTenDigits' }] }
+      expect(buildGoods([row({ tnvedCode: code })], rejectedCtx(r)).goods[0].documentTnvedCode).toBe('9'.repeat(20))
+    })
+
+    it('проверка не удалась — код в гр. 33 как раньше, поля нет', () => {
+      const { goods } = buildGoods([row({ tnvedCode: '9401719000' })], rejectedCtx(resolved({}, true)))
+      expect(goods[0]).toMatchObject({ tnvedCode: '9401719000', documentTnvedCode: null })
+    })
+
+    it('без опции («Из Excel») поле не пишется', () => {
+      const { goods } = buildGoods([row({ tnvedCode: '9401719000' })], ctx(resolved({ '9401719000': { valid: false } })))
+      expect(goods[0]).toMatchObject({ tnvedCode: null, documentTnvedCode: null })
+    })
+  })
 })
 
 describe('importBuild №2/5/16: строка гр. 31 всегда и со значениями', () => {

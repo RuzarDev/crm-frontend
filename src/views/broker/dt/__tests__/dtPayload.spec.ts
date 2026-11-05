@@ -118,6 +118,13 @@ describe('dtPayload — туда и обратно', () => {
     for (const [k, v] of Object.entries(rest)) expect(sent[k], k).toEqual(v)
   })
 
+  it('код из документа (05.11.2026) — туда и обратно; пустое уходит явным null, ключ не пропадает', () => {
+    const dto = fullDto({ goodsItems: [fullGoodsDto({ documentTnvedCode: '9401719000' }), fullGoodsDto({ documentTnvedCode: undefined })] })
+    const [kept, empty] = formToPayload(dtoToForm(dto), null).goodsItems!
+    expect(kept.documentTnvedCode).toBe('9401719000')
+    expect(empty).toHaveProperty('documentTnvedCode', null)
+  })
+
   it('ручные гр. 45/46 и строки гр. 47 (16.10.2026) — туда и обратно; старый ответ без признаков — не ручные', () => {
     const dto = fullDto({
       goodsItems: [fullGoodsDto({

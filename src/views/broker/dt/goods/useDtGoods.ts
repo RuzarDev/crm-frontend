@@ -74,6 +74,7 @@ export function keyOf(item: Goods): number {
 export const newDtGoodsItem = (currency: string | null | undefined): Goods => ({
   description: null,
   tnvedCode: null,
+  documentTnvedCode: null,
   tnvedDescription: null,
   countryOfOrigin: null,
   quantity: null,

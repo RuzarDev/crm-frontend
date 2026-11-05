@@ -338,6 +338,7 @@ export function dtoToForm(dto: Import40DeclarationDto, today: string = dayjs().f
   f.goodsItems = (dto.goodsItems ?? []).map((g) => ({
     description: g.description ?? null,
     tnvedCode: g.tnvedCode ?? null,
+    documentTnvedCode: g.documentTnvedCode ?? null,
     tnvedDescription: g.tnvedDescription ?? null,
     countryOfOrigin: g.countryOfOrigin ?? null,
     quantity: g.quantity ?? null,

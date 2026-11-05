@@ -39,6 +39,12 @@ const onCode = (v: string) => setStr('tnvedCode', v.replace(/\s+/g, ''))
 
 const code = computed(() => (props.item.tnvedCode ?? '').trim())
 const codeError = computed(() => (check.isInvalid(props.item.tnvedCode) ? tc('notFound') : undefined))
+// Код из документа, которого нет в ТН ВЭД (05.11.2026): в гр. 33 он не попал, декларант видит его здесь, пока графа пуста.
+// Выбрал код — подсказка скрыта, значение остаётся; очистил графу — снова видна.
+const documentCodeHint = computed(() => {
+  const documentCode = props.item.documentTnvedCode?.trim()
+  return !code.value && documentCode ? t('broker.dt.goods.editor.code.documentCodeHint', { code: documentCode }) : undefined
+})
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
 // ДЕИ (гр. 41) задаёт код ТН ВЭД (правило сервера, tnved/node/{code}/rates). Меняет единицу только СМЕНА кода
@@ -212,7 +218,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
 
 <template>
   <div class="flex flex-col gap-4" data-goods-code-section>
-    <ZField graph="33" :label="tc('code')" :error="codeError" data-graph="33" data-goods-field="tnvedCode" :data-goods-index="index">
+    <ZField graph="33" :label="tc('code')" :error="codeError" :extra="documentCodeHint" data-graph="33" data-goods-field="tnvedCode" :data-goods-index="index">
       <div class="flex min-w-0 flex-wrap gap-1.5">
         <ZInput
           :value="item.tnvedCode"
