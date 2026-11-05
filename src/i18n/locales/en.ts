@@ -6026,7 +6026,7 @@ export default {
     point1: 'Declarations go to KEDEN as a ready-made file',
     point2: 'Duty rates and NBK exchange rates as of the declaration date',
     point3: 'Client portal with shipment statuses',
-    copyright: '© {year} Zircon · Astana',
+    copyright: '© {year} Zircon · Almaty',
     optional: 'optional',
   },
   register: {

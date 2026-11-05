@@ -6030,7 +6030,7 @@ export default {
     point1: 'Декларация выгружается в КЕДЕН готовым файлом',
     point2: 'Ставки и курсы НБ РК на дату декларации',
     point3: 'Кабинет клиента со статусами поставок',
-    copyright: '© {year} Zircon · Астана',
+    copyright: '© {year} Zircon · Алматы',
     optional: 'необязательно',
   },
   register: {
