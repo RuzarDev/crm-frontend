@@ -1,3 +1,4 @@
+import { combineDeclarations, distinctCurrencies } from '../steps/combineDeclarations'
 import { aiFoundCmr, railDocWithoutNumber } from '../steps/documentsImport'
 import { describe, expect, it } from 'vitest'
 import type { Import40FileDto } from '@/api/import40'
@@ -58,5 +59,25 @@ describe('транспорт по документам (05.11.2026)', () => {
     expect(railDocWithoutNumber([{ docTypeCode: '02013', docNumber: ' ' }])).toBe(true)
     expect(railDocWithoutNumber([{ docTypeCode: '02013', docNumber: '38451494' }])).toBe(false)
     expect(railDocWithoutNumber([{ docTypeCode: '02015', docNumber: null }])).toBe(false)
+  })
+})
+
+describe('несколько вагонов в одной ДТ (05.11.2026)', () => {
+  const body = (invoice: string, waybill: string, value: number) => ({
+    currency: 'USD', totalInvoiceValue: value, goodsItems: [{ description: invoice }],
+    doc44Items: [
+      { docTypeCode: '04021', docNumber: invoice }, { docTypeCode: '02013', docNumber: waybill }, { docTypeCode: '03011', docNumber: 'K-1' },
+    ],
+  }) as never
+
+  it('товары и документы всех файлов, стоимость — сумма, общий контракт один раз', () => {
+    const out = combineDeclarations([body('A', 'W1', 100), body('B', 'W2', 50.5)])
+    expect(out.goodsItems).toHaveLength(2)
+    expect(out.totalInvoiceValue).toBe(150.5)
+    expect(out.doc44Items?.map((d) => d.docNumber)).toEqual(['A', 'W1', 'K-1', 'B', 'W2'])
+  })
+
+  it('разные валюты видны', () => {
+    expect(distinctCurrencies([{ currency: 'USD' }, { currency: 'usd' }, { currency: 'CNY' }] as never)).toEqual(['USD', 'CNY'])
   })
 })
