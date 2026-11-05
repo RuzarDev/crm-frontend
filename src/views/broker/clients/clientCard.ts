@@ -148,6 +148,17 @@ export const liveInvoicesCount = (rows: Pick<BrokerInvoice, 'status'>[]): number
 export const docsTabCount = (contractDocs: number | undefined, registryDocs: number | undefined): number | undefined =>
   contractDocs === undefined ? undefined : contractDocs + (registryDocs ?? 0)
 
+/** Счётчик вкладки «Контракты и перевозчики»: оба списка, пока любой не загрузился — без числа. */
+export const contractsTabCount = (contracts: number | undefined, carriers: number | undefined): number | undefined =>
+  contracts === undefined || carriers === undefined ? undefined : contracts + carriers
+
+/**
+ * Подпись кнопки .docx договора или доверенности (все экраны сотрудника): пока никто не подписал — «Скачать бланк»,
+ * подписанный — «Скачать .docx» (документ с QR подписантов; 02.11.2026, владелец). PDF — отдельная кнопка.
+ */
+export const docDownloadKey = (d: { clientSigned: boolean; providerSigned: boolean }): string =>
+  d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank'
+
 export interface Unpaid { sum: number; count: number; overdue: number }
 /** «Не оплачено»: выставленные счета (акты и черновики не считаются), из них просроченные. */
 export function unpaidOf(rows: BrokerInvoice[], now: Date = new Date()): Unpaid {

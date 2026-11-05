@@ -230,7 +230,7 @@ watch([linked, () => props.canLink, () => props.dtId, () => hintQuery.value?.pos
         <button
           type="button"
           :class="cn(
-            'inline-flex h-7 max-w-[22rem] cursor-pointer items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-2.5 font-sans text-[12.5px] text-ink-2',
+            'inline-flex h-7 max-w-full cursor-pointer items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-2.5 font-sans text-[12.5px] text-ink-2 sm:max-w-[22rem]',
             'outline-hidden transition-colors duration-150 hover:bg-sunken focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-9',
           )"
           :aria-label="`${t('kedenLink.chip')}: ${chipText}`"

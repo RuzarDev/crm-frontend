@@ -577,7 +577,7 @@ describe('CaseView: правая колонка', () => {
     expect(w.find('[data-case-edit]').exists()).toBe(true)
   })
 
-  it('запрос таможни без ответа: красная метка на шаге 3 и плашка с «Ответить таможне» / «Напомнить клиенту»', async () => {
+  it('запрос таможни без ответа: красная метка на шаге 3 и плашка с «Закрыть запрос» / «Напомнить клиенту»', async () => {
     customs.list.mockResolvedValueOnce([{
       id: 'r1', declarationId: null, declarationNumber: null, corridor: null, text: 'Нужен сертификат', docKinds: [], dueAtUtc: null,
       createdAtUtc: new Date(Date.now() - 3 * 3600_000).toISOString(), createdByName: null, status: 'open', answeredAtUtc: null,

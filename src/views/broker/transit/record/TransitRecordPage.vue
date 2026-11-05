@@ -38,6 +38,7 @@ import RecordDocuments from './tabs/RecordDocuments.vue'
 import RecordHistory from './tabs/RecordHistory.vue'
 import { useRecordPermissions } from './tabs/recordPermissions'
 import { NEW_RECORD_ID, useTransitRecord } from './useTransitRecord'
+import { entryLabel } from '../transit'
 
 // Запись транзита — страница /reestr/:id (/reestr/new — новая) вместо окна ReestrForm (редизайн, волна 4б,
 // доска TransitRecord). Шапка, плашки ошибок, вкладки «Данные / Документы n / История статусов / Комментарии n»
@@ -211,7 +212,7 @@ const onStatusChanged = () => {
 const onDelete = async () => {
   const e = entry.value
   if (!e) return
-  const ok = await confirm({ title: t('transit.udalitEtuZapis'), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
+  const ok = await confirm({ title: t('transit.udalitEtuZapis'), content: entryLabel(e.data, t), okText: t('transit.udalit'), cancelText: t('transit.otmena'), danger: true })
   if (!ok) return
   try {
     await reestrApi.delete(e.id)

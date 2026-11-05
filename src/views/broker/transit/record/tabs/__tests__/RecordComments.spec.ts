@@ -125,6 +125,8 @@ describe('RecordComments', () => {
     await rows[0].get('[data-comment-delete]').trigger('click')
     expect(confirmState.open).toBe(true)
     expect(confirmState.title).toBe('Удалить комментарий?')
+    expect(confirmState.okText).toBe('Удалить')
+    expect(confirmState.cancelText).toBe('Отмена')
     confirmState.resolve(true)
     await flushPromises()
     expect(api.deleteComment).toHaveBeenCalledWith('r1', 'c1')

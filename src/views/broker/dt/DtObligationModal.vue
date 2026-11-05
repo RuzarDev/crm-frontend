@@ -97,8 +97,8 @@ const generate = async () => {
       message.error(res.error)
       return
     }
-    // Имя файла — по-русски, как сам документ: получатель и дата обязательства.
-    saveBlob(res.blob, dtFormFileName('Обязательство', body.consigneeName, body.date))
+    // Имя файла: получатель и дата обязательства.
+    saveBlob(res.blob, dtFormFileName(tr('fileName'), body.consigneeName, body.date))
     if (addDoc44.value && props.canAddDoc44) emit('doc44', { number: body.number, date: body.date })
     message.success(tr('done'))
     close()

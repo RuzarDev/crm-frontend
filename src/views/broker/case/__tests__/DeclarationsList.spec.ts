@@ -422,7 +422,7 @@ describe('DeclarationsList: действия', () => {
     await flushPromises()
     await row('e1').get('[data-menu-item="delete"]').trigger('click')
     expect(confirmState.title).toBe('Удалить ДТ?')
-    expect(confirmState.content).toBe('E-1. Эта ДТ уже выгружалась в КЕДЕН — удалите её черновик там.')
+    expect(confirmState.content).toBe('E-1. Товары и платежи этой ДТ удалятся без возврата. Эта ДТ уже выгружалась в КЕДЕН — удалите её черновик там.')
   })
 
   // M3: промежуточная часть старой цепочки — «Удалить ДТ» (не «исходную»), окно — про её части; подсказка цепочки согласована.
@@ -446,6 +446,8 @@ describe('DeclarationsList: действия', () => {
     await row('d1').get('[data-menu-item="delete"]').trigger('click')
     expect(confirmState.title).toBe('Удалить ДТ?')
     expect(confirmState.danger).toBe(true)
+    // Обычная ДТ: номер и что удаление без возврата (аудит 05.11, № 39).
+    expect(confirmState.content).toContain('. Товары и платежи этой ДТ удалятся без возврата.')
     confirmState.resolve(false)
     await flushPromises()
     expect(api.deleteDeclaration).not.toHaveBeenCalled()

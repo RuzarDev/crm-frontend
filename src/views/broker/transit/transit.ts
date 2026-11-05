@@ -148,6 +148,17 @@ export function cellText(entry: ReestrEntry, id: Exclude<TransitColumnId, 'total
 }
 
 /** Номер контейнера ISO 6346 «MRSU4885849» → «MRSU 488584 9»; иное — как есть. */
+/** Чем назвать запись в окне удаления: «№ 12, контейнер MSKU 123456-7»; нет ни того ни другого — undefined. */
+export function entryLabel(data: ReestrEntry['data'], t: (key: string, p: Record<string, unknown>) => string): string | undefined {
+  const no = data[DATA_KEY.no]?.trim()
+  const container = data[DATA_KEY.container]?.trim()
+  const parts = [
+    no ? t('transit.zapisNo', { no }) : '',
+    container ? t('transit.zapisContainer', { container: formatContainer(container) }) : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join(', ') : undefined
+}
+
 export function formatContainer(v: string): string {
   const s = v.trim()
   const m = /^([A-Za-z]{4})\s?(\d{6})\s?(\d)$/.exec(s)

@@ -294,7 +294,7 @@ describe('карточка клиента: шапка', () => {
     expect(w.text()).toContain('2')
   })
 
-  it('меню «⋯»: «Документы клиента» всегда; «Подписать договор» — руководителю с import40.read, когда договор ждёт AQNIET', async () => {
+  it('меню «⋯»: «Документы клиента» всегда; «Подписать за AQNIET» — руководителю с import40.read, когда договор ждёт AQNIET', async () => {
     await mountAt()
     expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['docs', 'refresh'])
     await w.get('[data-menu-item="docs"]').trigger('click')
@@ -308,6 +308,7 @@ describe('карточка клиента: шапка', () => {
     as('manager', ALL, ['rop'])
     await mountAt('/clients/c1')
     expect(w.findAll('[data-menu-item]').map((b) => b.attributes('data-menu-item'))).toEqual(['sign', 'docs', 'refresh'])
+    expect(w.get('[data-menu-item="sign"]').text()).toBe('Подписать за AQNIET')
     await w.get('[data-menu-item="sign"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/import-40/company?client=c1&step=contract')
@@ -373,7 +374,7 @@ describe('карточка клиента: показатели', () => {
 describe('карточка клиента: вкладки и ?tab=', () => {
   it('вкладки по правам, со счётчиками', async () => {
     await mountAt()
-    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 3', 'Контракты', 'Счета 4'])
+    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 3', 'Контракты и перевозчики', 'Счета 4'])
   })
 
   // 30.10.2026 (аудит S-8, S-9): «Документы» — договоры/доверенности + реестр документов; «Счета» — без аннулированных.
@@ -381,7 +382,7 @@ describe('карточка клиента: вкладки и ?tab=', () => {
     api.registry.mockResolvedValue([{ id: 'r1' }, { id: 'r2' }])
     api.billing.mockResolvedValue([...INVOICES, invoice({ id: 'icancel', number: '0199', status: 3 })])
     await mountAt()
-    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 5', 'Контракты', 'Счета 4'])
+    expect(tabs()).toEqual(['Обзор', 'Заявки 4', 'Транзит 8', 'Документы 5', 'Контракты и перевозчики', 'Счета 4'])
   })
 
   it('без reestr.read нет «Транзита», без finance.read — «Счетов»', async () => {
@@ -490,7 +491,7 @@ describe('карточка клиента: обзор', () => {
     await mountAt('/clients/c1?tab=docs')
     const rows = w.findAll('[data-docs-table] tbody tr')
     const menu = (i: number) => rows[i].findAll('[data-menu-item]').map((m) => m.attributes('data-menu-item'))
-    expect(rows[0].get('[data-row-primary]').text()).toBe('Скачать')
+    expect(rows[0].get('[data-row-primary]').text()).toBe('Скачать .docx')
     expect(menu(0)).toEqual(['pdf', 'verify'])
     expect(rows[1].get('[data-row-primary]').text()).toBe('Перевыпустить')
     expect(menu(1)).toEqual(['blank', 'pdf'])
@@ -746,8 +747,8 @@ describe('карточка клиента: вкладки «Транзит», «
     expect(rows[1].text()).toContain('осталось 11\u00a0дн.')
     expect(rows[2].text()).toContain('Истёк')
     expect(rows[2].text()).toContain('просрочен 300\u00a0дн.')
-    // Подписанный — «Скачать», не «бланк» (02.11.2026).
-    expect(rows[0].find('[data-row-primary]').text()).toBe('Скачать')
+    // Подписанный — «Скачать .docx», не «бланк» (02.11.2026).
+    expect(rows[0].find('[data-row-primary]').text()).toBe('Скачать .docx')
     api.download.mockResolvedValue(new Blob(['x']))
     await rows[0].get('[data-row-primary]').trigger('click')
     await flushPromises()
@@ -925,6 +926,6 @@ describe('карточка клиента: «Перевыпустить» дов
     expect(rows[1].get('[data-doc-replaced]').text()).toBe('Заменена доверенностью № 10/2026')
     expect(rows[0].get('[data-doc-status]').text()).toBe('Действует')
     expect(rows[0].get('[data-row-primary]').text()).toBe('Перевыпустить')
-    expect(rows[1].get('[data-row-primary]').text()).toBe('Скачать')
+    expect(rows[1].get('[data-row-primary]').text()).toBe('Скачать .docx')
   })
 })

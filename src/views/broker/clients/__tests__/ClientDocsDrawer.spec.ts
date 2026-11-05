@@ -129,6 +129,7 @@ describe('ClientDocsDrawer', () => {
     const blob = new Blob(['x'])
     api.downloadDocument.mockResolvedValue(blob)
     await mountDrawer()
+    expect(cards()[1].get('[data-doc-blank]').text()).toBe('Скачать бланк')
     await cards()[1].get('[data-doc-blank]').trigger('click')
     await flushPromises()
     expect(api.downloadDocument).toHaveBeenCalledWith('c1', 'p')

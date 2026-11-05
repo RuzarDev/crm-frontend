@@ -3,9 +3,24 @@ import type { ClientCardCase, ClientCardDoc } from '@/api/clientCard'
 import type { BrokerInvoice } from '@/api/billing'
 import type { ReestrEntry } from '@/types/api'
 import {
-  availableTabs, awaitingAqniet, canRenewPoa, caseTone, contactRows, currentDocs, directorBasisOf, docExpiry, docTag, docTagOf, hasNextPoa, invoicesOf, matchesCase, nextPoaOf,
+  availableTabs, awaitingAqniet, canRenewPoa, caseTone, contactRows, contractsTabCount, currentDocs, directorBasisOf, docDownloadKey, docExpiry, docTag, docTagOf, hasNextPoa, invoicesOf, matchesCase, nextPoaOf,
   recentCases, resolveTab, transitQuery, unpaidOf,
 } from '../clientCard'
+
+describe('контракты, перевозчики и скачивание (аудит 05.11, № 33 и 36)', () => {
+  it('счётчик вкладки — контракты плюс перевозчики; пока список не загружен, без числа', () => {
+    expect(contractsTabCount(3, 2)).toBe(5)
+    expect(contractsTabCount(0, 0)).toBe(0)
+    expect(contractsTabCount(3, undefined)).toBeUndefined()
+    expect(contractsTabCount(undefined, 2)).toBeUndefined()
+  })
+
+  it('.docx без подписей — бланк, с любой подписью — «Скачать .docx»', () => {
+    expect(docDownloadKey({ clientSigned: false, providerSigned: false })).toBe('broker.clientCard.doc.blank')
+    expect(docDownloadKey({ clientSigned: true, providerSigned: false })).toBe('broker.clientCard.doc.download')
+    expect(docDownloadKey({ clientSigned: true, providerSigned: true })).toBe('broker.clientCard.doc.download')
+  })
+})
 
 const doc = (o: Partial<ClientCardDoc>): ClientCardDoc => ({
   id: 'd', kind: 'contract', number: '1', year: 2026, status: 2, clientSigned: true, clientSignedAtUtc: null, clientSignMethod: null, providerSigned: true,

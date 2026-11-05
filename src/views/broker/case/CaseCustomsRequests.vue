@@ -27,7 +27,7 @@ import { cn } from '@/ui/cn'
 import { clipLabel } from './dtTitle'
 
 // Запросы таможни сотрудника (волна 17.10, задача 5) — карточка заявки и страница ДТ (там — запросы этой ДТ и всей
-// заявки). Ждёт клиента — красная плашка «Запрос таможни · N ч без ответа» с «Ответить таможне» и «Напомнить
+// заявки). Ждёт клиента — красная плашка «Запрос таможни · N ч без ответа» с «Закрыть запрос» и «Напомнить
 // клиенту»; клиент ответил — его ответ и файлы; закрытые — свёрнуты. Кнопка «Запрос таможни» (17.10) — в три момента:
 // на границе (шаг 2), при проверке ДТ (шаг 3), после выпуска — в том числе по выполненной заявке (камеральная проверка).
 const props = defineProps<{
@@ -129,7 +129,7 @@ const submitCreate = async () => {
   }
 }
 
-// ---- «Ответить таможне» (закрыть запрос) ----
+// ---- «Закрыть запрос» ----
 const closing = ref<CustomsRequestDto | null>(null)
 const closeNote = ref('')
 const openClose = (r: CustomsRequestDto) => { closing.value = r; closeNote.value = '' }
@@ -252,7 +252,7 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
           @click="openClose(r)"
         >
           <template #icon><PhCheckCircle :size="15" aria-hidden="true" /></template>
-          {{ t('customsRequest.answerToCustoms') }}
+          {{ t('customsRequest.closeOk') }}
         </ZButton>
         <ZButton
           v-if="canRemind && r.status === 'open'"
@@ -357,7 +357,7 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
 
     <ZModal
       :open="closing !== null"
-      :title="t('customsRequest.answerToCustomsTitle')"
+      :title="t('customsRequest.closeTitle')"
       :ok-text="t('customsRequest.closeOk')"
       :cancel-text="t('common.cancel')"
       :confirm-loading="!!closing && busy === `close:${closing.id}`"
@@ -366,7 +366,7 @@ const outlineBtn = 'bg-surface shadow-[inset_0_0_0_1px_var(--color-line-strong)]
       @update:open="(v: boolean) => { if (!v && !busy) closing = null }"
       @ok="submitClose"
     >
-      <p class="m-0 mb-3 text-sm text-ink-3">{{ t('customsRequest.answerToCustomsHint') }}</p>
+      <p class="m-0 mb-3 text-sm text-ink-3">{{ t('customsRequest.closeHint') }}</p>
       <ZField :label="t('customsRequest.closeNoteLabel')">
         <ZTextarea v-model:value="closeNote" :rows="2" data-customs-close-note />
       </ZField>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhArrowClockwise, PhDownloadSimple, PhPaperclip, PhPlus } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -50,6 +50,9 @@ const { confirm } = useConfirm()
 const canWrite = computed(() => (auth.role || '').toLowerCase() === 'administrator' || auth.hasPermission('finance.write'))
 // «Снять отметку оплаты» — как на шаге 6 заявки: руководитель или администратор (сервер проверяет то же).
 const canUnmark = computed(() => canUnmarkPaid(auth))
+// Ссылки строки — по тем же условиям, что в guard'е: бухгалтеру /import-40 закрыт, карточка клиента открыта по clients.read.
+const canOpenCase = computed(() => auth.hasPermission('import40.read') && !auth.isFinanceOnly)
+const canOpenClient = computed(() => auth.hasPermission('clients.read'))
 
 const board = useBlock(true, () => billingApi.list(undefined, { silent: true }))
 const rows = computed<BrokerInvoice[]>(() => board.data ?? [])
@@ -542,9 +545,17 @@ const exportExcel = async () => {
         <template #bodyCell="{ column, record }">
           <span v-if="column.key === 'doc'" class="block min-w-0">
             <span class="block truncate text-sm font-semibold text-ink tabular-nums" data-billing-doc>{{ docTitle(record, t) }}</span>
-            <span class="block truncate font-mono text-xs text-muted" data-billing-case>{{ record.caseNumber || t('broker.billing.noCase') }}</span>
+            <RouterLink
+              v-if="canOpenCase && record.caseId && record.caseNumber"
+              :to="`/import-40/${record.caseId}`"
+              class="block w-fit max-w-full truncate rounded-field font-mono text-xs text-zircon-ink no-underline outline-hidden hover:underline focus-visible:shadow-focus max-sm:py-3.5"
+              :aria-label="t('broker.finance.openCase', { number: record.caseNumber })"
+              data-billing-case
+              data-billing-case-link
+            >{{ record.caseNumber }}</RouterLink>
+            <span v-else class="block truncate font-mono text-xs text-muted" data-billing-case>{{ record.caseNumber || t('broker.billing.noCase') }}</span>
           </span>
-          <ClientCell v-else-if="column.key === 'client'" :name="record.clientName" />
+          <ClientCell v-else-if="column.key === 'client'" :name="record.clientName" :to="canOpenClient ? `/clients/${record.clientId}` : null" data-billing-client />
           <ZTag v-else-if="column.key === 'status'" :tone="statusTone(record.status)" data-billing-status-tag>{{ t(statusLabelKey(record.status, record.kind)) }}</ZTag>
           <span v-else-if="column.key === 'total'" class="block min-w-0 text-right">
             <span class="block text-sm font-semibold whitespace-nowrap text-ink tabular-nums" data-billing-total>{{ formatMoney(record.total) }}</span>

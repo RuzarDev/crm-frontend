@@ -543,6 +543,7 @@ describe('TransitRecordPage: защита правок, статус, удале
     await w.get('[data-menu-item="delete"]').trigger('click')
     await settle()
     expect(confirmState.title).toBe('Удалить эту запись?')
+    expect(confirmState.content).toContain('контейнер')
     confirmState.resolve(true)
     await settle()
     expect(api.delete).toHaveBeenCalledWith('r1')

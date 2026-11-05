@@ -268,7 +268,7 @@ const emptyTitle = computed(() => (filtered.value ? t('broker.list.nothingFound'
           <template #icon><PhArrowClockwise :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.refresh') }}
         </ZButton>
-        <ZButton :loading="exporting" :disabled="!rows.length" class="max-sm:h-11 max-sm:flex-1" data-requests-excel @click="exportExcel">
+        <ZButton :loading="exporting" :disabled="!rows.length" :title="rows.length ? undefined : t('broker.list.exportEmpty')" class="max-sm:h-11 max-sm:flex-1" data-requests-excel @click="exportExcel">
           <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
           {{ t('broker.list.excel') }}
         </ZButton>

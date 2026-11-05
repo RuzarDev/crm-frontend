@@ -130,12 +130,13 @@ const removeDt = async (dt: Import40DeclarationDto) => {
   const midChain = withParts && isLiveSplitPart(dt, all.value)
   const lines = [
     dtLabel(kase.value, dt.id, t) + '.',
-    ...(withParts ? [t(midChain ? 'import40Case.deleteMidChainText' : 'import40Case.deleteSourceText')] : []),
+    // Удаление жёсткое, каскадом (сервер): обычной ДТ говорим об этом прямо; у исходной товары остаются в частях.
+    t(withParts ? (midChain ? 'import40Case.deleteMidChainText' : 'import40Case.deleteSourceText') : 'import40Case.deleteGoodsText'),
     ...(dt.uploadedToKeden ? [t('import40Case.deleteUploadedText')] : []),
   ]
   const ok = await confirm({
     title: t(withParts && !midChain ? 'import40Case.deleteSourceTitle' : 'import40Case.deleteDt'),
-    content: lines.length > 1 ? lines.join(' ') : dtLabel(kase.value, dt.id, t),
+    content: lines.join(' '),
     okText: t('broker.case.declaring.list.deleteOk'),
     cancelText: t('broker.case.declaring.list.keep'),
     danger: true,

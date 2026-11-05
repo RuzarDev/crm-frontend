@@ -13,7 +13,7 @@ import { saveBlob } from '@/ui/download'
 import { formatDay } from '@/views/broker/list'
 import { validDate } from '@/views/client/company/company'
 import DocSignedFiles from './DocSignedFiles.vue'
-import { docTagOf } from './clientCard'
+import { docDownloadKey, docTagOf } from './clientCard'
 import { blankFileName, clientName, docKindLabelKey, signMethodLabelKey } from './clients'
 
 // Документы клиента (договор и доверенность): статус, подписи сторон, бланк и подписанные файлы. Открывают только
@@ -114,7 +114,7 @@ const downloadPdf = (d: Import40DocumentDto) => {
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <ZButton size="sm" :loading="downloading === d.id" :disabled="downloading !== null && downloading !== d.id" class="max-sm:h-11" data-doc-blank @click="downloadBlank(d)">
             <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
-            {{ d.clientSigned || d.providerSigned ? t('broker.clientCard.doc.download') : t('admin.skachatBlank') }}
+            {{ t(docDownloadKey(d)) }}
           </ZButton>
           <ZButton size="sm" :loading="downloading === `${d.id}:pdf`" :disabled="downloading !== null && downloading !== `${d.id}:pdf`" class="max-sm:h-11" data-doc-pdf @click="downloadPdf(d)">
             <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>

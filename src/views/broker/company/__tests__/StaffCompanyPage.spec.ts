@@ -673,6 +673,13 @@ describe('StaffCompanyPage', () => {
     expect(w.find('[data-sign-egov]').exists()).toBe(false)
   })
 
+  it('подпись кнопки .docx: без подписей — бланк, с подписью — «Скачать .docx», как в карточке клиента', async () => {
+    setDocs('c1', [doc({ id: 'd1' }), doc({ id: 'd2', clientSigned: true })], [])
+    await mountAt('/import-40/company?step=contract')
+    expect(w.get('[data-doc="d1"] [data-doc-download]').text()).toBe('Скачать бланк')
+    expect(w.get('[data-doc="d2"] [data-doc-download]').text()).toBe('Скачать .docx')
+  })
+
   it('скачать .docx — имя файла по виду, номеру и году', async () => {
     api.downloadDocument.mockResolvedValue(new Blob(['x']))
     setDocs('c1', [doc({ id: 'd1' })], [])
