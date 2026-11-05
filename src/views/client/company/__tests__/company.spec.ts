@@ -36,6 +36,26 @@ describe('company helpers', () => {
     profileDone: true, contractDone: false, poaDone: false, contractAwaitingUs: false, ...o,
   })
 
+  it('реквизиты неполные, а поставки идут: шаг реквизитов не отмечен, документы не «после реквизитов»', () => {
+    const steps = companySteps({
+      reg: reg({ contractDone: true, poaDone: true }),
+      contracts: [doc({ status: 2, validUntilUtc: '2099-06-15T23:59:59Z' })],
+      poas: [doc({ kind: 'poa', status: 2 })],
+      requisitesFilled: false,
+    })
+    expect(steps.profile).toMatchObject({ done: false, tone: 'action', key: 'fill' })
+    expect(steps.contract.done).toBe(true)
+    // Профиль ещё не загрузился — как у сервера.
+    expect(companySteps({ reg: reg({}), contracts: [], poas: [] }).profile.done).toBe(true)
+  })
+
+  it('договор в окне продления: ждём менеджера, а не «нужен новый»', () => {
+    const expired = doc({ status: 2, validUntilUtc: '2026-01-01T23:59:59Z' })
+    expect(companySteps({ reg: reg({ contractRenewWindow: true }), contracts: [expired], poas: [] }).contract)
+      .toMatchObject({ done: false, tone: 'waiting', key: 'renewWindow' })
+    expect(companySteps({ reg: reg({}), contracts: [expired], poas: [] }).contract.key).toBe('needGenerate')
+  })
+
   it('шаги: «готово» — только по can-create, документы — для показа', () => {
     const none = companySteps({ reg: reg({ profileDone: false }), contracts: [], poas: [] })
     expect([none.profile.key, none.contract.key, none.poa.key]).toEqual(['fill', 'afterProfile', 'afterProfile'])

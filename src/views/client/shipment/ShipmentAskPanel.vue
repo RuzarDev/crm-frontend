@@ -7,7 +7,6 @@ import {
 } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZField from '@/components/z/ZField.vue'
-import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import ZUpload from '@/components/z/ZUpload.vue'
 import { import40Api, type Import40CaseDto, type Import40FileDto } from '@/api/import40'
@@ -19,13 +18,13 @@ import { dayMonthOf } from '@/views/client/shipment/util'
 import { saveBlob } from '@/ui/download'
 import { formatMoney } from '@/ui/number'
 import { message } from '@/ui/message'
+import { useConfirm } from '@/ui/confirm'
 import { cn } from '@/ui/cn'
 import { DOC_MAX_MB } from '@/utils/uploadLimits'
 
 // Панель «что сейчас» карточки поставки (доска Shipment): ход клиента по askFor — оплата склада, ответ на
 // вопрос AQNIET, черновик/возврат; иначе — нейтральная плашка этапа (чек на проверке, склад оплачен, отмена).
 // Сама зовёт API и сообщает changed — карточка перечитывает заявку. Ошибки API показывает общий перехватчик.
-// Окно отмены черновика — отдельным корнем, вне панели: в разметке оно не должно стать ячейкой её сетки.
 const props = defineProps<{
   shipment: ClientShipment
   caseDto: Import40CaseDto
@@ -38,6 +37,7 @@ const props = defineProps<{
 const emit = defineEmits<{ changed: [] }>()
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const titleId = `ship-ask-${useId()}`
 
 const status = computed(() => props.shipment.status)
@@ -124,22 +124,29 @@ const sendReply = async () => {
 // менеджер (сервер отвечает 409). Признаки возврата — как на сервере (Import40Endpoints.IsReturnedDraft).
 const canCancelDraft = computed(() =>
   ask.value !== 'returned' && !props.caseDto.returnReason?.trim() && !props.caseDto.reworkRequested)
-// ---- Отмена черновика: сервер требует причину ----
-const cancelOpen = ref(false)
-const cancelReason = ref('')
+// Кнопки нет — не оставляем клиента гадать, кто может отменить (05.11.2026).
+const cancelNote = computed(() => {
+  if (!isDraft.value || canCancelDraft.value) return ''
+  const name = props.shipment.assignedDeclarantName?.trim()
+  return name ? t('client.card.draft.cancelByManagerName', { name }) : t('client.card.draft.cancelByManager')
+})
+// ---- Отмена черновика: то же окно, текст и причина, что в мастере (ClientWizardView, 05.11.2026). Сервер требует причину. ----
 const cancelling = ref(false)
-const promptCancel = () => {
-  cancelReason.value = ''
-  cancelOpen.value = true
-}
-const confirmCancel = async () => {
-  const reason = cancelReason.value.trim()
-  if (!reason || cancelling.value) return
+const promptCancel = async () => {
+  if (cancelling.value) return
+  const number = props.shipment.number
+  const ok = await confirm({
+    title: t('client.wizard.discard.title', { number }),
+    content: t('client.wizard.discard.text'),
+    okText: t('client.wizard.discard.ok'),
+    cancelText: t('client.wizard.discard.cancel'),
+    danger: true,
+  })
+  if (!ok) return
   cancelling.value = true
   try {
-    await import40Api.action(props.caseDto.id, 'cancel', reason)
-    cancelOpen.value = false
-    message.success(t('client.card.draft.cancelled'))
+    await import40Api.action(props.caseDto.id, 'cancel', t('client.wizard.discard.reason'))
+    message.success(t('client.wizard.discard.done', { number }))
     emit('changed')
   } catch {
     // Текст ошибки уже показал общий перехватчик (api/client.ts).
@@ -344,9 +351,10 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
           :class="cn(linkBtn, secondBtn, 'bg-surface text-ink hover:bg-sunken')"
           data-draft-continue
         >{{ t('client.card.draft.continue') }}</RouterLink>
-        <ZButton v-if="canCancelDraft" variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
-          {{ t('client.card.draft.cancel') }}
+        <ZButton v-if="canCancelDraft" variant="danger-ghost" :loading="cancelling" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
+          {{ t('client.wizard.discard.action') }}
         </ZButton>
+        <p v-else :class="text" data-cancel-note>{{ cancelNote }}</p>
       </div>
     </div>
   </section>
@@ -364,6 +372,7 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         <h2 :id="titleId" :class="h2">{{ reworkItems.length ? t('rework.client.title') : t(`client.ask.${ask}.title`) }}</h2>
         <p v-if="ask === 'draft'" :class="text">{{ t('client.ask.draft.text') }}</p>
         <p v-else-if="returnedText" :class="cn(text, 'whitespace-pre-line [overflow-wrap:anywhere]')" data-returned-text>{{ returnedText }}</p>
+        <p v-if="cancelNote" :class="text" data-cancel-note>{{ cancelNote }}</p>
       </div>
     </div>
     <ShipmentReworkList
@@ -380,8 +389,8 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
         :data-continue-main="hasOpenItems ? undefined : ''"
         data-draft-continue
       >{{ t('client.card.draft.continue') }}</RouterLink>
-      <ZButton v-if="canCancelDraft" variant="ghost" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
-        {{ t('client.card.draft.cancel') }}
+      <ZButton v-if="canCancelDraft" variant="danger-ghost" :loading="cancelling" :class="cn(secondBtn, 'max-sm:bg-surface')" data-draft-cancel @click="promptCancel">
+        {{ t('client.wizard.discard.action') }}
       </ZButton>
     </div>
   </section>
@@ -428,21 +437,4 @@ const linkBtn = 'inline-flex items-center justify-center gap-2 font-sans font-se
       </div>
     </div>
   </section>
-
-  <ZModal
-    v-if="isDraft"
-    v-model:open="cancelOpen"
-    :title="t('client.card.draft.cancelTitle')"
-    :ok-text="t('client.card.draft.cancelOk')"
-    :cancel-text="t('client.card.draft.keep')"
-    :ok-button-props="{ danger: true, disabled: !cancelReason.trim() }"
-    :confirm-loading="cancelling"
-    :width="480"
-    @ok="confirmCancel"
-  >
-    <template #description>{{ t('import40Case.cancelHintClient') }}</template>
-    <ZField :label="t('client.card.draft.reason')" required class="mt-3">
-      <ZTextarea v-model:value="cancelReason" :rows="3" :placeholder="t('import40Case.cancelPh')" data-cancel-reason />
-    </ZField>
-  </ZModal>
 </template>

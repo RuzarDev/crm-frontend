@@ -1,6 +1,6 @@
 import type { ClientShipment } from '@/api/clientShipments'
 import type { BrokerInvoice } from '@/api/billing'
-import { askFor, type AskKind } from '@/views/client/shipment'
+import { askFor, tabOf, type AskKind } from '@/views/client/shipment'
 import { greetingName } from '@/views/home/greeting'
 
 // Расчёты «Главной» клиента (макет Client.dc): что нужно от клиента, поставки в работе, счёт к оплате.
@@ -28,9 +28,22 @@ export function clientAsks(list: ClientShipment[]): ClientShipment[] {
     .sort((a, b) => askRank(a) - askRank(b))
 }
 
-/** Поставки в работе: не выполненные и не отменённые, последние изменения сверху. */
+/**
+ * Поставки в работе — те же, что на вкладке «В работе» списка (tabOf), последние изменения сверху. Черновики и ждущие
+ * клиента — свои разделы: число и блок на Главной не расходятся со списком (05.11.2026).
+ */
 export const activeShipments = (list: ClientShipment[]): ClientShipment[] =>
-  list.filter((s) => s.status < 8).sort(updatedDesc)
+  list.filter((s) => tabOf(s) === 'active').sort(updatedDesc)
+
+/**
+ * Сколько строк «Нужно от вас» не вошло в блок и на какой они вкладке списка: черновики лежат не на «Ждут вас»,
+ * а ссылка «ещё N» вела только туда (05.11.2026).
+ */
+export function hiddenAsks(asks: ClientShipment[], shown: number): { waiting: number; drafts: number } {
+  const rest = asks.slice(shown)
+  const drafts = rest.filter((s) => tabOf(s) === 'drafts').length
+  return { waiting: rest.length - drafts, drafts }
+}
 
 const issuedTime = (i: BrokerInvoice) => Date.parse(i.issuedAtUtc ?? i.createdAtUtc)
 

@@ -306,7 +306,7 @@ const removeBtn = 'inline-flex min-h-11 shrink-0 cursor-pointer items-center rou
               :disabled="kindSaving.includes(f.id)"
               size="sm"
               :popup-width="320"
-              class="w-[min(280px,100%)] max-sm:w-full"
+              class="w-[min(280px,100%)] max-sm:w-full max-sm:*:h-11 max-sm:*:text-sm"
               data-doc-kind-select
               @change="(v) => onKind(f, v)"
             />

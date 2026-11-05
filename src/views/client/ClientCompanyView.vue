@@ -15,6 +15,8 @@ import {
 import { import40ContractApi, type ClientCompanyProfileDto, type Import40DocumentDto } from '@/api/import40Contract'
 import { referencesApi } from '@/api/references'
 import { useClientRegistration } from '@/composables/useClientRegistration'
+import { registrationBlock } from '@/shell/registrationBanner'
+import type { RegistrationBlockCode } from '@/api/import40'
 import { useAuthStore } from '@/stores/auth'
 import { buildCountryOptions } from '@/utils/countries'
 import type { ZOption } from '@/ui/options'
@@ -64,10 +66,12 @@ const fetchAll = async () => {
     contractDone: registration.contractDone.value,
     poaDone: registration.poaDone.value,
     contractAwaitingUs: registration.contractAwaitingUs.value,
+    contractRenewWindow: registration.blockReason.value === 'renewWindow',
     complete: registration.complete.value,
     nextStep: registration.nextStep.value,
     needNew: registration.needNew.value,
-    reason: registration.reason.value,
+    blockReason: registration.blockReason.value,
+    blockParams: registration.blockParams.value,
   }
   return { docs: res, reg }
 }
@@ -75,7 +79,8 @@ interface RegSnap extends RegistrationSnapshot {
   complete: boolean
   nextStep: CompanyStep | null
   needNew: string | null
-  reason: string | null
+  blockReason: RegistrationBlockCode | null
+  blockParams: { number: string; date: string }
 }
 const regSnap = shallowRef<RegSnap | null>(null)
 const apply = ({ docs: [p, c, a], reg }: Awaited<ReturnType<typeof fetchAll>>) => {
@@ -121,9 +126,11 @@ const steps = computed(() => companySteps({
     contractDone: !!regSnap.value?.contractDone,
     poaDone: !!regSnap.value?.poaDone,
     contractAwaitingUs: !!regSnap.value?.contractAwaitingUs,
+    contractRenewWindow: !!regSnap.value?.contractRenewWindow,
   },
   contracts: contracts.value,
   poas: poas.value,
+  requisitesFilled: profile.value?.isComplete,
 }))
 const complete = computed(() => !!regSnap.value?.complete)
 const queryStep = computed<CompanyStep | null>(() => (isCompanyStep(route.query.step) ? route.query.step : null))
@@ -137,19 +144,28 @@ const select = (s: CompanyStep) => {
 }
 
 const TODO_KEY: Record<string, string> = {
-  fill: 'fill', needGenerate: 'generate', afterProfile: 'generate', needNew: 'generateNew', needSign: 'sign', awaitingUs: 'awaitingUs',
+  fill: 'fill', needGenerate: 'generate', afterProfile: 'generate', needNew: 'generateNew', needSign: 'sign', awaitingUs: 'awaitingUs', renewWindow: 'renewWindow',
 }
+// Причина «нужен новый документ» — из словаря по коду сервера, как в мастере: его текст всегда по-русски (M-8, 30.10.2026).
+const BLOCK_WITH_TEXT: RegistrationBlockCode[] = ['busy', 'renew', 'renewWindow', 'revoked']
+const blockText = computed(() => {
+  const r = regSnap.value
+  if (!r?.blockReason || !BLOCK_WITH_TEXT.includes(r.blockReason)) return null
+  return t(registrationBlock(r.blockReason, r.needNew).text, r.blockParams)
+})
 const subtitle = computed(() => {
-  if (complete.value) return t('client.company.subtitleDone')
+  // Поставки идут, а реквизиты неполные (сервер пускает при действующих договоре и доверенности): шаг не отмечен, причина здесь.
+  if (complete.value) return t(steps.value.profile.done ? 'client.company.subtitleDone' : 'client.company.subtitleDoneIncomplete')
   const items = COMPANY_STEPS
     .filter((s) => !steps.value[s].done)
     .map((s) => t(`client.company.todo.${s}.${TODO_KEY[steps.value[s].key]}`))
-  if (!items.length) return regSnap.value?.reason ?? t('client.company.subtitleTodoGeneric')
+  if (!items.length) return blockText.value ?? t('client.company.subtitleTodoGeneric')
   return t('client.company.subtitleTodo', { list: joinList(items, locale.value) })
 })
-// «Нужен новый» документ раздела и причина от сервера (если can-create указал именно этот документ).
+// «Нужен новый» документ раздела и его причина (если can-create указал именно этот документ).
 const needNewOf = (kind: 'contract' | 'poa') => steps.value[kind].key === 'needNew'
-const reasonOf = (kind: 'contract' | 'poa') => (regSnap.value?.needNew === kind ? regSnap.value.reason : null)
+const reasonOf = (kind: 'contract' | 'poa') => (regSnap.value?.needNew === kind ? blockText.value : null)
+const renewHintOf = (kind: 'contract' | 'poa') => (steps.value[kind].key === 'renewWindow' ? reasonOf(kind) : null)
 
 const stepText = (s: StepState) => t(`client.company.stepState.${s.key}`, { date: s.date })
 const STATE_FG: Record<StepTone, string> = {
@@ -219,6 +235,14 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
       <h1 class="m-0 text-[26px] leading-8 font-semibold tracking-[-0.02em] text-ink">{{ t('client.company.title') }}</h1>
       <p v-if="status === 'ready'" class="m-0 mt-1 text-base text-ink-3 sm:text-[15px]" data-company-subtitle>{{ subtitle }}</p>
       <ZSkeleton v-else-if="status === 'loading'" width="min(440px, 90%)" height="15px" class="mt-2" />
+      <!-- Регистрация завершена: следующий шаг клиента, на телефоне меню спрятано. -->
+      <ZButton
+        v-if="status === 'ready' && complete"
+        variant="primary"
+        class="mt-3 h-[42px] rounded-row px-[18px] text-[14.5px] max-sm:h-11 max-sm:w-full"
+        data-company-new
+        @click="router.push('/import-40/new')"
+      >{{ t('shell.client.newShipment') }}</ZButton>
     </div>
 
     <!-- Загрузка -->
@@ -289,6 +313,7 @@ const retry = 'max-sm:h-11 max-sm:px-4 max-sm:text-sm'
           :refresh="reload"
           :need-new="needNewOf('contract')"
           :need-new-reason="reasonOf('contract')"
+          :renew-hint="renewHintOf('contract')"
           @go-profile="goProfile"
         />
         <CompanyDocumentCard

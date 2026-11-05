@@ -10,6 +10,8 @@ const api = vi.hoisted(() => ({ list: vi.fn() }))
 const imp = vi.hoisted(() => ({ downloadFile: vi.fn(), canCreate: vi.fn(), get: vi.fn() }))
 const save = vi.hoisted(() => ({ saveBlob: vi.fn() }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+const contractApi = vi.hoisted(() => ({ downloadDocument: vi.fn(), listDocuments: vi.fn() }))
+vi.mock('@/api/import40Contract', async (orig) => ({ ...(await orig<object>()), import40ContractApi: contractApi }))
 vi.mock('@/api/clientDocuments', () => ({ clientDocumentsApi: api }))
 vi.mock('@/api/import40', () => ({ import40Api: imp }))
 vi.mock('@/ui/download', () => ({ saveBlob: save.saveBlob }))
@@ -183,6 +185,29 @@ describe('ClientAllDocumentsView', () => {
     expect(p.text()).toContain('Доверенность № 3/2026')
     expect(p.attributes('data-company-status')).toBe('expired')
     expect(p.get('[data-company-tag]').text()).toBe('Истёк')
+  })
+
+  it('договор скачивается прямо с карточки; неподписанный — ещё и «Подписать» в «Мою компанию»', async () => {
+    contractApi.downloadDocument.mockResolvedValue(new Blob(['x']))
+    await mountAt('/documents')
+    const sign = w.get('[data-company-sign="contract"]')
+    expect(sign.text()).toBe('Подписать')
+    expect(sign.attributes('href')).toBe('/import-40/company?step=contract')
+    expect(w.find('[data-company-sign="poa"]').exists()).toBe(false)
+    expect(w.find('[data-company-download="poa"]').exists()).toBe(false)
+    const download = w.get('[data-company-download="contract"]')
+    expect(download.text()).toBe('Скачать .docx')
+    await download.trigger('click')
+    await flushPromises()
+    expect(contractApi.downloadDocument).toHaveBeenCalledWith('cl', 'd1')
+    expect(save.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Договор-12-2026.docx')
+  })
+
+  it('подписанный документ — только «Скачать»', async () => {
+    api.list.mockResolvedValue(DATA({ company: [doc({})] }))
+    await mountAt('/documents')
+    expect(w.find('[data-company-sign="contract"]').exists()).toBe(false)
+    expect(w.find('[data-company-download="contract"]').exists()).toBe(true)
   })
 
   it('поиск по имени файла, номеру поставки и виду; ?q= — replace; ничего не нашлось', async () => {

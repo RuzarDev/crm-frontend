@@ -48,6 +48,6 @@ export interface ClientShipment {
 }
 
 export const clientShipmentsApi = {
-  list: async (): Promise<ClientShipment[]> =>
-    (await apiClient.get<ClientShipment[]>('/import40/client/shipments')).data,
+  list: async (opts?: { silent?: boolean }): Promise<ClientShipment[]> =>
+    (await apiClient.get<ClientShipment[]>('/import40/client/shipments', opts?.silent ? { silent: true } : undefined)).data,
 }

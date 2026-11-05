@@ -200,23 +200,29 @@ describe('ClientShipmentView', () => {
     expect(router.currentRoute.value.fullPath).toBe('/import-40/new/c1')
   })
 
-  it('черновик — «Отменить черновик» требует причину и шлёт cancel', async () => {
+  it('черновик — «Отменить черновик» с тем же окном, текстом и причиной, что в мастере', async () => {
+    await mountCard({ status: 0 })
+    const btn = w.get('[data-draft-cancel]')
+    expect(btn.text()).toBe('Отменить черновик')
+    expect(btn.classes()).toContain('text-danger')
+    await btn.trigger('click')
+    await flushPromises()
+    expect(confirmState.title).toBe('Отменить черновик ИМ-2026-0166?')
+    expect(confirmState.content).toContain('Разовые договор и доверенность освободятся')
+    expect(confirmState.danger).toBe(true)
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.action).toHaveBeenCalledWith('c1', 'cancel', 'Черновик не нужен — отменён клиентом')
+    expect(msg.success).toHaveBeenCalledWith('Черновик ИМ-2026-0166 отменён')
+  })
+
+  it('отказ в подтверждении — черновик не отменяется', async () => {
     await mountCard({ status: 0 })
     await w.get('[data-draft-cancel]').trigger('click')
     await flushPromises()
-    const dialog = document.querySelector('[role="dialog"]') as HTMLElement
-    expect(dialog).not.toBeNull()
-    const ok = [...dialog.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Отменить черновик') as HTMLButtonElement
-    expect(ok.disabled).toBe(true)
-    const reason = dialog.querySelector('[data-cancel-reason]') as HTMLTextAreaElement
-    reason.value = 'Передумали'
-    reason.dispatchEvent(new Event('input'))
+    confirmState.resolve(false)
     await flushPromises()
-    expect(ok.disabled).toBe(false)
-    ok.click()
-    await flushPromises()
-    expect(api.action).toHaveBeenCalledWith('c1', 'cancel', 'Передумали')
-    expect(msg.success).toHaveBeenCalledWith('Черновик отменён')
+    expect(api.action).not.toHaveBeenCalled()
   })
 
   it('возврат на доработку — причина в панели; «Отменить черновик» нет (отменяет менеджер, ревью I-1)', async () => {
@@ -226,11 +232,18 @@ describe('ClientShipmentView', () => {
     expect(panel.text()).toContain('Нет инвойса')
     expect(w.find('[data-draft-cancel]').exists()).toBe(false)
     expect(panel.find('[data-draft-continue]').exists()).toBe(true)
+    expect(panel.get('[data-cancel-note]').text()).toBe('Отменить эту поставку может только менеджер.')
+  })
+
+  it('возврат на доработку с назначенным декларантом — называем, к кому обратиться', async () => {
+    await mountCard({ status: 0, returnReason: 'Нет инвойса', assignedDeclarantName: 'Ирина Ким' })
+    expect(w.get('[data-cancel-note]').text()).toBe('Отменить эту поставку может только менеджер. Ваш декларант: Ирина Ким.')
   })
 
   it('возвращённый черновик с вопросом AQNIET — «Отменить черновик» тоже нет (ревью I-1)', async () => {
     await mountCard({ status: 0, returnReason: '', reworkRequested: true, isProblem: true, problemClientMessage: 'Добавьте инвойс' })
     expect(w.find('[data-draft-cancel]').exists()).toBe(false)
+    expect(w.get('[data-ask="problem"] [data-cancel-note]').text()).toContain('только менеджер')
   })
 
   describe('возврат на доработку по чек-листу', () => {
@@ -451,7 +464,7 @@ describe('ClientShipmentView', () => {
     expect(panel.get('[data-draft-continue]').attributes('href')).toBe('/import-40/new/c1')
     await panel.get('[data-draft-cancel]').trigger('click')
     await flushPromises()
-    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(confirmState.open).toBe(true)
   })
 
   it('файлы не загрузились — ошибка с «Повторить» в документах, панель оплаты не показывается наугад', async () => {

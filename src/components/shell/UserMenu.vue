@@ -41,7 +41,7 @@ const items = computed<ZDropdownItem[]>(() => [
 ])
 
 const triggerClass = computed(() => cn(
-  'flex h-[34px] max-w-[220px] shrink-0 cursor-pointer items-center gap-2 rounded-field border-0 bg-transparent px-1.5 font-sans text-ink',
+  'flex h-[34px] max-w-[220px] shrink-0 cursor-pointer items-center gap-2 rounded-field border-0 bg-transparent px-1.5 font-sans text-ink max-sm:size-11 max-sm:justify-center max-sm:px-0',
   'outline-hidden transition-colors duration-150 ease-out hover:bg-sunken focus-visible:shadow-focus data-[state=open]:bg-sunken motion-reduce:transition-none',
   props.compact && 'w-[34px] justify-center px-0',
 ))

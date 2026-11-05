@@ -295,6 +295,7 @@ const iconBtn = 'inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-cen
                   :loading="busy === i.id"
                   button-variant="ghost"
                   button-size="sm"
+                  class="max-sm:[&>button]:h-11 max-sm:[&>button]:text-sm"
                   :aria-label="t(i.file ? 'carriers.invoice.replaceFile' : 'carriers.invoice.attachFile', { n: i.number })"
                   data-invoice-upload
                   @select="$event[0] && replaceFile(i, $event[0])"

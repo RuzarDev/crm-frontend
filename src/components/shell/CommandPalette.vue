@@ -175,7 +175,11 @@ onBeforeUnmount(() => {
 })
 
 // Неизвестный тип от сервера — без метки (пустая колонка держит выравнивание), а не сырой ключ словаря.
-const typeLabel = (type: string) => (te(`shell.palette.type.${type}`) ? t(`shell.palette.type.${type}`) : '')
+// Клиенту заявка — «поставка», как во всём кабинете.
+const typeLabel = (type: string) => {
+  const key = props.client && type === 'case' ? 'caseClient' : type
+  return te(`shell.palette.type.${key}`) ? t(`shell.palette.type.${key}`) : ''
+}
 
 const onOpenChange = (v: boolean) => { if (!v) hide() }
 const onOpenAutoFocus = (e: Event) => {
