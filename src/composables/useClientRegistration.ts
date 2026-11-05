@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { import40Api, type Import40CanCreateDto, type RegistrationBlockCode } from '@/api/import40'
 import { blockReasonOf } from '@/shell/registrationBanner'
+import { formatDay } from '@/views/broker/list'
 import { import40ContractApi, type Import40DocumentDto } from '@/api/import40Contract'
 
 // Регистрация клиента = три шага «Моей компании»: реквизиты → договор → доверенность.
@@ -103,6 +104,11 @@ export function useClientRegistration() {
   const busyCaseId = computed(() => state.value?.busyCaseId ?? null)
   const busyCaseNumber = computed(() => state.value?.busyCaseNumber ?? null)
   const busyCaseIsDraft = computed(() => state.value?.busyCaseIsDraft === true)
+  // Параметры текстов блокировки: номер поставки (busy) или отозванного документа и дата (05.11.2026).
+  const blockParams = computed(() => ({
+    number: state.value?.busyCaseNumber ?? state.value?.revokedDocNumber ?? '',
+    date: state.value?.revokedAtUtc ? formatDay(state.value.revokedAtUtc) : '',
+  }))
 
   return {
     isClient,
@@ -120,6 +126,7 @@ export function useClientRegistration() {
     busyCaseId,
     busyCaseNumber,
     busyCaseIsDraft,
+    blockParams,
     refresh,
     reset: resetClientRegistration,
   }

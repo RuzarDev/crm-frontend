@@ -41,6 +41,7 @@ vi.mock('@/api/aiTnved', async (orig) => ({ ...(await orig<typeof import('@/api/
 vi.mock('@/composables/useClientRegistration', () => ({
   useClientRegistration: () => ({
     loaded: reg.loaded, complete: reg.complete, reason: reg.reason, needNew: reg.needNew,
+    blockParams: { get value() { return { number: (reg.busyCaseNumber as { value: string | null } | null)?.value ?? '', date: '' } } },
     blockReason: reg.blockReason, busyCaseId: reg.busyCaseId, busyCaseNumber: reg.busyCaseNumber, busyCaseIsDraft: reg.busyCaseIsDraft, refresh: reg.refresh,
   }),
 }))

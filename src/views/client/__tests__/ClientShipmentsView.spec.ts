@@ -13,7 +13,7 @@ vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list }
 vi.mock('@/api/shipmentCost', () => ({ shipmentCostApi: { xlsx: cost.xlsx } }))
 vi.mock('@/ui/download', () => ({ saveBlob: cost.saveBlob }))
 vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
+  useClientRegistration: () => ({ needNew: { value: null }, blockParams: { get value() { return { number: (reg.busyCaseNumber as { value: string | null } | null)?.value ?? '', date: '' } } }, loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
 }))
 
 import ClientShipmentsView from '../ClientShipmentsView.vue'

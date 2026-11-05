@@ -1058,9 +1058,12 @@ export interface Import40CanCreateDto {
   busyCaseNumber?: string | null
   /** M-1 (30.10.2026): занявшая документ поставка — неотправленный черновик (открывается в мастере). */
   busyCaseIsDraft?: boolean
+  /** Для revoked (05.11.2026): какой документ отозван и когда. */
+  revokedDocNumber?: string | null
+  revokedAtUtc?: string | null
 }
 
-export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'missing'
+export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'renew' | 'revoked' | 'missing'
 
 /** Сколько браузер ждёт разбор пакета: 220 с на сервер плюс загрузка файлов из расчёта 1 Мбит/с (125 байт в мс). */
 export const extractBatchTimeoutMs = (files: readonly File[]): number =>

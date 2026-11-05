@@ -18,6 +18,7 @@ import {
   currentDoc, endOfDayUtc, historyDocs, historyStatus, isOpen, localDate, todayYmd, validDate,
   type DocKind, type HistoryStatus,
 } from './company'
+import { formatDay } from '@/views/broker/list'
 import { ncaSignErrorText, signDocumentWithNcaLayer } from './ncaSign'
 
 // Раздел «Договор» / «Доверенность» (доска Company): актуальный документ — номер, срок, «Скачать .docx» и
@@ -45,6 +46,8 @@ const titleId = `company-doc-${uid}`
 const k = (key: string) => `client.company.${props.kind}.${key}`
 const current = computed(() => currentDoc(props.docs))
 const history = computed(() => historyDocs(props.docs))
+// Последний документ отозван (05.11.2026): клиент видит номер и дату, а не три причины через «или».
+const revokedLast = computed(() => (history.value[0]?.status === 4 ? history.value[0] : null))
 const hasProvider = computed(() => props.kind === 'contract')
 
 const docTitle = (d: Import40DocumentDto) => t(k('title'), { no: `${d.number}/${d.year}` })
@@ -319,7 +322,7 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
       </span>
       <div>
         <h2 :id="titleId" class="m-0 text-lg leading-[26px] font-semibold tracking-[-0.01em] text-ink">
-          {{ t(history.length ? k('noneTitle') : k('emptyTitle')) }}
+          {{ revokedLast ? t(k('revokedTitle'), { no: `${revokedLast.number}/${revokedLast.year}`, date: revokedLast.revokedAtUtc ? formatDay(revokedLast.revokedAtUtc) : '' }) : t(history.length ? k('noneTitle') : k('emptyTitle')) }}
         </h2>
         <p class="m-0 mt-1 max-w-[560px] text-base text-ink-3">
           {{ profileComplete ? t(history.length ? k('noneHint') : k('emptyHint')) : t('client.company.doc.fillFirst') }}

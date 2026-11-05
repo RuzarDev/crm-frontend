@@ -12,7 +12,7 @@ const reg = vi.hoisted(() => ({ loaded: null as unknown, complete: null as unkno
 vi.mock('@/api/clientShipments', () => ({ clientShipmentsApi: { list: api.list } }))
 vi.mock('@/api/billing', () => ({ billingApi: { list: api.invoices } }))
 vi.mock('@/composables/useClientRegistration', () => ({
-  useClientRegistration: () => ({ loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
+  useClientRegistration: () => ({ needNew: { value: null }, blockParams: { get value() { return { number: (reg.busyCaseNumber as { value: string | null } | null)?.value ?? '', date: '' } } }, loaded: reg.loaded, complete: reg.complete, blockReason: reg.blockReason, busyCaseNumber: reg.busyCaseNumber }),
 }))
 
 import ClientHomeView from '../ClientHomeView.vue'

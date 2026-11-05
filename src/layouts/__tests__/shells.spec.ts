@@ -38,6 +38,8 @@ vi.mock('@/composables/useClientRegistration', () => ({
       nextStep: computed(() => s.value.nextStep),
       doneCount: computed(() => s.value.doneCount),
       needNew: computed(() => s.value.needNew),
+      blockReason: { value: null },
+      blockParams: { value: {} },
       refresh: reg.refresh,
     }
   },
