@@ -99,11 +99,11 @@ watch(() => props.docs, () => { docErrors.value = {} })
 
 // ---- Скачать .docx ----
 const downloadingId = ref<string | null>(null)
-const download = async (d: Import40DocumentDto) => {
+const download = async (d: Import40DocumentDto, format?: 'pdf') => {
   if (downloadingId.value) return
-  downloadingId.value = d.id
+  downloadingId.value = format ? `${d.id}:pdf` : d.id
   try {
-    saveBlob(await import40ContractApi.downloadDocument(props.clientId, d.id), `${t(k('file'))}-${d.number}-${d.year}.docx`)
+    saveBlob(await import40ContractApi.downloadDocument(props.clientId, d.id, format), `${t(k('file'))}-${d.number}-${d.year}.${format ?? 'docx'}`)
   } catch (e) {
     // HTTP-ошибку уже показал общий перехватчик — здесь только сбой без ответа.
     if (!(e as { response?: unknown })?.response) message.error(t('broker.company.downloadError'))
@@ -333,6 +333,9 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
         <div class="flex flex-wrap gap-2">
           <ZButton :loading="downloadingId === d.id" :class="actionBtn" data-doc-download @click="download(d)">
             <PhDownloadSimple :size="16" aria-hidden="true" />{{ t('broker.company.download') }}
+          </ZButton>
+          <ZButton :loading="downloadingId === `${d.id}:pdf`" :class="actionBtn" data-doc-pdf @click="download(d, 'pdf')">
+            <PhDownloadSimple :size="16" aria-hidden="true" />PDF
           </ZButton>
           <a
             v-if="d.verifyUrl"

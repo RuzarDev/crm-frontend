@@ -62,11 +62,11 @@ const signedText = (at: string | null, method: string | null) => {
 
 // ---- Скачать .docx ----
 const downloadingId = ref<string | null>(null)
-const download = async (d: Import40DocumentDto) => {
+const download = async (d: Import40DocumentDto, format?: 'pdf') => {
   if (downloadingId.value) return
-  downloadingId.value = d.id
+  downloadingId.value = format ? `${d.id}:pdf` : d.id
   try {
-    saveBlob(await import40ContractApi.downloadDocument(props.clientId, d.id), `${t(k('file'))}-${d.number}-${d.year}.docx`)
+    saveBlob(await import40ContractApi.downloadDocument(props.clientId, d.id, format), `${t(k('file'))}-${d.number}-${d.year}.${format ?? 'docx'}`)
   } catch (e: unknown) {
     // HTTP-ошибку уже показал общий перехватчик — здесь только сбой без ответа.
     if (!(e as { response?: unknown })?.response) message.error(t('client.company.doc.downloadError'))
@@ -232,6 +232,14 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
           @click="download(current)"
         >
           <PhDownloadSimple :size="16" aria-hidden="true" />{{ t('client.company.doc.download') }}
+        </ZButton>
+        <ZButton
+          :loading="downloadingId === `${current.id}:pdf`"
+          :class="cn(actionBtn, 'border border-solid border-line-strong bg-surface font-medium enabled:hover:bg-sunken max-sm:w-full')"
+          data-doc-pdf
+          @click="download(current, 'pdf')"
+        >
+          <PhDownloadSimple :size="16" aria-hidden="true" />PDF
         </ZButton>
       </div>
 
@@ -399,6 +407,15 @@ const caret = 'shrink-0 transition-transform duration-150 ease-out group-open/de
             @click="download(d)"
           >
             <PhDownloadSimple :size="16" aria-hidden="true" />.docx
+          </ZButton>
+          <ZButton
+            variant="ghost"
+            :loading="downloadingId === `${d.id}:pdf`"
+            class="h-8 px-2.5 max-sm:h-11 max-sm:px-3"
+            data-doc-pdf
+            @click="download(d, 'pdf')"
+          >
+            <PhDownloadSimple :size="16" aria-hidden="true" />.pdf
           </ZButton>
         </li>
       </ul>

@@ -161,7 +161,7 @@ describe('CompanyDocumentCard', () => {
     await mountCard({ docs: [doc({})] })
     await w.get('[data-doc-download]').trigger('click')
     await flushPromises()
-    expect(api.downloadDocument).toHaveBeenCalledWith('cl1', 'd1')
+    expect(api.downloadDocument).toHaveBeenCalledWith('cl1', 'd1', undefined)
     expect(save).toHaveBeenCalledWith(blob, 'Договор-12-2026.docx')
   })
 

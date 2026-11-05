@@ -320,11 +320,11 @@ const extend = async (d: ClientCardDoc) => {
 
 // Бланк сервер собирает по данным клиента на момент запроса; ошибку показывает перехватчик.
 const downloading = ref<string | null>(null)
-const downloadBlank = async (d: ClientCardDoc) => {
+const downloadBlank = async (d: ClientCardDoc, format?: 'pdf') => {
   if (downloading.value) return
-  downloading.value = d.id
+  downloading.value = format ? `${d.id}:pdf` : d.id
   try {
-    saveBlob(await import40ContractApi.downloadDocument(id.value, d.id), blankFileName(kindLabel(d), d))
+    saveBlob(await import40ContractApi.downloadDocument(id.value, d.id, format), blankFileName(kindLabel(d), d, format ?? 'docx'))
   } catch {
     // тост показал общий перехватчик
   } finally {
@@ -648,6 +648,18 @@ const tableWidth = (cols: { width?: number | string }[]) => cols.reduce((s, c) =
                       >
                         <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
                         {{ t(d.clientSigned || d.providerSigned ? 'broker.clientCard.doc.download' : 'broker.clientCard.doc.blank') }}
+                      </ZButton>
+                      <ZButton
+                        v-if="canImport"
+                        size="sm"
+                        :loading="downloading === `${d.id}:pdf`"
+                        :disabled="downloading !== null && downloading !== `${d.id}:pdf`"
+                        :class="['max-sm:h-11 max-sm:px-4', OUTLINE]"
+                        data-doc-pdf
+                        @click="downloadBlank(d, 'pdf')"
+                      >
+                        <template #icon><PhDownloadSimple :size="16" aria-hidden="true" /></template>
+                        PDF
                       </ZButton>
                       <ZButton
                         v-if="canExtend(d)"
