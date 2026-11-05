@@ -50,6 +50,7 @@ describe('extractableCaseFiles: копии неудачных попыток', (
 describe('транспорт по документам (05.11.2026)', () => {
   it('aiFoundCmr: сам CMR — да, только упоминание — нет', () => {
     expect(aiFoundCmr([{ code: '02015', flags: [] }])).toBe(true)
+    expect(aiFoundCmr([{ code: '02016', flags: [] }])).toBe(true)
     expect(aiFoundCmr([{ code: '02015', flags: ['referenced_only'] }])).toBe(false)
     expect(aiFoundCmr([{ code: '02013' }])).toBe(false)
     expect(aiFoundCmr(null)).toBe(false)
