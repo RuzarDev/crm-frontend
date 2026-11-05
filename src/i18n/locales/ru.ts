@@ -3863,7 +3863,7 @@ export default {
         post: 'Пост',
         transport: 'Транспорт',
         trailer: 'прицеп {number}',
-        more: 'Ещё: проблема, шаг назад, отмена',
+        more: 'Ещё действия с заявкой',
       },
       stepper: {
         label: 'Ход заявки',

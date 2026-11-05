@@ -3859,7 +3859,7 @@ export default {
         post: 'Post',
         transport: 'Transport',
         trailer: 'trailer {number}',
-        more: 'More: problem, step back, cancel',
+        more: 'More actions for the request',
       },
       stepper: {
         label: 'Request progress',
