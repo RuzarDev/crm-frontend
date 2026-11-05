@@ -161,6 +161,12 @@ describe('importBuild №4: страна, прочее', () => {
 })
 
 describe('importRows.fromExtraction: товар «Из документов»', () => {
+  it('NTIN из документа — в строку импорта (05.11.2026)', () => {
+    const r = fromExtraction({ description: 'Лимонад' } as never, { ntin: ' 0200000000011 ' }, 'Zircon AI')
+    expect(r.ntins).toEqual(['0200000000011'])
+    expect(fromExtraction({ description: 'Лимонад' } as never, null, 'Zircon AI').ntins).toEqual([])
+  })
+
   it('«Отсутствует» в марке, знаке, модели — как есть (решение владельца 21.10, как «Из Excel»); страна текстом и буквами → ОКСМ; единица и упаковка из extras', () => {
     const r = fromExtraction(
       { description: 'Сушилка', tnvedCode: '7323 99 000 0', quantity: 470, manufacturerName: 'Yiwu', tradeMarkName: 'Отсутствует', productMarkName: 'ОТСУТСТВУЕТ', productModelName: 'отсутствует' },

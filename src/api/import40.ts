@@ -535,6 +535,8 @@ export interface Import40ExtractionGoodsExtra {
   packageKindText?: string | null
   /** Страна текстом, когда код не определён. */
   originText?: string | null
+  /** Код NTIN из документа: гр. 33.3. */
+  ntin?: string | null
 }
 
 /**

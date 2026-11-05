@@ -167,6 +167,7 @@ export function fromExtraction(
     productMarkName: declared(item.productMarkName),
     productModelName: declared(item.productModelName),
     productArticle: detail(item.productArticle),
+    ntins: extra?.ntin?.trim() ? [extra.ntin.trim()] : [],
   }
 }
 
