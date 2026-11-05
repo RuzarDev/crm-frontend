@@ -1,3 +1,4 @@
+import ZDropdown from '@/components/z/ZDropdown.vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
@@ -345,7 +346,8 @@ describe('StaffCompanyPage', () => {
     expect(w.findAll('[data-doc-revoke]')).toHaveLength(1)
     expect(w.get('[data-doc="d2"]').find('[data-doc-revoke]').exists()).toBe(false)
     api.listDocuments.mockClear()
-    await w.get('[data-doc="d1"] [data-doc-revoke]').trigger('click')
+    w.get('[data-doc="d1"]').findComponent(ZDropdown).vm.$emit('select', 'revoke')
+    await flushPromises()
     await flushPromises()
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Отозвать документ № 12/2026?', danger: true }))
     expect(api.revokeDocument).toHaveBeenCalledWith('c1', 'd1', { silent: true })
@@ -364,7 +366,8 @@ describe('StaffCompanyPage', () => {
     expect(w.get('[data-doc-generate]').attributes('aria-busy')).toBeUndefined()
     let release!: (v: unknown[]) => void
     api.listDocuments.mockReturnValueOnce(new Promise((r) => { release = r }))
-    await w.get('[data-doc="d1"] [data-doc-revoke]').trigger('click')
+    w.get('[data-doc="d1"]').findComponent(ZDropdown).vm.$emit('select', 'revoke')
+    await flushPromises()
     await flushPromises()
     expect(w.get('[data-doc-generate]').attributes('aria-busy')).toBe('true')
     release([])
@@ -376,11 +379,13 @@ describe('StaffCompanyPage', () => {
     setDocs('c1', [doc({ id: 'd1' })], [])
     await mountAt('/import-40/company?step=contract')
     confirm.mockResolvedValueOnce(false)
-    await w.get('[data-doc-revoke]').trigger('click')
+    w.findComponent(ZDropdown).vm.$emit('select', 'revoke')
+    await flushPromises()
     await flushPromises()
     expect(api.revokeDocument).not.toHaveBeenCalled()
     api.revokeDocument.mockRejectedValueOnce({ response: { status: 404, data: { error: 'Документ не найден' } } })
-    await w.get('[data-doc-revoke]').trigger('click')
+    w.findComponent(ZDropdown).vm.$emit('select', 'revoke')
+    await flushPromises()
     await flushPromises()
     expect(w.get('[data-doc="d1"] [data-doc-error]').text()).toBe('Документ не найден')
   })
@@ -634,7 +639,7 @@ describe('StaffCompanyPage', () => {
     await mountAt('/import-40/company?step=contract')
     await w.get('[data-doc-download]').trigger('click')
     await flushPromises()
-    expect(api.downloadDocument).toHaveBeenCalledWith('c1', 'd1')
+    expect(api.downloadDocument).toHaveBeenCalledWith('c1', 'd1', undefined)
     expect(save).toHaveBeenCalledWith(expect.any(Blob), 'Договор-12-2026.docx')
   })
 

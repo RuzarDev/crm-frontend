@@ -3542,6 +3542,7 @@ export default {
       },
       contact: { name: 'Байланыс тұлғасы', position: 'Лауазымы', phone: 'Телефон', email: 'Email' },
       doc: {
+        revokeConfirm: '{company}: клиент жаңа құжатқа қол қойғанша жаңа өтінім жасай алмайды. Ашық өтінімдер: {n}, оларға байланыс алынады.',
         contract: 'Шарт',
         poa: 'Сенімхат',
         title: '{kind} № {number}/{year}',

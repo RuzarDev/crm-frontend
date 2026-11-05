@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhArrowClockwise, PhDownloadSimple, PhFilePlus, PhKey, PhQrCode, PhSealCheck, PhUploadSimple } from '@phosphor-icons/vue'
+import { PhArrowClockwise, PhDotsThree, PhDownloadSimple, PhFilePlus, PhKey, PhQrCode, PhSealCheck, PhUploadSimple } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZCheckbox from '@/components/z/ZCheckbox.vue'
+import ZDropdown from '@/components/z/ZDropdown.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ClientSigexModal from '@/components/client/ClientSigexModal.vue'
 import { canReissuePoa, canRenewContract, import40ContractApi, isDocumentEffective, type Import40DocumentDto } from '@/api/import40Contract'
@@ -364,16 +365,21 @@ const actionBtn = 'h-9 px-3 text-sm max-sm:h-11 max-sm:flex-1'
           >
             <PhArrowClockwise :size="16" aria-hidden="true" />{{ t('broker.company.reissue.action') }}
           </ZButton>
-          <ZButton
+          <ZDropdown
             v-if="isAdmin && d.status !== REVOKED"
-            variant="danger-ghost"
-            :loading="revokingId === d.id"
-            :class="actionBtn"
-            data-doc-revoke
-            @click="revoke(d)"
+            :items="[{ key: 'revoke', label: t('broker.company.revoke'), danger: true }]"
+            @select="revoke(d)"
           >
-            {{ t('broker.company.revoke') }}
-          </ZButton>
+            <button
+              type="button"
+              :aria-label="t('broker.clientCard.more')"
+              :title="t('broker.clientCard.more')"
+              class="inline-flex size-9 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-sunken focus-visible:shadow-focus max-sm:size-11"
+              data-doc-revoke
+            >
+              <PhDotsThree :size="18" weight="bold" aria-hidden="true" />
+            </button>
+          </ZDropdown>
         </div>
 
         <p v-if="canRenew(d)" class="m-0 text-[13px] text-gold-ink" data-renew-hint>
