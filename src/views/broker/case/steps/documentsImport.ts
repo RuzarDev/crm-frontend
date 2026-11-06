@@ -288,6 +288,8 @@ export async function prepareDocumentsDeclaration(
     ['hanDropped', noteCount(built.notes, 'hanDropped')], ['modelFromDescription', noteCount(built.notes, 'modelFromDescription')],
   ]
   for (const [key, n] of counts) if (n) notes.push({ key, params: { n } })
+  const huge = [...new Set(noteDetails(built.notes, 'hugeNumber'))]
+  if (huge.length) notes.push({ key: 'hugeNumbers', params: { list: huge.join(', ') } })
   const unknownUnits = noteDetails(built.notes, 'unknownUnit')
   if (unknownUnits.length) notes.push({ key: 'unknownUnits', params: { list: unknownUnits.join(', ') } })
   const unknownCountries = noteDetails(built.notes, 'unknownCountry')

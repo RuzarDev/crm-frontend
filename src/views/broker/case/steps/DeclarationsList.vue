@@ -17,6 +17,7 @@ import { useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import { formatMoney } from '@/ui/number'
+import { serverErrorText } from '@/utils/serverError'
 import type { CaseStepProps } from '../caseContext'
 import { hintText } from '../casePermissions'
 import { dtLabel } from '../caseSteps'
@@ -293,8 +294,10 @@ const extractIntoDt = async (files: File[], fileIds: readonly string[]): Promise
       ? [t('broker.case.declaring.batch.severalInvoices', { n: invoices.length, list: invoices.join(', ') })]
       : []
     return { dtId: created.id, extracted: result, warnings, critical, usedExcel: prepared.usedExcelGoods }
-  } catch {
-    return { failed: t('broker.case.declaring.batch.failedCreate') }
+  } catch (e) {
+    // Отказ сервера с объяснением (400) — его текст; сбой — общий
+    const failedCreate = t('broker.case.declaring.batch.failedCreate')
+    return { failed: serverErrorText(e, failedCreate, { friendly: failedCreate }) }
   }
 }
 
