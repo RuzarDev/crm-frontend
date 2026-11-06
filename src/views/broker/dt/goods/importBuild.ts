@@ -50,7 +50,11 @@ export interface BuildCtx {
   options?: BuildOptions
 }
 
+/** Предел числовых колонок ДТ numeric(18,4) — как на сервере (Import40NumberLimits). */
+const MAX_NUMBER = 1e14
+
 export type BuildNoteKind =
+  | 'hugeNumber'
   | 'invalidCode' | 'codesNotChecked' | 'toRow' | 'noUnit' | 'deiMismatch' | 'unknownUnit' | 'unknownPackaging'
   | 'unknownCountry' | 'packagingDefault' | 'netOverGross' | 'han' | 'placesRounded' | 'senderAsManufacturer' | 'defaultOrigin'
   /** Импорт 2.0: из двуязычного описания взята русская часть; модель — из описания; места текстом неоднозначны. */
@@ -101,6 +105,13 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
 
   const goods = rows.map((r, index) => {
     const note = (kind: BuildNoteKind, detail?: string) => notes.push({ index, kind, detail })
+    // Число больше колонки базы (склейка ячеек на скане) — поле пустое, а не отказ в создании всей ДТ (06.11.2026)
+    const sane = (v: number | null | undefined): number | null => {
+      if (v == null) return null
+      if (Math.abs(v) < MAX_NUMBER) return v
+      note('hugeNumber', String(index + 1))
+      return null
+    }
     const g = newDtGoodsItem(ctx.currency)
     g.currency = ctx.currency || r.currency || null
 
@@ -148,14 +159,14 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     row.standardName = upperRu(r.standardName)
     row.productSortName = upperRu(r.productSortName)
     row.serialNumbers = upperRu(r.serialNumbers)
-    row.invoiceValue = r.value ?? null
+    row.invoiceValue = r.value != null && Math.abs(r.value) >= MAX_NUMBER ? null : r.value ?? null
     if (!row.manufacturerName && opts.senderAsManufacturer) {
       row.manufacturerName = upperRu(opts.senderAsManufacturer)
       note('senderAsManufacturer')
     }
 
     // ---- №1: количество — гр. 41 или строка гр. 31 ----
-    const q = r.quantity != null && r.quantity > 0 ? r.quantity : null
+    const q = sane(r.quantity != null && r.quantity > 0 ? r.quantity : null)
     const unit = r.unitText ? okeiFromText(r.unitText) : null
     if (r.unitText && !unit) note('unknownUnit', r.unitText)
     const dei = failed || !codeInfo?.valid ? undefined : codeInfo.dei // undefined — ДЕИ неизвестна
@@ -176,11 +187,11 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     g.characteristics = [row]
 
     // ---- веса, стоимость, места ----
-    g.grossWeightKg = r.grossWeightKg ?? null
-    g.netWeightKg = r.netWeightKg ?? null
-    g.customsValue = r.value ?? null
+    g.grossWeightKg = sane(r.grossWeightKg)
+    g.netWeightKg = sane(r.netWeightKg)
+    g.customsValue = sane(r.value)
     if (netOverGross(g)) note('netOverGross')
-    const places = r.places != null && r.places > 0 ? Math.round(r.places) : null
+    const places = sane(r.places != null && r.places > 0 ? Math.round(r.places) : null)
     if (places != null && places !== r.places) note('placesRounded', String(r.places))
     if (places == null && r.placesNote) note('placesAmbiguous', r.placesNote)
     g.packagesCount = places

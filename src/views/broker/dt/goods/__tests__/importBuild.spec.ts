@@ -225,3 +225,19 @@ describe('importRows.fromExtraction: товар «Из документов»', 
     expect(r).toMatchObject({ manufacturerName: null, productArticle: null, tradeMarkName: null, productMarkName: null, productModelName: null })
   })
 })
+
+describe('число больше колонки базы (06.11.2026)', () => {
+  it('поле пустое, остальные на месте, замечание с номером товара', () => {
+    const built = buildGoods([row({ grossWeightKg: 42420274402129080, netWeightKg: 12, value: 100 })], ctx(null))
+    expect(built.goods[0]!.grossWeightKg).toBeNull()
+    expect(built.goods[0]!.netWeightKg).toBe(12)
+    expect(built.goods[0]!.customsValue).toBe(100)
+    expect(noteDetails(built.notes, 'hugeNumber')).toEqual(['1'])
+  })
+
+  it('стоимость строки гр. 31 тоже пустая', () => {
+    const built = buildGoods([row({ value: 1e15 })], ctx(null))
+    expect(built.goods[0]!.customsValue).toBeNull()
+    expect(built.goods[0]!.characteristics![0]!.invoiceValue).toBeNull()
+  })
+})

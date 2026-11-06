@@ -224,6 +224,9 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
         <p v-if="noteDetails(notes, 'unknownCountry').length" :class="warn" data-goods-excel-unknown-country>
           {{ tx('unknownCountries', { list: noteDetails(notes, 'unknownCountry').map((v) => `«${v}»`).join(', ') }) }}
         </p>
+        <p v-if="noteDetails(notes, 'hugeNumber').length" :class="warn" data-goods-excel-huge-number>
+          {{ tx('hugeNumbers', { list: [...new Set(noteDetails(notes, 'hugeNumber'))].join(', ') }) }}
+        </p>
         <p v-if="count('packagingDefault')" class="m-0 text-ink-2" data-goods-excel-packaging-default>{{ tx('packagingDefault', { n: count('packagingDefault') }) }}</p>
         <p v-if="placesAmbiguous.length" :class="warn" data-goods-excel-places-ambiguous>
           {{ tx('placesAmbiguous', { n: count('placesAmbiguous'), list: placesAmbiguous.slice(0, 3).map((v) => `«${v}»`).join('; ') }) }}

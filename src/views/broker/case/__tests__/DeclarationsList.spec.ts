@@ -876,6 +876,22 @@ describe('DeclarationsList: «Из документов»', () => {
     expect(msg.error).toHaveBeenCalledWith('Пакет распознан, но ДТ не создана')
     expect(router.currentRoute.value.path).toBe('/import-40/c1')
   })
+
+  it('отказ сервера с объяснением — его текст, а не общий', async () => {
+    api.extractBatch.mockResolvedValue(result())
+    api.createDeclaration.mockRejectedValue({ response: { status: 400, data: { error: 'Товар 3: вес брутто (гр.35) слишком большое число.' } } })
+    mount(USERS.declarant)
+    await pick()
+    expect(msg.error).toHaveBeenCalledWith('Товар 3: вес брутто (гр.35) слишком большое число.')
+  })
+
+  it('сбой сервера 500 — общий текст, а не сырой ответ', async () => {
+    api.extractBatch.mockResolvedValue(result())
+    api.createDeclaration.mockRejectedValue({ response: { status: 500, data: { title: 'Internal' } } })
+    mount(USERS.declarant)
+    await pick()
+    expect(msg.error).toHaveBeenCalledWith('Пакет распознан, но ДТ не создана')
+  })
 })
 
 describe('DeclarationsList: «Копировать ДТ»', () => {
