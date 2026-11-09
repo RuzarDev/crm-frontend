@@ -8,6 +8,7 @@ import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import HomePanel from '@/views/home/HomePanel.vue'
+import ServiceHealthBanner from '@/views/home/ServiceHealthBanner.vue'
 import ExpeditorHomePanel from '@/views/broker/expeditor/ExpeditorHomePanel.vue'
 import { dashboardApi, type StaffHomeUrgent } from '@/api/dashboard'
 import { manageApi } from '@/api/manage'
@@ -141,6 +142,9 @@ const rowLink = 'rounded-row no-underline outline-hidden transition-colors durat
         {{ t('home.newRequest') }}
       </ZButton>
     </div>
+
+    <!-- Сбой ключа ИИ или Zircon AI (09.11.2026) — администратору и РОП, только пока сбой длится. -->
+    <ServiceHealthBanner />
 
     <!-- «Срочно» — только если есть что показать; строки по сроку, самое старое первым (сервер). -->
     <section

@@ -268,7 +268,7 @@ describe('OrganizationPage: сохранение', () => {
       companyName: 'ТОО «AQNIET Customs»', shortName: 'AQNIET', bin: '180940012345', legalAddress: 'Алматы, пр. Абая 52, оф. 305',
       bank: 'Halyk', iik: 'KZ72722S000012345678', bik: 'CASPKZKA', kbe: '17',
       directorName: 'Ахметов К. С.', directorBasis: 'устава', accountantName: 'Жумабек А. Е.', phone: '+7 727 355 12 40', email: 'office@aqniet.kz',
-      vatPayer: true, vatRate: 16, kedenStatusEmails: null, customsRepRegistryNumber: null, customsRepRegistryDate: null, updatedAtUtc: SAVED_AT,
+      vatPayer: true, vatRate: 16, kedenStatusEmails: null, serviceAlertEmails: null, customsRepRegistryNumber: null, customsRepRegistryDate: null, updatedAtUtc: SAVED_AT,
     })
     expect(api.toast.success).toHaveBeenCalledTimes(1)
     expect(bar().exists()).toBe(false)
@@ -489,5 +489,54 @@ describe('OrganizationPage: уход со страницы', () => {
     await router.push('/elsewhere')
     expect(confirmState.open).toBe(false)
     expect(router.currentRoute.value.path).toBe('/elsewhere')
+  })
+})
+
+// Адреса для оповещений о сбоях (09.11.2026): второе поле секции «Уведомления», рядом с адресами КЕДЕН.
+describe('OrganizationPage: адреса для оповещений о сбоях', () => {
+  const boxes = () => w.findAll('[data-org-section="notify"] [data-z-field]')
+  const alertBox = () => boxes()[1]
+
+  it('поле после адресов КЕДЕН, с подписью и подсказкой; адреса с сервера — по одному на строку', async () => {
+    api.organization.mockResolvedValue(dto({ serviceAlertEmails: 'admin@example.com,ops@example.org' }))
+    await open()
+    expect(boxes()).toHaveLength(2)
+    expect(alertBox().text()).toContain('Адреса для оповещений о сбоях')
+    expect(alertBox().text()).toContain('Письмо, если перестанет работать ИИ-подбор ТН ВЭД или разбор документов')
+    expect((field('serviceAlertEmails').element as HTMLTextAreaElement).value).toBe('admin@example.com\nops@example.org')
+  })
+
+  it('сохраняется тем же «Сохранить», адреса КЕДЕН при этом не отправляются', async () => {
+    await open()
+    await type('serviceAlertEmails', 'Admin@Example.com; ops@example.org')
+    expect(w.get('[data-savebar-text]').text()).toBe('Есть несохранённые изменения · уведомления')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    const [sent] = api.saveOrganization.mock.calls[0]
+    expect(sent.serviceAlertEmails).toBe('admin@example.com,ops@example.org')
+    expect(sent.kedenStatusEmails).toBeNull()
+  })
+
+  it('неверный адрес — ошибка у этого поля, «Сохранить» недоступна', async () => {
+    await open()
+    await type('serviceAlertEmails', 'admin@example.com, admin-at-example')
+    expect(alertBox().text()).toContain('Неверный адрес: admin-at-example')
+    expect(boxes()[0].find('[data-z-status="error"]').exists()).toBe(false)
+    expect(saveBtn().attributes('disabled')).toBeDefined()
+  })
+
+  it('400 сервера с errors.serviceAlertEmails — текст у своего поля, поле КЕДЕН не краснеет', async () => {
+    api.saveOrganization.mockRejectedValueOnce({
+      response: { status: 400, data: { error: 'Неверный адрес почты: ops@example', errors: { serviceAlertEmails: ['Неверный адрес почты: ops@example'] } } },
+    })
+    await open()
+    await type('kedenStatusEmails', 'duty@example.org')
+    await type('serviceAlertEmails', 'ops@example.org')
+    await saveBtn().trigger('click')
+    await flushPromises()
+    expect(alertBox().get('[data-z-status="error"]').text()).toBe('Неверный адрес почты: ops@example')
+    expect(boxes()[0].find('[data-z-status="error"]').exists()).toBe(false)
+    await type('serviceAlertEmails', 'ops@example.net')
+    expect(alertBox().find('[data-z-status="error"]').exists()).toBe(false)
   })
 })

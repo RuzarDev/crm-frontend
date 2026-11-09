@@ -24,6 +24,8 @@ export interface OrgForm {
   vatRate: number | null
   /** Адреса для писем КЕДЕН — в форме по одному на строку. */
   kedenStatusEmails: string
+  /** Адреса для оповещений о сбоях (ключ ИИ, Zircon AI; 09.11.2026) — так же, по одному на строку. */
+  serviceAlertEmails: string
   /** Свидетельство о включении в реестр ТП: номер и дата 'YYYY-MM-DD' (нет — пустая строка). */
   customsRepRegistryNumber: string
   customsRepRegistryDate: string
@@ -36,15 +38,20 @@ export const FIELD_SECTION: Record<FieldKey, SectionKey> = {
   bank: 'bank', iik: 'bank', bik: 'bank', kbe: 'bank',
   vatPayer: 'vat', vatRate: 'vat',
   customsRepRegistryNumber: 'customsRep', customsRepRegistryDate: 'customsRep',
-  kedenStatusEmails: 'notify',
+  kedenStatusEmails: 'notify', serviceAlertEmails: 'notify',
 }
+
+/** Поля-списки адресов: разбор, сравнение и проверки у них общие. */
+export type EmailListKey = 'kedenStatusEmails' | 'serviceAlertEmails'
+export const EMAIL_LIST_KEYS: EmailListKey[] = ['kedenStatusEmails', 'serviceAlertEmails']
+const isEmailList = (k: FieldKey): k is EmailListKey => (EMAIL_LIST_KEYS as FieldKey[]).includes(k)
 
 /** Основания по умолчанию: попадают в документы по-русски как есть, поэтому не переводятся. */
 export const BASIS_PRESETS = ['устава', 'доверенности'] as const
 export const VAT_MIN = 0
 export const VAT_MAX = 30
 export const DEFAULT_BASIS = 'устава'
-/** Сколько адресов КЕДЕН принимает сервер (больше — 400). */
+/** Сколько адресов КЕДЕН (и адресов оповещений о сбоях) принимает сервер (больше — 400). */
 export const KEDEN_EMAILS_MAX = 20
 /** Длина номера свидетельства: он уходит в гр.44, а КЕДЕН принимает номер документа до 50 знаков (сервер отвечает 400). */
 export const REP_NUMBER_MAX = 50
@@ -73,6 +80,7 @@ export const toForm = (d: Partial<OrganizationSettings> | null | undefined): Org
   vatRate: typeof d?.vatRate === 'number' ? d.vatRate : 16,
   // Старый сервер поля не знает — пусто.
   kedenStatusEmails: splitEmails(str(d?.kedenStatusEmails)).join('\n'),
+  serviceAlertEmails: splitEmails(str(d?.serviceAlertEmails)).join('\n'),
   customsRepRegistryNumber: str(d?.customsRepRegistryNumber),
   customsRepRegistryDate: str(d?.customsRepRegistryDate).slice(0, 10),
 })
@@ -84,7 +92,7 @@ export const toForm = (d: Partial<OrganizationSettings> | null | undefined): Org
 const comparable = (key: FieldKey, f: OrgForm): string | number | boolean | null => {
   const v = f[key]
   if (typeof v !== 'string') return v
-  if (key === 'kedenStatusEmails') return splitEmails(v).join(',')
+  if (isEmailList(key)) return splitEmails(v).join(',')
   return key === 'iik' || key === 'bik' ? compact(v) : v.trim()
 }
 export const changedFields = (saved: OrgForm, draft: OrgForm): FieldKey[] =>
@@ -103,7 +111,7 @@ export const invalidEmail = (v: string): string | null => splitEmails(v).find((x
  * Проверки на месте. Обязательно одно полное наименование (оно печатается в счетах и актах);
  * остальные поля могут быть пустыми — свежая установка заполняется по частям, — но заполненные обязаны быть
  * в формате: БИН — 12 цифр, ИИК — KZ и 18 знаков, БИК — 8 латинских букв/цифр, Кбе — 2 цифры, email.
- * Адреса КЕДЕН — не больше 20, каждый в формате email (сервер проверяет так же и отвечает 400).
+ * Адреса КЕДЕН и адреса оповещений о сбоях — не больше 20, каждый в формате email (сервер проверяет так же и отвечает 400).
  * Номер свидетельства ТП без даты не сохраняем: строка 09034 в каждой новой ДТ была бы без даты.
  */
 export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> => {
@@ -121,9 +129,10 @@ export const validate = (f: OrgForm): Partial<Record<FieldKey, OrgErrorCode>> =>
   if (email && !EMAIL.test(email)) e.email = 'email'
   if (!f.directorBasis.trim()) e.directorBasis = 'basis'
   if (f.vatPayer && (f.vatRate === null || f.vatRate < VAT_MIN || f.vatRate > VAT_MAX)) e.vatRate = 'vatRate'
-  const emails = splitEmails(f.kedenStatusEmails)
-  if (emails.length > KEDEN_EMAILS_MAX) e.kedenStatusEmails = 'emailsLimit'
-  else if (invalidEmail(f.kedenStatusEmails)) e.kedenStatusEmails = 'emails'
+  for (const k of EMAIL_LIST_KEYS) {
+    if (splitEmails(f[k]).length > KEDEN_EMAILS_MAX) e[k] = 'emailsLimit'
+    else if (invalidEmail(f[k])) e[k] = 'emails'
+  }
   if (f.customsRepRegistryNumber.trim() && !f.customsRepRegistryDate) e.customsRepRegistryDate = 'repDate'
   return e
 }
@@ -146,6 +155,7 @@ export const toPayload = (
     vatPayer: f.vatPayer, vatRate: f.vatRate ?? 16,
     // Через запятую, как хранит сервер; очистили намеренно — '' (сервер очищает список); не трогали — null.
     kedenStatusEmails: untouched('kedenStatusEmails') ? null : splitEmails(f.kedenStatusEmails).join(','),
+    serviceAlertEmails: untouched('serviceAlertEmails') ? null : splitEmails(f.serviceAlertEmails).join(','),
     customsRepRegistryNumber: untouched('customsRepRegistryNumber') ? null : f.customsRepRegistryNumber.trim(),
     customsRepRegistryDate: untouched('customsRepRegistryDate') ? null : f.customsRepRegistryDate,
     updatedAtUtc: base?.updatedAtUtc ?? null,

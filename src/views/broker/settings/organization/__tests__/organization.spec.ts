@@ -72,7 +72,7 @@ describe('organization: форма и секции', () => {
     expect(Object.values(p).includes(null as never)).toBe(false)
     expect(Object.keys(p).sort()).toEqual([
       'accountantName', 'bank', 'bik', 'bin', 'companyName', 'customsRepRegistryDate', 'customsRepRegistryNumber',
-      'directorBasis', 'directorName', 'email', 'iik', 'kbe', 'kedenStatusEmails', 'legalAddress', 'phone', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
+      'directorBasis', 'directorName', 'email', 'iik', 'kbe', 'kedenStatusEmails', 'legalAddress', 'phone', 'serviceAlertEmails', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
     ].sort())
   })
 })
@@ -160,5 +160,31 @@ describe('organization: «Сохранено»', () => {
     expect(formatSavedAt('2025-10-02T09:20:00Z', 'ru-RU', now)).toContain('2025')
     expect(formatSavedAt(null, 'ru-RU', now)).toBe('')
     expect(formatSavedAt('мусор', 'ru-RU', now)).toBe('')
+  })
+})
+
+// Адреса для оповещений о сбоях (09.11.2026: ключ ИИ, Zircon AI) — те же правила, что у адресов КЕДЕН, но независимо от них.
+describe('organization: адреса для оповещений о сбоях', () => {
+  it('с сервера — по одному на строку; старый сервер без поля — пусто', () => {
+    expect(toForm({ serviceAlertEmails: 'a@example.com,b@example.org' }).serviceAlertEmails).toBe('a@example.com\nb@example.org')
+    expect(toForm({}).serviceAlertEmails).toBe('')
+  })
+  it('PUT: не меняли — null, меняли — нормализованный список, очистили — пустая строка; КЕДЕН не задевается', () => {
+    const saved = { ...base(), kedenStatusEmails: 'k@example.com', serviceAlertEmails: 'a@example.com' }
+    expect(toPayload({ ...saved, bank: 'Halyk' }, null, saved).serviceAlertEmails).toBeNull()
+    const p = toPayload({ ...saved, serviceAlertEmails: 'B@example.org; a@example.com\nb@example.org' }, null, saved)
+    expect(p.serviceAlertEmails).toBe('b@example.org,a@example.com')
+    expect(p.kedenStatusEmails).toBeNull()
+    expect(toPayload({ ...saved, serviceAlertEmails: '' }, null, saved).serviceAlertEmails).toBe('')
+  })
+  it('проверки: неверный адрес и больше 20 — ошибка у своего поля; секция «уведомления»', () => {
+    expect(validate({ ...base(), serviceAlertEmails: 'a@example.com, broken@' })).toMatchObject({ serviceAlertEmails: 'emails' })
+    expect(validate({ ...base(), serviceAlertEmails: 'a@example.com, broken@' }).kedenStatusEmails).toBeUndefined()
+    const many = Array.from({ length: 21 }, (_, i) => `u${i}@example.com`).join(',')
+    expect(validate({ ...base(), serviceAlertEmails: many }).serviceAlertEmails).toBe('emailsLimit')
+    expect(validate({ ...base(), serviceAlertEmails: '' }).serviceAlertEmails).toBeUndefined()
+    const a = { ...base(), serviceAlertEmails: 'a@example.com' }
+    expect(changedSections(a, { ...a, serviceAlertEmails: 'A@EXAMPLE.COM, a@example.com' })).toEqual([])
+    expect(changedSections(a, { ...a, serviceAlertEmails: 'b@example.com' })).toEqual(['notify'])
   })
 })

@@ -531,6 +531,22 @@ export default {
     submitFailed: 'Failed to submit request',
   },
   home: {
+    serviceHealth: {
+      line: {
+        aiKey: 'AI HS code suggestions have been down since {since}: {reason}',
+        zirconAi: 'The document parsing service has been unavailable since {since}: {reason}',
+      },
+      kind: {
+        keyRejected: 'API key rejected',
+        unreachable: 'service unreachable',
+        serverError: 'service returns errors',
+        badResponse: 'unexpected service response',
+        other: 'check failing',
+      },
+      emailed: 'Outage emails go to the addresses in Settings → Organization.',
+      noEmails: 'Outage emails are not sent: no alert addresses are set.',
+      settings: 'Set addresses',
+    },
     greeting: {
       morning: 'Good morning, {name}',
       day: 'Good afternoon, {name}',
@@ -710,6 +726,9 @@ export default {
         kedenStatusEmails: 'KEDEN notification email',
         kedenStatusEmailsHint: 'An email on any GD status change in KEDEN. Several addresses — separated by commas or on new lines',
         kedenStatusEmailsPlaceholder: "declarant{'@'}company.kz",
+        serviceAlertEmails: 'Outage alert emails',
+        serviceAlertEmailsHint: 'An email when AI HS code suggestions or document parsing stop working, and when they recover',
+        serviceAlertEmailsPlaceholder: "admin{'@'}company.kz",
         customsRepRegistryNumber: 'Certificate number',
         customsRepRegistryDate: 'Certificate date',
         customsRepRegistryHint: 'Goes into box 44 of every new GD',
@@ -719,7 +738,7 @@ export default {
           bank: { title: 'Bank', text: 'For payment invoices.' },
           vat: { title: 'VAT', text: 'The rate is applied to invoices.' },
           customsRep: { title: 'Customs representative', text: 'Certificate of inclusion in the register of customs representatives.' },
-          notify: { title: 'Notifications', text: 'Emails about KEDEN events.' },
+          notify: { title: 'Notifications', text: 'Emails about KEDEN events and Zircon service outages.' },
         },
         err: {
           required: 'Enter the full name',

@@ -21,8 +21,8 @@ import { message } from '@/ui/message'
 import { useConfirm } from '@/ui/confirm'
 import { calendarLocale } from '@/ui/date'
 import {
-  BASIS_PRESETS, DEFAULT_BASIS, KEDEN_EMAILS_MAX, REP_NUMBER_MAX, VAT_MAX, VAT_MIN, changedFields, changedSections, compact, formatSavedAt, groupIik,
-  invalidEmail, toForm, toPayload, validate, type FieldKey, type OrgForm,
+  BASIS_PRESETS, DEFAULT_BASIS, EMAIL_LIST_KEYS, KEDEN_EMAILS_MAX, REP_NUMBER_MAX, VAT_MAX, VAT_MIN, changedFields, changedSections, compact,
+  formatSavedAt, groupIik, invalidEmail, toForm, toPayload, validate, type EmailListKey, type FieldKey, type OrgForm,
 } from './organization'
 
 // «Организация» раздела «Настройки» (редизайн, волна 5б, доска Org): реквизиты, которые попадают в счета, акты,
@@ -31,6 +31,7 @@ import {
 // вопрос. Менять может finance.write | users.write | администратор (как сервер), остальным — только чтение.
 // Запросы silent: ошибка показывается на странице одним сообщением.
 // 23.10.2026: пятая секция «Уведомления» — почта для писем о смене статуса ДТ в КЕДЕН; 400 сервера по адресам — и у поля.
+// 09.11.2026: в «Уведомлениях» — адреса для оповещений о сбоях (ключ ИИ, Zircon AI), устроены как адреса КЕДЕН.
 // 05.11.2026: секция «Таможенный представитель» — номер и дата свидетельства, из них сервер ставит 09034 в гр.44 новых ДТ.
 const { t, locale } = useI18n()
 const auth = useAuthStore()
@@ -45,8 +46,8 @@ const draft = reactive<OrgForm>(toForm(null))
 const touched = ref<Set<FieldKey>>(new Set())
 const saving = ref(false)
 const saveError = ref<string | null>(null)
-// Отказ сервера (400) по адресам КЕДЕН — показываем у поля, пока адреса не поправили.
-const emailsServerError = ref<string | null>(null)
+// Отказ сервера (400) по спискам адресов (КЕДЕН, оповещения о сбоях) — показываем у поля, пока адреса не поправили.
+const emailsServerError = ref<Partial<Record<EmailListKey, string>>>({})
 
 // Основание: «устава» / «доверенности» или свой текст (тогда рядом поле ввода).
 type BasisChoice = (typeof BASIS_PRESETS)[number] | 'custom'
@@ -64,14 +65,22 @@ const apply = (data: Partial<OrganizationSettings>) => {
   Object.assign(draft, toForm(data))
   touched.value = new Set()
   saveError.value = null
-  emailsServerError.value = null
+  emailsServerError.value = {}
   syncChoice()
 }
 watch(() => org.data, (d) => { if (d) apply(d) }, { immediate: true })
 onMounted(() => { void org.load() })
 // Новая правка — старая ошибка сохранения неактуальна.
 watch(draft, () => { saveError.value = null }, { deep: true })
-watch(() => draft.kedenStatusEmails, () => { emailsServerError.value = null })
+for (const k of EMAIL_LIST_KEYS) {
+  watch(() => draft[k], () => {
+    if (!emailsServerError.value[k]) return
+    const next = { ...emailsServerError.value }
+    delete next[k]
+    emailsServerError.value = next
+  })
+}
+const isEmailList = (k: FieldKey): k is EmailListKey => (EMAIL_LIST_KEYS as FieldKey[]).includes(k)
 
 const changed = computed(() => new Set(changedFields(saved.value, draft)))
 const dirty = computed(() => changed.value.size > 0)
@@ -79,12 +88,14 @@ const errors = computed(() => validate(draft))
 const hasErrors = computed(() => Object.keys(errors.value).length > 0)
 // Ошибку показываем у тронутого (ушли из поля) поля, а при любых правках — у всех: «Сохранить» блокирует любая ошибка,
 // и скрытая (старые данные с неверным БИН, пустое наименование на новой установке) оставила бы тупик. Нетронутая форма не «краснеет».
-const errParams = () => ({ min: VAT_MIN, max: VAT_MAX, limit: KEDEN_EMAILS_MAX, address: invalidEmail(draft.kedenStatusEmails) ?? '' })
+const errParams = (k: FieldKey) => ({
+  min: VAT_MIN, max: VAT_MAX, limit: KEDEN_EMAILS_MAX, address: isEmailList(k) ? invalidEmail(draft[k]) ?? '' : '',
+})
 const errorOf = (k: FieldKey): string | undefined => {
-  if (k === 'kedenStatusEmails' && emailsServerError.value) return emailsServerError.value
+  if (isEmailList(k) && emailsServerError.value[k]) return emailsServerError.value[k]
   const code = errors.value[k]
   if (!code || !(dirty.value || touched.value.has(k))) return undefined
-  return t(`broker.settings.organization.err.${code}`, errParams())
+  return t(`broker.settings.organization.err.${code}`, errParams(k))
 }
 const touch = (k: FieldKey) => { touched.value = new Set(touched.value).add(k) }
 
@@ -132,7 +143,7 @@ const sectionNames = computed(() =>
   changedSections(saved.value, draft).map((s) => t(`broker.settings.organization.sections.${s}.title`).toLocaleLowerCase(locale.value)).join(', '))
 const firstError = computed(() => {
   const k = Object.keys(errors.value)[0] as FieldKey | undefined
-  return k ? t(`broker.settings.organization.err.${errors.value[k]}`, errParams()) : ''
+  return k ? t(`broker.settings.organization.err.${errors.value[k]}`, errParams(k)) : ''
 })
 const barText = computed(() => hasErrors.value
   ? t('broker.settings.organization.bar.blocked', { error: firstError.value })
@@ -150,9 +161,9 @@ async function save() {
   if (!canSave.value) return
   saving.value = true
   saveError.value = null
-  const emailsChanged = changed.value.has('kedenStatusEmails')
+  const emailsChanged = EMAIL_LIST_KEYS.filter((k) => changed.value.has(k))
   try {
-    // Адреса КЕДЕН уходят, только если их меняли в этом сохранении (иначе null — сервер список не трогает).
+    // Списки адресов уходят, только если их меняли в этом сохранении (иначе null — сервер список не трогает).
     const res = await billingApi.saveOrganization(toPayload(draft, savedMeta.value, saved.value), { silent: true })
     apply(res)
     message.success(t('broker.settings.organization.saved'))
@@ -160,12 +171,16 @@ async function save() {
     const response = (e as { response?: { status?: number; data?: unknown } })?.response
     const text = extractServerText(response?.data)
     saveError.value = text ?? t('broker.settings.organization.saveFailed')
-    // Сервер отклонил адреса КЕДЕН (неверный или больше 20; в ответе errors.kedenStatusEmails) — текст с адресом
-    // и у поля, и в панели. Без errors — по тому, что адреса в этом сохранении менялись.
+    // Сервер отклонил адреса (неверный или больше 20; в ответе errors.kedenStatusEmails / errors.serviceAlertEmails) —
+    // текст с адресом и у поля, и в панели. Без errors — у списков, которые в этом сохранении менялись.
     const fieldErrors = (response?.data as { errors?: Record<string, unknown> } | undefined)?.errors
-    if (response?.status === 400 && (fieldErrors?.kedenStatusEmails !== undefined || emailsChanged)) {
-      emailsServerError.value = saveError.value
-      touch('kedenStatusEmails')
+    if (response?.status === 400) {
+      const named = EMAIL_LIST_KEYS.filter((k) => fieldErrors?.[k] !== undefined)
+      const hit = named.length ? named : fieldErrors ? [] : emailsChanged
+      if (hit.length) {
+        emailsServerError.value = Object.fromEntries(hit.map((k) => [k, saveError.value ?? '']))
+        hit.forEach(touch)
+      }
     }
   } finally {
     saving.value = false
@@ -367,6 +382,22 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
               :rows="3"
               auto-grow
               :placeholder="t('broker.settings.organization.kedenStatusEmailsPlaceholder')"
+              autocomplete="off"
+              spellcheck="false"
+              inputmode="email"
+            />
+          </ZField>
+          <ZField
+            class="col-span-2 max-sm:col-span-1"
+            :label="t('broker.settings.organization.serviceAlertEmails')"
+            :help="t('broker.settings.organization.serviceAlertEmailsHint')"
+            :error="errorOf('serviceAlertEmails')"
+          >
+            <ZTextarea
+              v-bind="text('serviceAlertEmails')"
+              :rows="2"
+              auto-grow
+              :placeholder="t('broker.settings.organization.serviceAlertEmailsPlaceholder')"
               autocomplete="off"
               spellcheck="false"
               inputmode="email"
