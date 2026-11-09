@@ -29,7 +29,7 @@ import {
 } from '../declarations'
 import ExtractionIssuesModal, { type ExtractionIssues } from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
-import { invoiceNumbers } from './extractDocs'
+import { invoiceNumbers, invoicesNotice } from './extractDocs'
 import CopyDtModal from './CopyDtModal.vue'
 import { combineDeclarations, distinctCurrencies } from './combineDeclarations'
 import { prepareDocumentsDeclaration, railDocWithoutNumber, receiverAddressReplaced, receiverIsClient, type DocumentsNote } from './documentsImport'
@@ -288,11 +288,14 @@ const extractIntoDt = async (files: File[], fileIds: readonly string[]): Promise
     if (result.documentCheckId) {
       await documentChecksApi.link(caseId, result.documentCheckId, created.id).catch(() => undefined)
     }
-    // Zircon AI берёт товары одного инвойса (04.11.2026): без предупреждения стоимость ДТ занижена
+    // Несколько инвойсов: Zircon AI складывает их товары (09.11.2026) — сложены все, тогда замечание «проверьте итог»;
+    // сложено меньше, чем инвойсов в документах (или старый Zircon AI), — заметное предупреждение, стоимость ДТ занижена
     const invoices = invoiceNumbers(result.extras?.documents)
-    const critical = invoices.length > 1
+    const notice = invoicesNotice(invoices, result.invoicesCombined)
+    const critical = notice?.kind === 'partial'
       ? [t('broker.case.declaring.batch.severalInvoices', { n: invoices.length, list: invoices.join(', ') })]
       : []
+    if (notice?.kind === 'combined') warnings.unshift(t('broker.case.declaring.batch.invoicesCombined', { n: notice.n }))
     return { dtId: created.id, extracted: result, warnings, critical, usedExcel: prepared.usedExcelGoods }
   } catch (e) {
     // Отказ сервера с объяснением (400) — его текст; сбой — общий
