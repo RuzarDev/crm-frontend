@@ -647,6 +647,8 @@ export interface Import40ExtractionResult {
   documentCheckId?: string | null
   /** Сведения сверх полей ДТ (пакет импорта 21.10); старый сервер — нет. */
   extras?: Import40ExtractionExtras | null
+  /** Из скольких разных инвойсов сложены товары (09.11.2026); null — из одного. Старый сервер — поля нет. */
+  invoicesCombined?: number | null
 }
 
 export const IMPORT40_TRANSPORT_MODES: { value: number; label: string }[] = [

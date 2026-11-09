@@ -2,7 +2,7 @@ import { combineDeclarations, distinctCurrencies } from '../steps/combineDeclara
 import { aiFoundCmr, railDocWithoutNumber } from '../steps/documentsImport'
 import { describe, expect, it } from 'vitest'
 import type { Import40FileDto } from '@/api/import40'
-import { EXTRACT_ACCEPT, extractableCaseFiles, preselectedIds } from '../steps/extractDocs'
+import { EXTRACT_ACCEPT, extractableCaseFiles, invoicesNotice, preselectedIds } from '../steps/extractDocs'
 
 const f = (id: string, section: string, name: string, docKind: string | null = null): Import40FileDto =>
   ({ id, section, originalFileName: name, docKind, contentType: '', sizeBytes: 1, uploadedByBusinessRole: 'client', createdAtUtc: '' }) as Import40FileDto
@@ -80,5 +80,24 @@ describe('несколько вагонов в одной ДТ (05.11.2026)', ()
 
   it('разные валюты видны', () => {
     expect(distinctCurrencies([{ currency: 'USD' }, { currency: 'usd' }, { currency: 'CNY' }] as never)).toEqual(['USD', 'CNY'])
+  })
+})
+
+describe('invoicesNotice (несколько инвойсов, 09.11.2026)', () => {
+  it('все инвойсы сложены — спокойное замечание', () => {
+    expect(invoicesNotice(['A-1', 'A-2', 'A-3'], 3)).toEqual({ kind: 'combined', n: 3 })
+  })
+  it('сложено меньше, чем инвойсов в документах, — заметное предупреждение', () => {
+    expect(invoicesNotice(['A-1', 'A-2', 'A-3'], 2)).toEqual({ kind: 'partial', n: 3 })
+  })
+  it('старый сервер без поля — прежнее предупреждение', () => {
+    expect(invoicesNotice(['A-1', 'A-2'], undefined)).toEqual({ kind: 'partial', n: 2 })
+  })
+  it('номера инвойсов не прочитаны, но сложено несколько — замечание о сложении', () => {
+    expect(invoicesNotice([], 4)).toEqual({ kind: 'combined', n: 4 })
+  })
+  it('один инвойс — ничего', () => {
+    expect(invoicesNotice(['A-1'], null)).toBeNull()
+    expect(invoicesNotice([], null)).toBeNull()
   })
 })

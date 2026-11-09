@@ -4199,6 +4199,7 @@ export default {
         batch: {
           doneFromExcel: 'Declaration created: goods, delivery terms and invoice were taken from the Excel documents — please check them',
           failedExtract: 'Could not recognise the document package',
+          invoicesCombined: 'Goods were combined from {n} invoices in the package: check the total value and weight against the documents.',
           severalInvoices: 'The package has {n} different invoices ({list}), but the declaration holds goods from only one: check the value and weight. If these are separate wagons, delete this declaration and recognise the files with “Each file is a separate declaration” ticked.',
           perFileDone: 'Declaration created: {n} of {total} files read',
           perFileFailed: 'Declaration not created: no file was read',

@@ -38,3 +38,15 @@ export const invoiceNumbers = (documents?: readonly Import40ExtractionDocument[]
     .map((d) => d.number?.trim() ?? '')
     .filter(Boolean),
 )]
+
+/**
+ * Замечание о нескольких инвойсах пакета (09.11.2026). Zircon AI теперь складывает товары разных инвойсов: если сложены
+ * все — спокойное замечание «проверьте итог»; если инвойсов в документах больше, чем сложено (или сервер старый) — прежнее
+ * заметное «в ДТ попали товары не всех инвойсов».
+ */
+export function invoicesNotice(invoices: readonly string[], combined?: number | null): { kind: 'combined' | 'partial'; n: number } | null {
+  const n = combined ?? 0
+  if (n >= 2 && n >= invoices.length) return { kind: 'combined', n }
+  if (invoices.length > 1) return { kind: 'partial', n: invoices.length }
+  return null
+}
