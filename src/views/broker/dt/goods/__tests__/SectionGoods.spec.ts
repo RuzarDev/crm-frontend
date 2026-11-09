@@ -570,6 +570,18 @@ describe('SectionGoods: Excel', () => {
     expect(toast.success).toHaveBeenCalledWith(expect.objectContaining({ content: 'Добавлено товаров из Excel: 2', duration: 15 }))
   })
 
+  it('«Из Excel»: код не из справочника — гр. 33 пуста, код в documentTnvedCode (подсказка); код из справочника — как раньше', async () => {
+    excel.readExcelDocuments.mockResolvedValue({ docs: [sheet([
+      { description: 'БОЛТЫ', tnvedCode: '7318150000', quantity: 1 },
+      { description: 'ШУРУПЫ', tnvedCode: '0000000000', quantity: 1 },
+    ])] })
+    await mount([])
+    await pick(file('goods.xlsx'))
+    button('Добавить в конец').click()
+    await settle()
+    expect(form.goodsItems.map((g) => [g.tnvedCode, g.documentTnvedCode ?? null])).toEqual([['7318150000', null], [null, '0000000000']])
+  })
+
   it('не Excel — ошибка; проблема разбора — предупреждение прежним текстом', async () => {
     await mount([item()])
     await pick(file('goods.csv'))

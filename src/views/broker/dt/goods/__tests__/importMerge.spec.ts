@@ -201,6 +201,29 @@ describe('matchExisting / planMerge / applyMerge: повторный импор�
     expect(form.goodsItems[1].description).toBe('ПОЛКА')
   })
 
+  it('«Из документов» в ДТ: код не из справочника переходит к совпавшему товару с пустой гр. 33; при заполненной гр. 33 не нужен', () => {
+    const { form, model } = setup([
+      withArticle('A1', { tnvedCode: null }), withArticle('A2', { tnvedCode: '7323990000' }), withArticle('A3', { tnvedCode: null, documentTnvedCode: '1111111111' }),
+    ])
+    const incoming = [
+      withArticle('A1', { tnvedCode: null, documentTnvedCode: '9401719000' }),
+      withArticle('A2', { tnvedCode: null, documentTnvedCode: '9401719000' }),
+      withArticle('A3', { tnvedCode: null, documentTnvedCode: '2222222222' }),
+      goods({ description: 'НОВЫЙ', tnvedCode: null, documentTnvedCode: '3333333333' }),
+    ]
+    applyMerge(model, incoming, planMerge(form.goodsItems, incoming, 'fill', { positional: false }), 'fill')
+    expect(form.goodsItems.map((g) => [g.tnvedCode, g.documentTnvedCode ?? null])).toEqual([
+      [null, '9401719000'], ['7323990000', null], [null, '1111111111'], [null, '3333333333'],
+    ])
+  })
+
+  it('«Заменить»: код из документа заменяет прежнюю подсказку; код файла из справочника подсказку не пишет', () => {
+    const { form, model } = setup([withArticle('A3', { tnvedCode: null, documentTnvedCode: '1111111111' })])
+    const incoming = [withArticle('A3', { tnvedCode: null, documentTnvedCode: '2222222222' })]
+    applyMerge(model, incoming, planMerge(form.goodsItems, incoming, 'replace', { positional: false }), 'replace')
+    expect(form.goodsItems[0].documentTnvedCode).toBe('2222222222')
+  })
+
   it('«Дополнить» при другом коде в ДТ: описание ТН ВЭД и гр. 41 кода файла не переносятся, количество — в строку гр. 31', () => {
     // ДТ: 7323990000 без ДЕИ; файл (тот же артикул): 8516797000 с ДЕИ 796, 470 ШТ в гр. 41
     const { form, model } = setup([withArticle('URS07', { tnvedCode: '7323990000', tnvedDescription: null })])

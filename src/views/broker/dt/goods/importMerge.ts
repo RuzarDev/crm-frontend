@@ -350,6 +350,9 @@ function mergeInto(model: DtGoodsModel, e: Goods, g: Goods, mode: 'fill' | 'repl
     if (take(e[f], g[f])) model.setField(e, f, g[f] as never)
   }
   if (blank(e.currency) && !blank(g.currency)) model.setField(e, 'currency', g.currency)
+  // Код из документа, которого нет в ТН ВЭД (подсказка под пустой гр. 33): переходит к товару ДТ, только если гр. 33 так и
+  // осталась пустой; в «Дополнить» — не затирает уже имеющуюся подсказку.
+  if (blank(e.tnvedCode) && take(e.documentTnvedCode, g.documentTnvedCode)) model.setField(e, 'documentTnvedCode', g.documentTnvedCode as never)
   // Гр. 41 — тройкой (количество, ДЕИ, наименование ДЕИ).
   let rowQuantity: { quantity: number; unitCode: string | null } | null = null
   if (take(e.quantity, g.quantity)) {
