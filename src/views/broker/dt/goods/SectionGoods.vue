@@ -223,6 +223,8 @@ const importBuilt = computed(() => {
       senderAsManufacturer: o.senderAsManufacturer ? senderName.value : null,
       defaultOriginCode: o.defaultOrigin ? senderCountry.value : null,
       keepInvalidCodes: o.keepInvalidCodes,
+      // Код не из справочника: гр. 33 пуста, код — подсказкой под ней (как «Из документов», 09.11.2026)
+      rejectedCodeToDocument: true,
     },
   })
 })
