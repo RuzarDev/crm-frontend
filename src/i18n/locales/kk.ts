@@ -531,6 +531,22 @@ export default {
     submitFailed: 'Өтінімді жіберу мүмкін болмады',
   },
   home: {
+    serviceHealth: {
+      line: {
+        aiKey: 'ЖИ арқылы СЭҚ ТН кодын таңдау {since} бастап жұмыс істемейді: {reason}',
+        zirconAi: 'Құжаттарды талдау сервисі {since} бастап қолжетімсіз: {reason}',
+      },
+      kind: {
+        keyRejected: 'кілт қабылданбады',
+        unreachable: 'сервиспен байланыс жоқ',
+        serverError: 'сервис қатемен жауап береді',
+        badResponse: 'сервистің күтпеген жауабы',
+        other: 'тексеру өтпейді',
+      },
+      emailed: 'Ақау туралы хаттар «Баптаулар → Ұйым» бөліміндегі адрестерге жіберіледі.',
+      noEmails: 'Ақау туралы хаттар жіберілмейді: хабарламаларға адрестер көрсетілмеген.',
+      settings: 'Адрестерді көрсету',
+    },
     greeting: {
       morning: 'Қайырлы таң, {name}',
       day: 'Қайырлы күн, {name}',
@@ -710,6 +726,9 @@ export default {
         kedenStatusEmails: 'КЕДЕН хабарламаларына арналған пошта',
         kedenStatusEmailsHint: 'КЕДЕН-дегі ДТ мәртебесінің кез келген өзгерісі туралы хат. Бірнеше мекенжай — үтір арқылы немесе жаңа жолдан',
         kedenStatusEmailsPlaceholder: "declarant{'@'}company.kz",
+        serviceAlertEmails: 'Ақаулар туралы хабарламаларға арналған адрестер',
+        serviceAlertEmailsHint: 'ЖИ арқылы СЭҚ ТН кодын таңдау немесе құжаттарды талдау тоқтаса және қайта іске қосылса, хат келеді',
+        serviceAlertEmailsPlaceholder: "admin{'@'}company.kz",
         customsRepRegistryNumber: 'Куәлік нөмірі',
         customsRepRegistryDate: 'Куәлік күні',
         customsRepRegistryHint: 'Әрбір жаңа ДТ-ның 44-бағанына түседі',
@@ -719,7 +738,7 @@ export default {
           bank: { title: 'Банк', text: 'Төлем шоттары үшін.' },
           vat: { title: 'ҚҚС', text: 'Мөлшерлеме шоттарға қойылады.' },
           customsRep: { title: 'Кеден өкілі', text: 'Кеден өкілдерінің тізіліміне енгізу туралы куәлік.' },
-          notify: { title: 'Хабарламалар', text: 'КЕДЕН-дегі оқиғалар туралы хаттар.' },
+          notify: { title: 'Хабарламалар', text: 'КЕДЕН-дегі оқиғалар және Zircon сервистеріндегі ақаулар туралы хаттар.' },
         },
         err: {
           required: 'Толық атауын көрсетіңіз',

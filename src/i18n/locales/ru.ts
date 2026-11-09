@@ -535,6 +535,22 @@ export default {
     submitFailed: 'Не удалось отправить заявку',
   },
   home: {
+    serviceHealth: {
+      line: {
+        aiKey: 'ИИ-подбор ТН ВЭД не работает с {since}: {reason}',
+        zirconAi: 'Сервис разбора документов недоступен с {since}: {reason}',
+      },
+      kind: {
+        keyRejected: 'ключ отклонён',
+        unreachable: 'нет связи с сервисом',
+        serverError: 'сервис отвечает ошибкой',
+        badResponse: 'неожиданный ответ сервиса',
+        other: 'проверка не проходит',
+      },
+      emailed: 'Письма о сбое уходят на адреса из «Настройки → Организация».',
+      noEmails: 'Письма о сбое не уходят: не заданы адреса для оповещений.',
+      settings: 'Указать адреса',
+    },
     greeting: {
       morning: 'Доброе утро, {name}',
       day: 'Добрый день, {name}',
@@ -714,6 +730,9 @@ export default {
         kedenStatusEmails: 'Почта для уведомлений КЕДЕН',
         kedenStatusEmailsHint: 'Письмо о любой смене статуса ДТ в КЕДЕН. Несколько адресов — через запятую или с новой строки',
         kedenStatusEmailsPlaceholder: "declarant{'@'}company.kz",
+        serviceAlertEmails: 'Адреса для оповещений о сбоях',
+        serviceAlertEmailsHint: 'Письмо, если перестанет работать ИИ-подбор ТН ВЭД или разбор документов, и когда снова заработает',
+        serviceAlertEmailsPlaceholder: "admin{'@'}company.kz",
         customsRepRegistryNumber: 'Номер свидетельства',
         customsRepRegistryDate: 'Дата свидетельства',
         customsRepRegistryHint: 'Попадает в гр.44 каждой новой ДТ',
@@ -723,7 +742,7 @@ export default {
           bank: { title: 'Банк', text: 'Для счетов на оплату.' },
           vat: { title: 'НДС', text: 'Ставка подставляется в счета.' },
           customsRep: { title: 'Таможенный представитель', text: 'Свидетельство о включении в реестр таможенных представителей.' },
-          notify: { title: 'Уведомления', text: 'Письма о событиях в КЕДЕН.' },
+          notify: { title: 'Уведомления', text: 'Письма о событиях в КЕДЕН и о сбоях сервисов Zircon.' },
         },
         err: {
           required: 'Укажите полное наименование',

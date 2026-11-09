@@ -14,7 +14,9 @@ const api = vi.hoisted(() => ({
   overview: vi.fn(),
   invoices: vi.fn(),
   expeditor40: vi.fn(),
+  health: vi.fn(),
 }))
+vi.mock('@/api/system', () => ({ systemApi: { serviceHealth: api.health } }))
 vi.mock('@/api/expeditorImport40', () => ({ expeditorImport40Api: { overview: api.expeditor40 } }))
 vi.mock('@/api/dashboard', () => ({ dashboardApi: { home: api.home, homeBadge: vi.fn(), get: api.transit, client: vi.fn() } }))
 vi.mock('@/api/manage', () => ({ manageApi: { overview: api.overview } }))
@@ -102,6 +104,7 @@ beforeEach(async () => {
   api.transit.mockResolvedValue({ data: transit })
   api.overview.mockResolvedValue(overview)
   api.invoices.mockResolvedValue([invoice({})])
+  api.health.mockResolvedValue({ checks: [], alertEmailsConfigured: true })
 })
 afterEach(() => {
   w?.unmount()
