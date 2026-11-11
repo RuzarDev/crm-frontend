@@ -11,7 +11,7 @@ import { USERS, declaration } from './caseFixture'
 import { mountStep } from './stepHarness'
 
 const api = vi.hoisted(() => ({
-  createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(), extractBatch: vi.fn(),
+  createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(), extractBatch: vi.fn(), extractMerge: vi.fn(),
   caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(), get: vi.fn(),
   copySources: vi.fn(), copyDeclaration: vi.fn(), setDeclarationTitle: vi.fn(),
 }))
@@ -598,7 +598,7 @@ describe('DeclarationsList: «Из документов»', () => {
     api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
     mount(USERS.declarant)
     const files = await pick(['new.xlsx'], ['f1', 'f2'])
-    expect(api.extractBatch).toHaveBeenCalledWith('c1', files, ['f1', 'f2'])
+    expect(api.extractBatch).toHaveBeenCalledWith('c1', files, ['f1', 'f2'], { perFile: false })
     // .xlsx читается в браузере (настоящий импорт xlsx) — дождаться конца конвейера, иначе его проверка кодов попадёт в
     // счётчики следующего теста (под нагрузкой).
     await vi.waitFor(() => expect(api.createDeclaration).toHaveBeenCalled(), { timeout: 5000 })
@@ -610,7 +610,7 @@ describe('DeclarationsList: «Из документов»', () => {
     api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
     mount(USERS.declarant)
     const files = await pick()
-    expect(api.extractBatch).toHaveBeenCalledWith('c1', files, [])
+    expect(api.extractBatch).toHaveBeenCalledWith('c1', files, [], { perFile: false })
     expect(api.createDeclaration).toHaveBeenCalledWith('c1', expect.objectContaining({
       currency: 'USD', declarationNumber: null,
       goodsItems: [expect.objectContaining({ description: 'НОУТБУК', quantity: 10, unitCode: '796', tnvedDescription: 'МАШИНЫ ВЫЧИСЛИТЕЛЬНЫЕ', grossWeightKg: 5 })],
@@ -639,11 +639,35 @@ describe('DeclarationsList: «Из документов»', () => {
     mount(USERS.declarant)
     const files = await pickPerFile(['w1.pdf', 'w2.pdf'])
     expect(api.extractBatch).toHaveBeenCalledTimes(2)
-    expect(api.extractBatch).toHaveBeenNthCalledWith(1, 'c1', [files[0]], [])
-    expect(api.extractBatch).toHaveBeenNthCalledWith(2, 'c1', [files[1]], [])
+    expect(api.extractBatch).toHaveBeenNthCalledWith(1, 'c1', [files[0]], [], { perFile: true })
+    expect(api.extractBatch).toHaveBeenNthCalledWith(2, 'c1', [files[1]], [], { perFile: true })
     expect(api.createDeclaration).toHaveBeenCalledTimes(1)
     expect(w.get('[data-issues-warnings]').text()).toContain('Номер вагона в документе не найден')
     expect(msg.success).toHaveBeenCalledWith('ДТ создана: прочитано файлов 2 из 2')
+  })
+
+  // 11.11.2026 (АРМСТРОНГ): инвойс, его копия и упаковочный по очереди — Zircon AI сливает их в один пакет, один товар.
+  it('файлы по очереди сливаются в один пакет: один товар, одна сверка', async () => {
+    api.extractBatch.mockResolvedValueOnce(result({ documentCheckId: 'k1' })).mockResolvedValueOnce(result({ documentCheckId: 'k2' }))
+      .mockResolvedValueOnce(result({ documentCheckId: 'k3' }))
+    api.extractMerge.mockResolvedValue(result({ documentCheckId: 'km' }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
+    mount(USERS.declarant)
+    await pickPerFile(['ИНВ 605.pdf', 'ИНВ 605 (1).pdf', 'УП 605.pdf'])
+    expect(api.extractMerge).toHaveBeenCalledWith('c1', ['k1', 'k2', 'k3'])
+    expect(api.createDeclaration.mock.calls[0][1].goodsItems).toHaveLength(1)
+    expect(checks.link).toHaveBeenCalledTimes(1)
+    expect(checks.link).toHaveBeenCalledWith('c1', 'km', 'n1')
+  })
+
+  it('слить не вышло — товары по файлам, как раньше, и предупреждение', async () => {
+    api.extractBatch.mockResolvedValueOnce(result({ documentCheckId: 'k1' })).mockResolvedValueOnce(result({ documentCheckId: 'k2' }))
+    api.extractMerge.mockRejectedValue(new Error('502'))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n1' }))
+    mount(USERS.declarant)
+    await pickPerFile(['w1.pdf', 'w2.pdf'])
+    expect(api.createDeclaration.mock.calls[0][1].goodsItems).toHaveLength(2)
+    expect(w.get('[data-issues-warnings]').text()).toContain('Файлы не удалось слить в один пакет')
   })
 
   it('сбой одного файла не останавливает остальные и виден с именем файла', async () => {

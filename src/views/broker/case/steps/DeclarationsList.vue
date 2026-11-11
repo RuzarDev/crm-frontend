@@ -246,10 +246,10 @@ const extractFailed = (e: unknown) =>
   extractionRefusalText(e, t) ?? t('broker.case.declaring.batch.failedExtract')
 
 /** Разбор документов и сборка тела ДТ, без создания. Ошибка не бросается: { failed } — текст для декларанта. */
-const preparePackage = async (files: File[], fileIds: readonly string[]): Promise<PreparedPackage | { failed: string }> => {
+const preparePackage = async (files: File[], fileIds: readonly string[], perFile = false): Promise<PreparedPackage | { failed: string }> => {
   const caseId = kase.value.id
   try {
-    const result = await import40Api.extractBatch(caseId, files, fileIds)
+    const result = await import40Api.extractBatch(caseId, files, fileIds, { perFile })
     // Zircon AI + наш разбор Excel → товары ДТ по одним правилам с «Из Excel» (коды одним запросом, упаковка, страна, отправитель с адресом), гр. 44
     const [docs, packageKinds, docKindNames] = await Promise.all([
       readExcelDocs(caseId, files, fileIds, props.ctx.files),
@@ -364,35 +364,63 @@ const runPerFile = async (files: File[], fileIds: readonly string[]) => {
     ...files.map((f) => ({ name: f.name, files: [f], fileIds: [] as string[] })),
   ]
   const merged: ExtractionIssues = { warnings: [], criticalWarnings: [], conflicts: [] }
-  const parts: PreparedPackage[] = []
+  const parts: (PreparedPackage & { unitName: string })[] = []
+  const allFiles = units.flatMap((u) => u.files)
+  const allFileIds = units.flatMap((u) => u.fileIds)
+  /** Разборы файлов → одна запись (Zircon AI /merge-records) и тело ДТ по всем файлам; сбой — null. */
+  const mergeParts = async (checkIds: string[]): Promise<PreparedPackage | null> => {
+    try {
+      const result = await import40Api.extractMerge(caseId, checkIds)
+      const [docs, packageKinds, docKindNames] = await Promise.all([
+        readExcelDocs(caseId, allFiles, allFileIds, props.ctx.files), loadPackageKinds(), loadDocKindNames(),
+      ])
+      const prepared = await prepareDocumentsDeclaration(result, docs, kase.value, packageKinds, {
+        docKindNames, cmrInBatch: cmrInBatch(allFiles, allFileIds, props.ctx.files),
+      })
+      return { result, prepared }
+    } catch (e) {
+      console.error('per-file merge', e)
+      return null
+    }
+  }
   let dtId: string | null = null
   perFileProgress.value = { done: 0, total: units.length }
   await props.ctx.actions.mutate('dt-batch', async () => {
     for (const [i, unit] of units.entries()) {
       perFileProgress.value = { done: i, total: units.length }
       const named = (text: string) => `${unit.name}: ${text}`
-      const pack = await preparePackage(unit.files, unit.fileIds)
+      const pack = await preparePackage(unit.files, unit.fileIds, true)
       if ('failed' in pack) {
         merged.criticalWarnings!.push(named(pack.failed))
         continue
       }
-      parts.push(pack)
+      parts.push({ ...pack, unitName: unit.name })
+    }
+    if (!parts.length) return
+    // Слияние файлов (11.11.2026): прочитанные по очереди файлы Zircon AI сливает как один пакет — копия инвойса и
+    // упаковочный не дают лишних товаров, отправитель — лучший из всех файлов. Не вышло — сложить разборы, как раньше.
+    const whole = parts.length > 1 && parts.every((p) => p.result.documentCheckId)
+      ? await mergeParts(parts.map((p) => p.result.documentCheckId!)) : null
+    const pieces = whole ? [] : parts
+    if (parts.length > 1 && !whole) merged.warnings.push(t('broker.case.declaring.batch.perFileMergeFailed'))
+    for (const pack of whole ? [{ ...whole, unitName: '' }] : pieces) {
+      const named = (text: string) => (pack.unitName ? `${pack.unitName}: ${text}` : text)
       const critical = (pack.result.criticalWarnings ?? []).map(named)
       merged.criticalWarnings!.push(...critical)
       merged.warnings.push(...critical, ...[...pack.result.warnings, ...pack.prepared.notes.map(noteText)]
         .filter((w) => !pack.result.criticalWarnings?.includes(w)).map(named))
       merged.conflicts.push(...pack.result.conflicts.map((c) => ({ ...c, fieldLabel: named(c.fieldLabel) })))
     }
-    if (!parts.length) return
-    const bodies = parts.map((p) => p.prepared.body)
-    const currencies = distinctCurrencies(bodies)
+    const bodies = whole ? [whole.prepared.body] : parts.map((p) => p.prepared.body)
+    const currencies = distinctCurrencies(whole ? parts.map((p) => p.prepared.body) : bodies)
     if (currencies.length > 1) merged.criticalWarnings!.push(t('broker.case.declaring.batch.severalCurrencies', { list: currencies.join(', ') }))
-    const created = await import40Api.createDeclaration(caseId, combineDeclarations(bodies))
+    const created = await import40Api.createDeclaration(caseId, whole ? whole.prepared.body : combineDeclarations(bodies))
     dtId = created.id
     if (!created.arrivalTransportNumbers?.some((m) => m.number?.trim())) merged.warnings.push(t('broker.case.declaring.batch.perFileNoTransport'))
     if (railDocWithoutNumber(created.doc44Items)) merged.warnings.push(t('broker.case.declaring.batch.railDocDefault'))
-    for (const p of parts) {
-      if (p.result.documentCheckId) await documentChecksApi.link(caseId, p.result.documentCheckId, created.id).catch(() => undefined)
+    const checkIds = whole ? [whole.result.documentCheckId] : parts.map((p) => p.result.documentCheckId)
+    for (const id of checkIds) {
+      if (id) await documentChecksApi.link(caseId, id, created.id).catch(() => undefined)
     }
   })
   perFileProgress.value = null
