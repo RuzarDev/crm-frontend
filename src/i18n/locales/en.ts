@@ -4206,6 +4206,7 @@ export default {
           severalCurrencies: 'Invoices have different currencies: {list}. The value of one declaration is added up wrongly, check box 22',
           railDocDefault: 'The request says rail transport, but the documents have no waybill: box 44 has a rail waybill without a number. If the cargo came by truck, enter CMR 02015.',
           perFileNoTransport: 'The wagon number was not found in the document: fill in box 18 by hand.',
+          perFileMergeFailed: 'The files could not be merged into one package — goods were added file by file: check for extra items (an invoice copy, the packing list).',
           tooLargeForAi: 'The package is too large to recognise — remove the large scans or compress them and try again',
           tooLargeForAiMb: 'The package is too large to recognise — remove the large scans (each file up to {mb} MB) or compress them and try again',
           filesSaved: 'The uploaded files are saved in the request',

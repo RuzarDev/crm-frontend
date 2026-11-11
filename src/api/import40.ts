@@ -1365,12 +1365,14 @@ export const import40Api = {
   // giving different receiver BINs) — nothing is persisted until the broker
   // reviews/edits and calls createDeclaration explicitly.
   // fileIds — документы, уже загруженные в заявку (19.10.2026): сервер берёт их из хранилища и не сохраняет повторно.
-  extractBatch: async (caseId: string, files: File[], fileIds: readonly string[] = []): Promise<Import40ExtractionResult> => {
+  // perFile (11.11.2026) — разбор одного файла пакета «по очереди»: сервер сохраняет записи файла, чтобы потом слить
+  // файлы пакета (extractMerge) в одну запись, как разбор одним запросом.
+  extractBatch: async (caseId: string, files: File[], fileIds: readonly string[] = [], opts?: { perFile?: boolean }): Promise<Import40ExtractionResult> => {
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))
     fileIds.forEach((id) => formData.append('fileIds', id))
     const response = await apiClient.post<Import40ExtractionResult>(
-      `/import40/${encodeURIComponent(caseId)}/declarations/extract-batch`,
+      `/import40/${encodeURIComponent(caseId)}/declarations/extract-batch${opts?.perFile ? '?perFile=true' : ''}`,
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -1385,6 +1387,18 @@ export const import40Api = {
         // Таймаут браузера считает и загрузку файлов (04.11.2026): 5 сканов на 160 МБ обрывались, хотя сервер успевал.
         timeout: extractBatchTimeoutMs(files),
       },
+    )
+    return response.data
+  },
+
+  // Слияние файлов пакета (11.11.2026): разборы файлов «по очереди» (extractBatch perFile) → одна запись, как разбор пакета
+  // одним запросом — копия инвойса и упаковочный не дают лишних товаров. OCR не нужен, ответ быстрый. Ошибку показывает
+  // вызывающий (запасной путь — сложить разборы файлов, как раньше).
+  extractMerge: async (caseId: string, checkIds: readonly string[]): Promise<Import40ExtractionResult> => {
+    const response = await apiClient.post<Import40ExtractionResult>(
+      `/import40/${encodeURIComponent(caseId)}/declarations/extract-merge`,
+      { checkIds },
+      { silent: true, timeout: 60_000 },
     )
     return response.data
   },
