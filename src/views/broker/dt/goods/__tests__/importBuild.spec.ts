@@ -18,8 +18,23 @@ const resolved = (o: Record<string, { valid?: boolean; dei?: string | null; name
   }])),
   rejected: Object.entries(o).filter(([, v]) => v.valid === false).map(([code]) => ({ code, reason: 'notInDirectory' as const })),
   failed,
+  expanded: new Map(),
 })
 const ctx = (r: ResolveResult | null, options: BuildCtx['options'] = {}): BuildCtx => ({ currency: 'USD', packageKinds: KINDS, resolved: r, options })
+
+// Неполный код документа (12.11.2026): единственный подкод — в гр. 33 с замечанием; несколько — в «код из документа».
+describe('importBuild: неполный код', () => {
+  it('дополненный код — в гр. 33 и замечание; partialMany — гр. 33 пуста, код документа сохранён', () => {
+    const r = resolved({ '7323990000': {} })
+    r.expanded.set('732399', '7323990000')
+    r.rejected.push({ code: '901880', reason: 'partialMany' })
+    const { goods, notes } = buildGoods([row({ tnvedCode: '7323 99' }), row({ tnvedCode: '90 1880' })], ctx(r, { rejectedCodeToDocument: true }))
+    expect(goods[0]).toMatchObject({ tnvedCode: '7323990000', tnvedDescription: 'НАЗВАНИЕ КОДА' })
+    expect(noteDetails(notes, 'codeExpanded')).toEqual(['732399:7323990000'])
+    expect(goods[1]).toMatchObject({ tnvedCode: null, documentTnvedCode: '901880' })
+    expect(noteDetails(notes, 'invalidCode')).toEqual(['901880:partialMany'])
+  })
+})
 
 describe('importBuild №1: количество — гр. 41 только при ДЕИ', () => {
   it('ДЕИ нет: гр. 41 пусто, количество и единица ОКЕИ файла — в строку гр. 31', () => {

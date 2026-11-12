@@ -45,6 +45,11 @@ const documentCodeHint = computed(() => {
   const documentCode = props.item.documentTnvedCode?.trim()
   return !code.value && documentCode ? t('broker.dt.goods.editor.code.documentCodeHint', { code: documentCode }) : undefined
 })
+// Неполный код из документа («901880», 12.11.2026): «Справочник» при пустой гр. 33 открывается с поиском по нему.
+const partialDocumentCode = computed(() => {
+  const d = (props.item.documentTnvedCode ?? '').replace(/\s+/g, '')
+  return /^\d{4,9}$/.test(d) ? d : ''
+})
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
 // ДЕИ (гр. 41) задаёт код ТН ВЭД (правило сервера, tnved/node/{code}/rates). Меняет единицу только СМЕНА кода
@@ -234,7 +239,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
         />
         <template v-if="!readonly">
           <ZButton :class="sideBtn" :loading="finding" data-goods-find @click="lookup">{{ tc('find') }}</ZButton>
-          <ZButton :class="sideBtn" data-goods-picker @click="openPicker(code)">{{ tc('picker') }}</ZButton>
+          <ZButton :class="sideBtn" data-goods-picker @click="openPicker(code || partialDocumentCode)">{{ tc('picker') }}</ZButton>
           <ZButton :class="sideBtn" data-goods-ai @click="openAi">
             <template #icon><PhSparkle :size="15" aria-hidden="true" /></template>{{ tc('ai') }}
           </ZButton>

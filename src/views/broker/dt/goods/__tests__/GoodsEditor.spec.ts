@@ -486,6 +486,14 @@ describe('GoodsEditor: «Похожие коды», «ОТСУТСТВУЕТ» �
     expect(gr33()).toContain(hint)
   })
 
+  it('неполный код из документа (12.11.2026): «Справочник» при пустой гр. 33 ищет по нему', async () => {
+    tnved.classify.mockResolvedValue({ data: { matches: [], exactCodeInfo: null, suggestedGroup: null } })
+    await mount([item({ tnvedCode: null, tnvedDescription: null, documentTnvedCode: '901880' })], { query: '&item=1' })
+    await click('[data-goods-picker]')
+    await flushPromises()
+    expect(tnved.search).toHaveBeenCalledWith('901880', expect.anything(), expect.anything(), expect.anything())
+  })
+
   it('код из документа: у товара с кодом в гр. 33 и у товара без поля подсказки нет', async () => {
     tnved.classify.mockResolvedValue({ data: { matches: [], exactCodeInfo: null, suggestedGroup: null } })
     await mount([item({ documentTnvedCode: '9401719000' })], { query: '&item=1' })

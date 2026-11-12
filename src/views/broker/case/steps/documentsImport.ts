@@ -283,6 +283,10 @@ export async function prepareDocumentsDeclaration(
     const [code, reason] = d.split(':')
     notes.push({ key: 'codesRejected', params: { code, reasonKey: reason } })
   }
+  for (const d of noteDetails(built.notes, 'codeExpanded')) {
+    const [from, to] = d.split(':')
+    notes.push({ key: 'codeExpanded', params: { from, to } })
+  }
   if (built.notes.some((n) => n.kind === 'codesNotChecked')) notes.push({ key: 'codesNotChecked' })
   const counts: [string, number][] = [
     ['toRow', noteCount(built.notes, 'toRow')], ['noUnit', noteCount(built.notes, 'noUnit')],
