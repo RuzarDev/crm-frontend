@@ -6,6 +6,7 @@
 //   4. отправитель — из справочника сторон (точное совпадение названия) или разбором адреса из документа.
 import { companyLookupApi, isBinLike } from '@/api/companyLookup'
 import { partyRefsApi } from '@/api/partyRefs'
+import { import40Api } from '@/api/import40'
 import type {
   Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionPartySource, Import40ExtractionResult, Import40Party,
 } from '@/api/import40'
@@ -268,12 +269,13 @@ export async function prepareDocumentsDeclaration(
     excel.rows.some((r) => r.unitText) ? ensureOkeiUnits().catch(() => undefined) : undefined,
   ])
   const senderName = excel.preview.sender?.name ?? null
+  const senderAsManufacturer = SENDER_AS_MANUFACTURER_DEFAULT || (await import40Api.importOptions()).senderAsManufacturer
   const built = buildGoods(excel.rows, {
     currency: excel.preview.currency,
     packageKinds,
     resolved,
     // В9: «производитель = отправитель» — тем же значением по умолчанию, что галочка «Из Excel» (по умолчанию выключено).
-    options: { senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT ? senderName : null, rejectedCodeToDocument: true },
+    options: { senderAsManufacturer: senderAsManufacturer ? senderName : null, rejectedCodeToDocument: true },
   })
 
   const notes: DocumentsNote[] = []

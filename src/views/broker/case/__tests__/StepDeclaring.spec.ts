@@ -11,6 +11,7 @@ import { mountStep } from './stepHarness'
 const api = vi.hoisted(() => ({
   action: vi.fn(), createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(),
   extractBatch: vi.fn(), downloadFile: vi.fn(), caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(),
+  importOptions: vi.fn(async () => ({ senderAsManufacturer: false })),
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/api/import40', () => ({ import40Api: api }))
@@ -231,7 +232,7 @@ describe('StepDeclaring: «Сканы с границы» (18.10)', () => {
     for (let i = 0; i < 6; i++) await flushPromises()
     expect(api.downloadFile).not.toHaveBeenCalled()
     // .heic не разбирается — только s1 (cmr.pdf)
-    expect(api.extractBatch).toHaveBeenCalledWith('c1', [], ['s1'])
+    expect(api.extractBatch).toHaveBeenCalledWith('c1', [], ['s1'], { perFile: false })
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/d9')
   })
 

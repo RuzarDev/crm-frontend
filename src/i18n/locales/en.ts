@@ -732,6 +732,8 @@ export default {
         customsRepRegistryNumber: 'Certificate number',
         customsRepRegistryDate: 'Certificate date',
         customsRepRegistryHint: 'Goes into box 44 of every new GD',
+        senderAsManufacturer: 'No manufacturer — use the sender',
+        senderAsManufacturerHint: 'For «From Excel» and «From documents»: if the documents give no manufacturer, trademark or brand, the sender (box 2) is used',
         sections: {
           company: { title: 'Company', text: 'Name and address as on the registration certificate.' },
           signers: { title: 'Signatories', text: 'Shown in documents.' },
@@ -2389,7 +2391,7 @@ export default {
           hanDropped: 'Bilingual description: {n} — the Chinese part is removed',
           modelFromDescription: 'Model taken from the description: {n}',
           han: 'Descriptions in Chinese: {n} — they will be imported as in the document; box 31 is filed in Russian',
-          senderAsManufacturer: 'No manufacturer for {n} — use the consignor “{name}”',
+          senderAsManufacturer: 'No manufacturer for {n} — use the consignor “{name}” (also as trademark and brand if empty)',
           defaultOrigin: 'No country of origin for {n} — set “{country}”',
           goesTo41: 'to box 41',
           goesTo31: 'to box 31',

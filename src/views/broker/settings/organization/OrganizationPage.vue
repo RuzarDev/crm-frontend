@@ -110,7 +110,7 @@ async function onText(k: TextKey, raw: string, map: (v: string) => string) {
   }
   draft[k] = next as OrgForm[TextKey]
 }
-type TextKey = Exclude<FieldKey, 'vatPayer' | 'vatRate'>
+type TextKey = Exclude<FieldKey, 'vatPayer' | 'vatRate' | 'senderAsManufacturer'>
 // Общие привязки текстового поля; map — как исправить введённое (ИИК/БИК — верхний регистр), after — после ухода из поля.
 const text = (k: TextKey, map: (v: string) => string = (v) => v, after?: () => void) => ({
   value: draft[k],
@@ -361,6 +361,11 @@ const gridClass = 'grid grid-cols-2 gap-x-3.5 gap-y-4 max-sm:grid-cols-1'
               @update:value="set('customsRepRegistryDate', $event ?? '')"
               @blur="touch('customsRepRegistryDate')"
             />
+          </ZField>
+          <ZField class="col-span-2 max-sm:col-span-1" :label="t('broker.settings.organization.senderAsManufacturer')" :help="t('broker.settings.organization.senderAsManufacturerHint')">
+            <ZSwitch :checked="draft.senderAsManufacturer" :disabled="!canEdit" class="min-h-9 max-sm:min-h-11" data-org="senderAsManufacturer" @update:checked="set('senderAsManufacturer', $event)">
+              {{ t(draft.senderAsManufacturer ? 'broker.settings.organization.yes' : 'broker.settings.organization.no') }}
+            </ZSwitch>
           </ZField>
         </div>
       </section>

@@ -2,6 +2,7 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhDownloadSimple, PhPlus, PhSparkle, PhUploadSimple } from '@phosphor-icons/vue'
+import { import40Api } from '@/api/import40'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
@@ -205,6 +206,8 @@ const importMode = ref<MergeMode>('fill')
 const importOptions = ref<ImportOptions>({
   senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT, defaultOrigin: DEFAULT_ORIGIN_DEFAULT, keepInvalidCodes: false,
 })
+// Галочка «отправитель — производителем» по умолчанию — из настройки организации (12.11.2026)
+void import40Api.importOptions().then((o) => { if (o.senderAsManufacturer) importOptions.value = { ...importOptions.value, senderAsManufacturer: true } })
 // Виды упаковки (классификатор 2013, грузит страница): «Вид упаковки товара» из Excel — в гр. 31 товара (X1).
 const packageKinds = computed(() => classifiers.cache['2013'] ?? [])
 const senderName = computed(() => props.editorContext?.senderName?.trim() || null)

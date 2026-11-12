@@ -160,8 +160,12 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     row.productSortName = upperRu(r.productSortName)
     row.serialNumbers = upperRu(r.serialNumbers)
     row.invoiceValue = r.value != null && Math.abs(r.value) >= MAX_NUMBER ? null : r.value ?? null
-    if (!row.manufacturerName && opts.senderAsManufacturer) {
-      row.manufacturerName = upperRu(opts.senderAsManufacturer)
+    // Отправитель — производителем, товарным знаком и маркой, если их нет в документах (настройка организации, 12.11.2026)
+    if (opts.senderAsManufacturer && (!row.manufacturerName || !row.tradeMarkName || !row.productMarkName)) {
+      const sender = upperRu(opts.senderAsManufacturer)
+      row.manufacturerName ||= sender
+      row.tradeMarkName ||= sender
+      row.productMarkName ||= sender
       note('senderAsManufacturer')
     }
 

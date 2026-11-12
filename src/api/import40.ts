@@ -1077,6 +1077,8 @@ export type RegistrationBlockCode = 'profile' | 'awaitingAqniet' | 'busy' | 'ren
 export const extractBatchTimeoutMs = (files: readonly File[]): number =>
   220000 + Math.ceil(files.reduce((sum, file) => sum + file.size, 0) / 125)
 
+let importOptionsCache: Promise<{ senderAsManufacturer: boolean }> | null = null
+
 export const import40Api = {
   list: async (): Promise<Import40CaseDto[]> => {
     const response = await apiClient.get<Import40ListResponse>('/import40')
@@ -1401,6 +1403,15 @@ export const import40Api = {
       { silent: true, timeout: 60_000 },
     )
     return response.data
+  },
+
+  // Настройки импорта товаров из реквизитов организации (12.11.2026): «нет производителя, знака, марки — отправитель».
+  // Ответ — один на сессию страницы; не загрузился — выключено, как раньше.
+  importOptions: (): Promise<{ senderAsManufacturer: boolean }> => {
+    importOptionsCache ??= apiClient.get<{ senderAsManufacturer: boolean }>('/import40/import-options', { silent: true })
+      .then((r) => ({ senderAsManufacturer: r.data?.senderAsManufacturer === true }))
+      .catch(() => { importOptionsCache = null; return { senderAsManufacturer: false } })
+    return importOptionsCache
   },
 
   // companyName — кратко («ТОО …»), может отсутствовать у клиента без профиля компании.

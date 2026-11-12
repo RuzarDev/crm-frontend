@@ -91,6 +91,8 @@ export interface OrganizationSettings {
    */
   customsRepRegistryNumber?: string | null
   customsRepRegistryDate?: string | null
+  /** Импорт товаров: нет производителя, знака, марки — отправитель (12.11.2026). В запросе null — не менять. */
+  senderAsManufacturer?: boolean | null
   updatedAtUtc: string | null
   /** Кто сохранил в последний раз (имя сотрудника); старые сервера и пустая запись — без него. */
   updatedByName?: string | null

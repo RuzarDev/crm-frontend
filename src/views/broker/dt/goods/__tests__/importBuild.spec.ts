@@ -135,6 +135,17 @@ describe('importBuild №2/5/16: строка гр. 31 всегда и со зн
     const withSender = buildGoods([row(), row({ manufacturerName: 'OWN' })], ctx(resolved({ '7323990000': {} }), { senderAsManufacturer: 'Yiwu Trading' }))
     expect(withSender.goods.map((g) => g.characteristics![0].manufacturerName)).toEqual(['YIWU TRADING', 'OWN'])
   })
+
+  it('отправитель — и в товарный знак, и в марку, если их нет; заполненные не трогаются (настройка организации, 12.11.2026)', () => {
+    const { goods } = buildGoods([row(), row({ manufacturerName: 'OWN', tradeMarkName: 'TM' })],
+      ctx(resolved({ '7323990000': {} }), { senderAsManufacturer: 'Yiwu Trading' }))
+    const pick = (i: number) => {
+      const c = goods[i].characteristics![0]
+      return [c.manufacturerName, c.tradeMarkName, c.productMarkName]
+    }
+    expect(pick(0)).toEqual(['YIWU TRADING', 'YIWU TRADING', 'YIWU TRADING'])
+    expect(pick(1)).toEqual(['OWN', 'TM', 'YIWU TRADING'])
+  })
 })
 
 describe('importBuild №3: упаковка', () => {
