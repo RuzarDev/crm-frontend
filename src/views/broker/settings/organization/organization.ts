@@ -29,6 +29,8 @@ export interface OrgForm {
   /** Свидетельство о включении в реестр ТП: номер и дата 'YYYY-MM-DD' (нет — пустая строка). */
   customsRepRegistryNumber: string
   customsRepRegistryDate: string
+  /** Импорт товаров (12.11.2026): нет производителя, товарного знака, марки — отправитель. */
+  senderAsManufacturer: boolean
 }
 export type FieldKey = keyof OrgForm
 
@@ -37,7 +39,7 @@ export const FIELD_SECTION: Record<FieldKey, SectionKey> = {
   directorName: 'signers', directorBasis: 'signers', accountantName: 'signers', phone: 'signers', email: 'signers',
   bank: 'bank', iik: 'bank', bik: 'bank', kbe: 'bank',
   vatPayer: 'vat', vatRate: 'vat',
-  customsRepRegistryNumber: 'customsRep', customsRepRegistryDate: 'customsRep',
+  customsRepRegistryNumber: 'customsRep', customsRepRegistryDate: 'customsRep', senderAsManufacturer: 'customsRep',
   kedenStatusEmails: 'notify', serviceAlertEmails: 'notify',
 }
 
@@ -83,6 +85,7 @@ export const toForm = (d: Partial<OrganizationSettings> | null | undefined): Org
   serviceAlertEmails: splitEmails(str(d?.serviceAlertEmails)).join('\n'),
   customsRepRegistryNumber: str(d?.customsRepRegistryNumber),
   customsRepRegistryDate: str(d?.customsRepRegistryDate).slice(0, 10),
+  senderAsManufacturer: d?.senderAsManufacturer === true,
 })
 
 /**
@@ -158,6 +161,8 @@ export const toPayload = (
     serviceAlertEmails: untouched('serviceAlertEmails') ? null : splitEmails(f.serviceAlertEmails).join(','),
     customsRepRegistryNumber: untouched('customsRepRegistryNumber') ? null : f.customsRepRegistryNumber.trim(),
     customsRepRegistryDate: untouched('customsRepRegistryDate') ? null : f.customsRepRegistryDate,
+    // Не трогали — null: давно открытая вкладка не вернёт старое значение настройки (12.11.2026).
+    senderAsManufacturer: untouched('senderAsManufacturer') ? null : f.senderAsManufacturer,
     updatedAtUtc: base?.updatedAtUtc ?? null,
   }
 }

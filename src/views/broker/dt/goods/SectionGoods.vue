@@ -2,6 +2,7 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PhDownloadSimple, PhPlus, PhSparkle, PhUploadSimple } from '@phosphor-icons/vue'
+import { import40Api } from '@/api/import40'
 import ZButton from '@/components/z/ZButton.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZKbd from '@/components/z/ZKbd.vue'
@@ -65,7 +66,7 @@ const props = defineProps<{
   /** Идёт выбор файлов или распознавание. */
   fromDocsBusy?: boolean
 }>()
-const emit = defineEmits<{ 'calc-payments': []; 'from-docs': [] }>()
+const emit = defineEmits<{ 'calc-payments': []; 'from-docs': []; imported: [] }>()
 const { t } = useI18n()
 const tg = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
@@ -205,6 +206,8 @@ const importMode = ref<MergeMode>('fill')
 const importOptions = ref<ImportOptions>({
   senderAsManufacturer: SENDER_AS_MANUFACTURER_DEFAULT, defaultOrigin: DEFAULT_ORIGIN_DEFAULT, keepInvalidCodes: false,
 })
+// Галочка «отправитель — производителем» по умолчанию — из настройки организации (12.11.2026)
+void import40Api.importOptions().then((o) => { if (o.senderAsManufacturer) importOptions.value = { ...importOptions.value, senderAsManufacturer: true } })
 // Виды упаковки (классификатор 2013, грузит страница): «Вид упаковки товара» из Excel — в гр. 31 товара (X1).
 const packageKinds = computed(() => classifiers.cache['2013'] ?? [])
 const senderName = computed(() => props.editorContext?.senderName?.trim() || null)
@@ -342,6 +345,9 @@ const applyImport = () => {
   const fromHeaders = headerDocsForDt(merged.rows, importHeaderDocs.value, snap.doc44, snap.objects.length ? res.targetIndex : null)
   const docs = props.model.appendDocs([...dtDocsFromRows(merged.rows, (i) => res.targetIndex[i], docKindNames.value), ...fromHeaders])
   excelOpen.value = false
+  // Сохранить сразу (12.11.2026, жалоба «после Excel пропадают описание, количество, стоимость»): не ждать паузы автосейва —
+  // страницу обновляли, пока импорт ещё не ушёл на сервер, и видели ДТ без него.
+  emit('imported')
   const content = res.updated
     ? tg('excel.doneMerged', { updated: res.updated, added: res.added })
     : docs ? tg('excel.doneWithDocs', { n: res.added, docs }) : tg('excel.done', { n: res.added })

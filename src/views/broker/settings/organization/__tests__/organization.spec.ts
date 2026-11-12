@@ -72,7 +72,7 @@ describe('organization: форма и секции', () => {
     expect(Object.values(p).includes(null as never)).toBe(false)
     expect(Object.keys(p).sort()).toEqual([
       'accountantName', 'bank', 'bik', 'bin', 'companyName', 'customsRepRegistryDate', 'customsRepRegistryNumber',
-      'directorBasis', 'directorName', 'email', 'iik', 'kbe', 'kedenStatusEmails', 'legalAddress', 'phone', 'serviceAlertEmails', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
+      'directorBasis', 'directorName', 'email', 'iik', 'kbe', 'kedenStatusEmails', 'legalAddress', 'phone', 'senderAsManufacturer', 'serviceAlertEmails', 'shortName', 'updatedAtUtc', 'vatPayer', 'vatRate',
     ].sort())
   })
 })
@@ -100,6 +100,21 @@ describe('organization: свидетельство ТП', () => {
     expect(toPayload({ ...filled, customsRepRegistryNumber: ' N-2 ' }, null, filled)).toMatchObject({ customsRepRegistryNumber: 'N-2', customsRepRegistryDate: null })
     expect(toPayload({ ...filled, customsRepRegistryNumber: '', customsRepRegistryDate: '' }, null, filled))
       .toMatchObject({ customsRepRegistryNumber: '', customsRepRegistryDate: '' })
+  })
+})
+
+// Импорт товаров: отправитель — производителем, знаком, маркой (настройка организации, 12.11.2026).
+describe('organization: отправитель как производитель', () => {
+  it('с сервера: только true включает; старый сервер без поля — выключено; секция customsRep', () => {
+    expect(toForm({ senderAsManufacturer: true }).senderAsManufacturer).toBe(true)
+    expect(toForm({}).senderAsManufacturer).toBe(false)
+    expect(changedSections(base(), { ...base(), senderAsManufacturer: true })).toEqual(['customsRep'])
+  })
+  it('PUT: не меняли — null (сервер не трогает), меняли — значение', () => {
+    const on = { ...base(), senderAsManufacturer: true }
+    expect(toPayload({ ...on, bank: 'Halyk' }, null, on).senderAsManufacturer).toBeNull()
+    expect(toPayload({ ...on, senderAsManufacturer: false }, null, on).senderAsManufacturer).toBe(false)
+    expect(toPayload(on, null).senderAsManufacturer).toBe(true)
   })
 })
 

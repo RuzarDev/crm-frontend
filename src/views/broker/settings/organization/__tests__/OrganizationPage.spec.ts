@@ -268,7 +268,7 @@ describe('OrganizationPage: сохранение', () => {
       companyName: 'ТОО «AQNIET Customs»', shortName: 'AQNIET', bin: '180940012345', legalAddress: 'Алматы, пр. Абая 52, оф. 305',
       bank: 'Halyk', iik: 'KZ72722S000012345678', bik: 'CASPKZKA', kbe: '17',
       directorName: 'Ахметов К. С.', directorBasis: 'устава', accountantName: 'Жумабек А. Е.', phone: '+7 727 355 12 40', email: 'office@aqniet.kz',
-      vatPayer: true, vatRate: 16, kedenStatusEmails: null, serviceAlertEmails: null, customsRepRegistryNumber: null, customsRepRegistryDate: null, updatedAtUtc: SAVED_AT,
+      vatPayer: true, vatRate: 16, kedenStatusEmails: null, serviceAlertEmails: null, customsRepRegistryNumber: null, customsRepRegistryDate: null, senderAsManufacturer: null, updatedAtUtc: SAVED_AT,
     })
     expect(api.toast.success).toHaveBeenCalledTimes(1)
     expect(bar().exists()).toBe(false)

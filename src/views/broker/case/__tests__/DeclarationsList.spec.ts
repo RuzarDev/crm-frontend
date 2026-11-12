@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   createDeclaration: vi.fn(), deleteDeclaration: vi.fn(), downloadKedenXml: vi.fn(), downloadKedenBatch: vi.fn(), extractBatch: vi.fn(), extractMerge: vi.fn(),
   caseQuotes: vi.fn(), importQuote: vi.fn(), kedenReadiness: vi.fn(), kedenReadinessSummary: vi.fn(), get: vi.fn(),
   copySources: vi.fn(), copyDeclaration: vi.fn(), setDeclarationTitle: vi.fn(),
+  importOptions: vi.fn(async () => ({ senderAsManufacturer: false })),
 }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
@@ -804,6 +805,26 @@ describe('DeclarationsList: «Из документов»', () => {
     await w.get('[data-issues-ok]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/import-40/c1/dt/n3')
+  })
+
+  // Настройка организации (12.11.2026): нет производителя, знака, марки — отправитель; выключена — пусто, как раньше.
+  it('«отправитель как производитель» включён в организации — производитель, знак и марка из гр. 2', async () => {
+    const extract = () => result({
+      declaration: { currency: 'CNY', sender: { name: 'Yiwu Test Trading Firm' } as never,
+        goodsItems: [{ description: 'Леса', tnvedCode: '7304399209', quantity: 3, grossWeightKg: 10, invoiceValue: 50 }] },
+      extras: { invoiceNumber: 'TEST-1', invoiceDate: '2026-02-02', hintCodes: [], goods: [{ measureUnitText: null }] },
+    })
+    tnved.checkCodes.mockImplementation(async (codes: string[]) => ({ data: codes.map((code) => ({
+      code, valid: true, name: 'ТРУБЫ', endDate: null, unitCode: null, unitName: null, unitShortName: null,
+    })) }))
+    api.createDeclaration.mockResolvedValue(declaration({ id: 'n4' }))
+    api.importOptions.mockResolvedValueOnce({ senderAsManufacturer: true })
+    api.extractBatch.mockResolvedValue(extract())
+    mount(USERS.declarant)
+    await pick()
+    expect(api.createDeclaration.mock.calls[0][1].goodsItems[0].characteristics[0]).toMatchObject({
+      manufacturerName: 'YIWU TEST TRADING FIRM', tradeMarkName: 'YIWU TEST TRADING FIRM', productMarkName: 'YIWU TEST TRADING FIRM',
+    })
   })
 
   // Гр. 44 из перечня документов Zircon AI (29.10.2026): строки без дублей с прежним путём, замечания — в окне.
