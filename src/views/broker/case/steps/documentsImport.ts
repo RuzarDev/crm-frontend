@@ -7,7 +7,7 @@
 import { companyLookupApi, isBinLike } from '@/api/companyLookup'
 import { partyRefsApi } from '@/api/partyRefs'
 import { import40Api } from '@/api/import40'
-import type {
+import type { Import40ExtractionExtras,
   Import40DeclarationDto, Import40DeclarationUpsert, Import40ExtractionPartySource, Import40ExtractionResult, Import40Party,
 } from '@/api/import40'
 import type { ClassifierItem, Import40GoodsItemInput } from '@/types/api'
@@ -341,5 +341,49 @@ export async function prepareDocumentsDeclaration(
     goods: built.goods, sender, receiverBin: excel.receiverBin, doc44Items: excel.doc44Items,
     receiverExtra: receiverAddr ? { district: receiverAddr.district, house: receiverAddr.house, apt: receiverAddr.apt } : null,
   })
+  applyAirAndWarehouse(body, extras, kase, notes)
   return { body, goods: built.goods, notes, usedExcelGoods: excel.usedExcelGoods, receiverName: excel.preview.receiver?.name ?? null }
+}
+
+/** Код вида транспорта «Авиа» в заявке (IMPORT40_TRANSPORT_MODES). */
+const AIR_CASE_MODE = 2
+
+/**
+ * Авиа, ДХТ и склад из документов (11.11.2026, правки Несибели по авиа-пакету): справка экспедитора об авиагрузе — гр. 25/26
+ * = 40 (заявка не «Авиа» — замечание: вид в заявке другой); ДХТ из справки — строка гр. 44 (авиа 09026, иначе 09025, как у
+ * ДХТ заявки — Import40Dht); склад из реестра СВХ — гр. 30 (код 11, НИКАД, страна, орган), несколько подходящих — список в
+ * замечаниях, выбирает декларант.
+ */
+export function applyAirAndWarehouse(
+  body: Import40DeclarationUpsert, extras: Import40ExtractionExtras | null, kase: DocumentsCase, notes: DocumentsNote[],
+): void {
+  if (!extras) return
+  if (extras.air) {
+    body.borderTransportModeCode = '40'
+    body.inlandTransportModeCode = '40'
+    if (kase.transportMode != null && kase.transportMode !== AIR_CASE_MODE) {
+      notes.push({ key: 'airFromDocs', params: { flight: extras.flightNumber ?? '—' } })
+    }
+  }
+  if (extras.dhtNumber) {
+    const key = (v: string | null | undefined) => (v ?? '').replace(/\s/g, '')
+    const items = body.doc44Items ?? []
+    if (!items.some((d) => key(d.docNumber) === key(extras.dhtNumber))) {
+      const code = extras.air || kase.transportMode === AIR_CASE_MODE ? '09026' : '09025'
+      body.doc44Items = [...items, { docTypeCode: code, docTypeName: null, docNumber: extras.dhtNumber, docDate: extras.dhtDate ?? null, appliesToAll: true }]
+    }
+  }
+  const w = extras.warehouse
+  if (w?.nikad) {
+    body.goodsLocationCode = '11'
+    body.goodsLocationRegisterNumber = w.nikad
+    body.goodsLocationCountryCode = 'KZ'
+    if (w.customsOfficeCode) body.goodsLocationCustomsOfficeCode = w.customsOfficeCode
+    notes.push({ key: 'warehouseFromDocs', params: { nikad: w.nikad, name: w.name ?? '' } })
+  } else if (w?.candidates?.length) {
+    const place = (a?: string | null) => (a ?? '').split(',').slice(0, 4).join(',').trim()
+    notes.push({ key: 'warehouseChoose', params: {
+      name: w.name ?? '', list: w.candidates.map((c) => `${c.nikad} — ${place(c.address)}`).join('; '),
+    } })
+  }
 }

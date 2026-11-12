@@ -569,6 +569,24 @@ export interface Import40ExtractionExtras {
   senderSources?: Import40ExtractionPartySource[] | null
   /** Перевозка ЖД (01.11.2026): СМГС в пакете или заявка ЖД — номера из документов уже вагонами (сервер). */
   rail?: boolean
+  /** Авиа (11.11.2026): справка экспедитора об авиагрузе — гр. 25/26 = 40; рейс сервер уже поставил в гр. 18/21. */
+  air?: boolean
+  flightNumber?: string | null
+  /** ДХТ из справки экспедитора: номер и дата (ГГГГ-ММ-ДД) — строка гр. 44 (авиа 09026, иначе 09025). */
+  dhtNumber?: string | null
+  dhtDate?: string | null
+  /** Склад для гр. 30 из реестра СВХ; nikad null и candidates — подходят несколько, выбирает декларант. */
+  warehouse?: Import40ExtractionWarehouse | null
+}
+
+export interface Import40ExtractionWarehouse {
+  nikad: string | null
+  name?: string | null
+  address?: string | null
+  customsOfficeCode?: string | null
+  /** document — НИКАД написан в документе; registry — единственный склад владельца; registry_address — по адресу; ambiguous. */
+  source: string
+  candidates: { nikad: string; name?: string | null; address?: string | null; customsOfficeCode?: string | null }[]
 }
 
 /** Сторона по одному документу пакета: docType — вид записи Zircon AI (transport — CMR, СМГС, авианакладная). */
