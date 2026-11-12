@@ -60,7 +60,7 @@ describe('resolveCodes', () => {
     expect([...r.expanded]).toEqual([['732399', '7323990000']])
     expect(api.checkCodes).toHaveBeenCalledWith(['7323990000'], { silent: true })
     expect(r.rejected).toEqual(expect.arrayContaining([
-      { code: '901880', reason: 'partialMany' }, { code: '123456', reason: 'notTenDigits' }, { code: '7323', reason: 'notTenDigits' },
+      { code: '901880', reason: 'partialMany' }, { code: '123456', reason: 'partialNone' }, { code: '7323', reason: 'notTenDigits' },
     ]))
   })
 
