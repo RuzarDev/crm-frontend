@@ -86,6 +86,8 @@ const invalidCodes = computed(() => noteDetails(notes.value, 'invalidCode').map(
   return { code, reason }
 }))
 const docNumberCodes = computed(() => invalidCodes.value.filter((c) => c.reason === 'docNumber').map((c) => c.code))
+// неполный код документа дополнен единственным подкодом (12.11.2026): «901880 → 9018…»
+const expandedCodes = computed(() => noteDetails(notes.value, 'codeExpanded').map((d) => d.replace(':', ' → ')))
 const otherInvalid = computed(() => invalidCodes.value.filter((c) => c.reason !== 'docNumber'))
 const count = (kind: Parameters<typeof noteCount>[1]) => noteCount(notes.value, kind)
 const codesNotChecked = computed(() => notes.value.some((n) => n.kind === 'codesNotChecked'))
@@ -203,6 +205,7 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
 
         <!-- Замечания -->
         <p v-if="codesNotChecked" :class="warn" data-goods-excel-not-checked>{{ tx('codesNotChecked') }}</p>
+        <p v-if="expandedCodes.length" :class="warn" data-goods-excel-expanded>{{ tx('expandedCodes', { list: [...new Set(expandedCodes)].join(', ') }) }}</p>
         <div v-if="otherInvalid.length" :class="warn" data-goods-excel-invalid>
           <p class="m-0">{{ tx('invalidCodes', { n: otherInvalid.length }) }} <span class="font-mono text-xs">{{ otherInvalid.map((c) => c.code).join(', ') }}</span></p>
           <div class="mt-1.5" data-goods-excel-keep-invalid>

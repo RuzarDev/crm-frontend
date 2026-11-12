@@ -55,7 +55,7 @@ const MAX_NUMBER = 1e14
 
 export type BuildNoteKind =
   | 'hugeNumber'
-  | 'invalidCode' | 'codesNotChecked' | 'toRow' | 'noUnit' | 'deiMismatch' | 'unknownUnit' | 'unknownPackaging'
+  | 'invalidCode' | 'codeExpanded' | 'codesNotChecked' | 'toRow' | 'noUnit' | 'deiMismatch' | 'unknownUnit' | 'unknownPackaging'
   | 'unknownCountry' | 'packagingDefault' | 'netOverGross' | 'han' | 'placesRounded' | 'senderAsManufacturer' | 'defaultOrigin'
   /** Импорт 2.0: из двуязычного описания взята русская часть; модель — из описания; места текстом неоднозначны. */
   | 'hanDropped' | 'modelFromDescription' | 'placesAmbiguous'
@@ -116,7 +116,11 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     g.currency = ctx.currency || r.currency || null
 
     // ---- №9: код ----
-    const code = r.tnvedCode ? normCode(r.tnvedCode) : null
+    const docCode = r.tnvedCode ? normCode(r.tnvedCode) : null
+    // неполный код документа с единственным подкодом — сам подкод (12.11.2026)
+    const fullCode = docCode ? resolved?.expanded?.get(docCode) : undefined
+    if (docCode && fullCode) note('codeExpanded', `${docCode}:${fullCode}`)
+    const code = fullCode ?? docCode
     let codeInfo = code ? resolved?.byCode.get(code) ?? null : null
     const reason = code ? rejected.get(code) : undefined
     const reject = (c: string, isCode = true) => {

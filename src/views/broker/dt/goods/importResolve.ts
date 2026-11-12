@@ -18,13 +18,28 @@ export interface ResolvedCode {
   dei: TnvedDei | null
 }
 
-export type RejectReason = 'notTenDigits' | 'notInDirectory' | 'docNumber'
+export type RejectReason = 'notTenDigits' | 'notInDirectory' | 'docNumber' | 'partialMany'
 
 export interface ResolveResult {
   byCode: Map<string, ResolvedCode>
   rejected: { code: string; reason: RejectReason }[]
   /** Проверка не удалась (сеть, лимит): коды переносятся как есть, ДЕИ «неизвестна» — количество в строку гр. 31. */
   failed: boolean
+  /** Неполный код документа (6–9 цифр) → единственный действующий 10-значный под ним (12.11.2026, авиа «90 1880»). */
+  expanded: Map<string, string>
+}
+
+/** Неполный код: подсубпозиция ТС (6 знаков) и уже — ищем 10-значные под ним; 4 знака (товарная позиция) — слишком широко. */
+const PARTIAL = /^\d{6,9}$/
+
+/** 10-значные коды справочника, начинающиеся с prefix; не ответил — null. */
+async function leavesUnder(prefix: string): Promise<string[] | null> {
+  try {
+    const res = await tnvedApi.search(prefix, true, 30, { silent: true })
+    return [...new Set(res.data.map((n) => n.code).filter((c) => /^\d{10}$/.test(c) && c.startsWith(prefix)))]
+  } catch {
+    return null
+  }
 }
 
 /** Номера документов, с которыми код не должен совпадать (цифрами). */
@@ -42,18 +57,26 @@ export async function resolveCodes(codes: readonly (string | null | undefined)[]
   const list = [...new Set(codes.map(normCode).filter(Boolean))]
   const byCode = new Map<string, ResolvedCode>()
   const rejected: ResolveResult['rejected'] = []
-  if (!list.length) return { byCode, rejected, failed: false }
+  const expanded = new Map<string, string>()
+  if (!list.length) return { byCode, rejected, failed: false, expanded }
 
   const docDigits = [refs.invoiceNo, refs.contractNo, refs.transportDoc].map(onlyDigits).filter((d) => d.length >= 6)
   const docLike = (c: string) => docDigits.includes(c)
   // Не 10 цифр или совпадает с номером документа — не спрашиваем.
   const ask: string[] = []
   for (const c of list) {
-    if (!/^\d{10}$/.test(c)) rejected.push({ code: c, reason: 'notTenDigits' })
-    else if (docLike(c)) rejected.push({ code: c, reason: 'docNumber' })
-    else ask.push(c)
+    if (docLike(c)) rejected.push({ code: c, reason: 'docNumber' })
+    else if (/^\d{10}$/.test(c)) ask.push(c)
+    else if (PARTIAL.test(c)) {
+      // неполный код: один подкод — проверяется как обычный и ставится с замечанием; несколько — подбирает декларант
+      const leaves = await leavesUnder(c)
+      if (leaves?.length === 1) {
+        expanded.set(c, leaves[0])
+        if (!ask.includes(leaves[0])) ask.push(leaves[0])
+      } else rejected.push({ code: c, reason: leaves?.length ? 'partialMany' : 'notTenDigits' })
+    } else rejected.push({ code: c, reason: 'notTenDigits' })
   }
-  if (!ask.length) return { byCode, rejected, failed: false }
+  if (!ask.length) return { byCode, rejected, failed: false, expanded }
 
   try {
     const res = await tnvedApi.checkCodes(ask, { silent: true })
@@ -72,9 +95,18 @@ export async function resolveCodes(codes: readonly (string | null | undefined)[]
       }
     }
     seedTnvedCheck(ok, bad)
-    return { byCode, rejected, failed: false }
+    // подкод неполного кода оказался недействующим — неполный код не дополняется
+    for (const [partial, full] of [...expanded]) {
+      if (byCode.get(full)?.valid) continue
+      expanded.delete(partial)
+      rejected.push({ code: partial, reason: 'notTenDigits' })
+    }
+    return { byCode, rejected, failed: false, expanded }
   } catch (e) {
     console.error('Failed to check TNVED codes for import', e)
-    return { byCode, rejected, failed: true }
+    // нет связи: неполный код не дополняется (подкод не проверен) — переносится как отброшенный
+    for (const partial of expanded.keys()) rejected.push({ code: partial, reason: 'notTenDigits' })
+    expanded.clear()
+    return { byCode, rejected, failed: true, expanded }
   }
 }
