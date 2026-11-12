@@ -65,7 +65,7 @@ const props = defineProps<{
   /** Идёт выбор файлов или распознавание. */
   fromDocsBusy?: boolean
 }>()
-const emit = defineEmits<{ 'calc-payments': []; 'from-docs': [] }>()
+const emit = defineEmits<{ 'calc-payments': []; 'from-docs': []; imported: [] }>()
 const { t } = useI18n()
 const tg = (key: string, p?: Record<string, unknown>) => t(`broker.dt.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
@@ -342,6 +342,9 @@ const applyImport = () => {
   const fromHeaders = headerDocsForDt(merged.rows, importHeaderDocs.value, snap.doc44, snap.objects.length ? res.targetIndex : null)
   const docs = props.model.appendDocs([...dtDocsFromRows(merged.rows, (i) => res.targetIndex[i], docKindNames.value), ...fromHeaders])
   excelOpen.value = false
+  // Сохранить сразу (12.11.2026, жалоба «после Excel пропадают описание, количество, стоимость»): не ждать паузы автосейва —
+  // страницу обновляли, пока импорт ещё не ушёл на сервер, и видели ДТ без него.
+  emit('imported')
   const content = res.updated
     ? tg('excel.doneMerged', { updated: res.updated, added: res.added })
     : docs ? tg('excel.doneWithDocs', { n: res.added, docs }) : tg('excel.done', { n: res.added })

@@ -73,6 +73,7 @@ const mount = async (goods: Import40GoodsItemInput[], o: { readonly?: boolean; q
       fromDocs: o.fromDocs,
       'onCalc-payments': () => emitted.push('calc-payments'),
       'onFrom-docs': () => emitted.push('from-docs'),
+      onImported: () => emitted.push('imported'),
     }),
   })
   router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/import-40/:caseId/dt/:dtId', name: 'import-40-dt', component: Page }] })
@@ -660,6 +661,8 @@ describe('SectionGoods: Excel', () => {
     expect(form.goodsItems).toHaveLength(2)
     expect(toRaw(form.goodsItems[0])).toBe(first)
     expect(form.goodsItems[0]).toMatchObject({ grossWeightKg: 999, customsValue: 25000 })
+    // 12.11.2026: после «Применить» страница ДТ сохраняет сразу (событие imported), а не через паузу автосейва
+    expect(emitted).toContain('imported')
     const call = toast.success.mock.calls.at(-1)![0] as { content: string; action: { label: string; onClick: () => void } }
     expect(call.content).toBe('Обновлено товаров: 1; добавлено: 1')
     expect(call.action.label).toBe('Отменить')

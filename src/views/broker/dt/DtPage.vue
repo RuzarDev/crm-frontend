@@ -147,6 +147,13 @@ const dt = useDtForm(caseId, dtId, {
     void dts.refresh()
   },
 })
+
+/** «Из Excel» применён — сохранить сразу, а не через паузу автосейва (импорт не теряется при обновлении страницы). */
+const saveAfterImport = async () => {
+  await nextTick()
+  dt.cancelAutosave()
+  await dt.save()
+}
 const form = dt.form
 
 const rates = useDtRates(form, { applying: () => dt.applying.value, canWrite: () => dt.editable.value })
@@ -1136,6 +1143,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
                 :from-docs-busy="docsInto.busy.value || docsInto.loadingFiles.value"
                 @calc-payments="calcPayments"
                 @from-docs="docsInto.open"
+                @imported="saveAfterImport"
               />
               <SectionPayments
                 v-else-if="active === 'payments'"
