@@ -489,9 +489,12 @@ describe('GoodsEditor: «Похожие коды», «ОТСУТСТВУЕТ» �
   it('неполный код из документа (12.11.2026): «Справочник» при пустой гр. 33 ищет по нему', async () => {
     tnved.classify.mockResolvedValue({ data: { matches: [], exactCodeInfo: null, suggestedGroup: null } })
     await mount([item({ tnvedCode: null, tnvedDescription: null, documentTnvedCode: '901880' })], { query: '&item=1' })
+    tnved.search.mockResolvedValue({ data: [] })
     await click('[data-goods-picker]')
     await flushPromises()
-    expect(tnved.search).toHaveBeenCalledWith('901880', expect.anything(), expect.anything(), expect.anything())
+    // под 901880 кодов ЕАЭС нет — справочник ищет по товарной позиции 9018
+    expect(tnved.search).toHaveBeenCalledWith('901880', true, 1, { silent: true })
+    expect(tnved.search).toHaveBeenCalledWith('9018', expect.anything(), expect.anything(), expect.anything())
   })
 
   it('код из документа: у товара с кодом в гр. 33 и у товара без поля подсказки нет', async () => {

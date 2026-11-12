@@ -18,7 +18,7 @@ export interface ResolvedCode {
   dei: TnvedDei | null
 }
 
-export type RejectReason = 'notTenDigits' | 'notInDirectory' | 'docNumber' | 'partialMany'
+export type RejectReason = 'notTenDigits' | 'notInDirectory' | 'docNumber' | 'partialMany' | 'partialNone'
 
 export interface ResolveResult {
   byCode: Map<string, ResolvedCode>
@@ -73,7 +73,7 @@ export async function resolveCodes(codes: readonly (string | null | undefined)[]
       if (leaves?.length === 1) {
         expanded.set(c, leaves[0])
         if (!ask.includes(leaves[0])) ask.push(leaves[0])
-      } else rejected.push({ code: c, reason: leaves?.length ? 'partialMany' : 'notTenDigits' })
+      } else rejected.push({ code: c, reason: leaves == null ? 'notTenDigits' : leaves.length ? 'partialMany' : 'partialNone' })
     } else rejected.push({ code: c, reason: 'notTenDigits' })
   }
   if (!ask.length) return { byCode, rejected, failed: false, expanded }

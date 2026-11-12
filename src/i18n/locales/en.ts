@@ -4225,6 +4225,7 @@ export default {
             docNumber: 'matches a document number',
             notTenDigits: 'not 10 digits',
             partialMany: 'incomplete code with several codes under it — pick one in the item card (the directory opens on it)',
+            partialNone: 'no such code in the EAEU HS (maybe the sender country’s code) — pick a code in the item card',
           },
           codesNotChecked: 'HS codes were not checked (no connection) — check them in the item cards',
           toRow: 'Code has no supplementary unit — quantity written to the box 31 row: {n}',

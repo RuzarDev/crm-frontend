@@ -50,6 +50,18 @@ const partialDocumentCode = computed(() => {
   const d = (props.item.documentTnvedCode ?? '').replace(/\s+/g, '')
   return /^\d{4,9}$/.test(d) ? d : ''
 })
+// Под кодом документа кодов ТН ВЭД ЕАЭС нет («90 1880» американского инвойса: подсубпозиции 9018 80 у нас нет) —
+// справочник открывается на товарной позиции (4 знака).
+async function openCodePicker() {
+  const d = partialDocumentCode.value
+  if (code.value || !d) return openPicker(code.value)
+  try {
+    const res = await tnvedApi.search(d, true, 1, { silent: true })
+    openPicker(res.data.some((n) => n.code.startsWith(d)) ? d : d.slice(0, 4))
+  } catch {
+    openPicker(d)
+  }
+}
 onMounted(() => { void check.validate(props.item.tnvedCode) })
 
 // ДЕИ (гр. 41) задаёт код ТН ВЭД (правило сервера, tnved/node/{code}/rates). Меняет единицу только СМЕНА кода
@@ -239,7 +251,7 @@ const sideBtn = 'shrink-0 max-sm:h-11'
         />
         <template v-if="!readonly">
           <ZButton :class="sideBtn" :loading="finding" data-goods-find @click="lookup">{{ tc('find') }}</ZButton>
-          <ZButton :class="sideBtn" data-goods-picker @click="openPicker(code || partialDocumentCode)">{{ tc('picker') }}</ZButton>
+          <ZButton :class="sideBtn" data-goods-picker @click="openCodePicker">{{ tc('picker') }}</ZButton>
           <ZButton :class="sideBtn" data-goods-ai @click="openAi">
             <template #icon><PhSparkle :size="15" aria-hidden="true" /></template>{{ tc('ai') }}
           </ZButton>
