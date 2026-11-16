@@ -1,6 +1,6 @@
-import { computed, ref } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { downloadBlob, fileUrl, zipUrl, type FilePatch, type Party, type TruckFile } from '@/api/autoTransit'
+import { downloadBlob, fileUrl, zipUrl, type FileKind, type FilePatch, type Party, type TruckCard, type TruckFile } from '@/api/autoTransit'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
@@ -30,17 +30,23 @@ export function useTruckActions(s: TruckState, id: () => string) {
   const primaryRunning = ref(false)
   const primary = computed(() => (s.card.value ? primaryAction(s.card.value, t) : null))
 
+  // Кнопки в тостах привязаны к своей машине: после ухода с карточки или перехода на другую машину — ничего.
+  let alive = true
+  if (getCurrentInstance()) onBeforeUnmount(() => { alive = false })
+  const sameTruck = (truckId: string) => alive && id() === truckId
+
   const markStage = async (stage: number) => {
+    const truckId = id()
     const res = await s.mark(stage)
     if (!res.ok) return
     message.success({
       content: t(`${T}.marked`, { stage: t(stageKey(stage)) }),
       duration: UNDO_TOAST_SEC,
-      action: { label: t(`${T}.undo`), onClick: () => { void undo() } },
+      action: { label: t(`${T}.undo`), onClick: () => { if (sameTruck(truckId)) void undo(truckId) } },
     })
   }
-  const undo = async () => {
-    const res = await s.undo()
+  const undo = async (truckId = id()) => {
+    const res = await s.undo(truckId)
     if (res.ok) message.success(t(`${T}.undone`))
   }
   const openTd = (p: Party) => {
@@ -125,7 +131,53 @@ export function useTruckActions(s: TruckState, id: () => string) {
       zipping.value = false
     }
   }
-  const patchFile = (f: TruckFile, patch: FilePatch) => s.patchFile(f.id, patch)
+  // Видимость получателю меняется только явно (решение 22): смена вида оставляет умолчание сервера для нового вида,
+  // но тост говорит, кому теперь виден файл, и даёт «Скрыть» / «Показать»; перенос всегда скрывает файл.
+  const RECIPIENT_KINDS: FileKind[] = ['invoice', 'packingList', 'cmr', 'td', 'warehouseReceipt']
+  const F = 'broker.autoTransit.file'
+  const setVisible = (truckId: string, fileId: string, visible: boolean) => {
+    if (sameTruck(truckId)) void s.patchFile(fileId, { visibleToRecipient: visible }, truckId)
+  }
+  const visibilityToast = (truckId: string, c: TruckCard, fileId: string) => {
+    const f = c.files.find((x) => x.id === fileId)
+    if (!f) return
+    const p = f.partyId ? c.parties.find((x) => x.id === f.partyId) : undefined
+    if (f.visibleToRecipient) {
+      message.info({
+        content: p ? t(`${F}.visibleParty`, { n: p.number }) : t(`${F}.visibleAll`),
+        duration: UNDO_TOAST_SEC,
+        action: { label: t(`${F}.hide`), onClick: () => setVisible(truckId, fileId, false) },
+      })
+    } else {
+      message.info({
+        content: t(`${F}.hiddenAll`),
+        duration: UNDO_TOAST_SEC,
+        ...(RECIPIENT_KINDS.includes(f.kind) ? { action: { label: t(`${F}.show`), onClick: () => setVisible(truckId, fileId, true) } } : {}),
+      })
+    }
+  }
+  const patchFile = async (f: TruckFile, patch: FilePatch) => {
+    const truckId = id()
+    if (patch.partyId !== undefined) {
+      if ((patch.partyId ?? null) === f.partyId) return
+      const res = await s.patchFile(f.id, { partyId: patch.partyId, visibleToRecipient: false }, truckId)
+      if (res.ok) {
+        message.info({
+          content: t(`${F}.movedHidden`),
+          duration: UNDO_TOAST_SEC,
+          action: { label: t(`${F}.show`), onClick: () => setVisible(truckId, f.id, true) },
+        })
+      }
+      return
+    }
+    if (patch.kind !== undefined) {
+      if (patch.kind === f.kind) return
+      const res = await s.patchFile(f.id, { kind: patch.kind }, truckId)
+      if (res.ok) visibilityToast(truckId, res.card, f.id)
+      return
+    }
+    await s.patchFile(f.id, patch, truckId)
+  }
   const removeFile = async (f: TruckFile) => {
     const ok = await confirm({
       title: t('broker.autoTransit.file.deleteConfirm.title'),

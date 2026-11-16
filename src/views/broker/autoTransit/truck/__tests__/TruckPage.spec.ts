@@ -414,3 +414,111 @@ describe('TruckPage: окна партии и «Проблемы»', () => {
     expect(w.find('[data-truck-problem]').text()).toContain('Отказ в пропуске')
   })
 })
+
+describe('TruckPage: видимость файла получателю меняется только явно', () => {
+  const openFileMenu = async (fileId: string) => {
+    await w.find(`[data-file-chip="${fileId}"] [data-file-menu]`).trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(document.body.querySelectorAll('[role^="menuitem"]').length).toBeGreaterThan(0))
+  }
+  const pickItem = async (label: string) => {
+    const el = Array.from(document.body.querySelectorAll<HTMLElement>('[role^="menuitem"]')).find((x) => x.textContent?.trim() === label)
+    expect(el, label).toBeTruthy()
+    el!.click()
+    await flushPromises()
+  }
+  const lastInfo = () => msg.info.mock.calls.at(-1)![0]
+
+  it('смена вида other → CMR у общего документа: «Виден всем получателям машины», «Скрыть» шлёт visibleToRecipient: false', async () => {
+    await mountWith(card({ files: [file('f1', { kind: 'other' })] }))
+    api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind: 'cmr', visibleToRecipient: true })] }))
+    await openFileMenu('f1')
+    await pickItem('CMR')
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'f1', { kind: 'cmr' })
+    expect(lastInfo()).toMatchObject({ content: 'Виден всем получателям машины', action: { label: 'Скрыть' } })
+    expect(w.find('[data-file-chip="f1"] [data-file-visible]').text()).toBe('Виден всем получателям машины')
+    api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind: 'cmr' })] }))
+    lastInfo().action.onClick()
+    await flushPromises()
+    expect(api.patchFile).toHaveBeenLastCalledWith('t1', 'f1', { visibleToRecipient: false })
+    expect(w.find('[data-file-chip="f1"] [data-file-visible]').exists()).toBe(false)
+  })
+
+  it.each([
+    ['invoice', 'Инвойс', true, 'Виден получателю партии 1', 'Скрыть'],
+    ['td', 'ТД', false, 'Скрыт от получателей', 'Показать'],
+    ['driverPassport', 'Паспорт водителя', false, 'Скрыт от получателей', undefined],
+  ] as const)('смена вида в партии на %s: тост говорит, кому виден файл', async (kind, label, visible, content, action) => {
+    await mountWith(card({ files: [file('f1', { kind: 'other', partyId: 'p1' })] }))
+    api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind, partyId: 'p1', visibleToRecipient: visible })] }))
+    await openFileMenu('f1')
+    await pickItem(label)
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'f1', { kind })
+    expect(lastInfo().content).toBe(content)
+    expect(lastInfo().action?.label).toBe(action)
+  })
+
+  it('перенос видимого файла в другую партию шлёт visibleToRecipient: false; «Показать» — true', async () => {
+    const two = [party('p1', 1), party('p2', 2)]
+    await mountWith(card({ parties: two, files: [file('f2', { kind: 'invoice', partyId: 'p1', visibleToRecipient: true })] }))
+    api.patchFile.mockResolvedValue(card({ parties: two, files: [file('f2', { kind: 'invoice', partyId: 'p2' })] }))
+    await openFileMenu('f2')
+    await pickItem('В партию 2')
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'f2', { partyId: 'p2', visibleToRecipient: false })
+    expect(lastInfo()).toMatchObject({ content: 'Файл перенесён и скрыт от получателей', action: { label: 'Показать' } })
+    lastInfo().action.onClick()
+    await flushPromises()
+    expect(api.patchFile).toHaveBeenLastCalledWith('t1', 'f2', { visibleToRecipient: true })
+  })
+
+  it('кнопка в тосте файла после перехода на другую машину ничего не шлёт', async () => {
+    await mountWith(card({ files: [file('f1', { kind: 'other' })] }))
+    api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind: 'cmr', visibleToRecipient: true })] }))
+    await openFileMenu('f1')
+    await pickItem('CMR')
+    api.getTruck.mockResolvedValue(card({ id: 't2' }))
+    await router.push('/auto-transit/t2')
+    await flushPromises()
+    api.patchFile.mockClear()
+    lastInfo().action.onClick()
+    await flushPromises()
+    expect(api.patchFile).not.toHaveBeenCalled()
+  })
+
+  it('выпущенная машина: вид, партия, «с печатью», «виден получателю» меняются; удалить — нет', async () => {
+    await mountWith(card({ status: 'released', currentStage: null, can: { border: true, declare: true, manage: true }, files: [file('f1', { kind: 'invoice', partyId: 'p1' })] }),
+      ['autotransit.read', 'autotransit.border', 'autotransit.declare', 'autotransit.manage'])
+    await openFileMenu('f1')
+    const labels = Array.from(document.body.querySelectorAll('[role^="menuitem"]')).map((x) => x.textContent?.trim())
+    expect(labels).toEqual(expect.arrayContaining(['CMR', 'Общий документ машины', 'С печатью', 'Виден получателю']))
+    expect(labels).not.toContain('Удалить')
+  })
+})
+
+describe('TruckPage: «Отменить» в тосте отметки привязано к своей машине', () => {
+  const markA = async () => {
+    await mountWith(card())
+    api.markStage.mockResolvedValue(card({ currentStage: 4 }))
+    await w.find('[data-primary-action]').trigger('click')
+    await flushPromises()
+    return msg.success.mock.calls.at(-1)![0]
+  }
+
+  it('отметили на машине A, перешли на B, нажали «Отменить» — запроса нет ни для B, ни для A', async () => {
+    const toast = await markA()
+    api.getTruck.mockResolvedValue(card({ id: 't2', plate: '787 ABD 05' }))
+    await router.push('/auto-transit/t2')
+    await flushPromises()
+    expect(w.find('[data-plate]').text()).toBe('787 ABD 05')
+    toast.action.onClick()
+    await flushPromises()
+    expect(api.undoStage).not.toHaveBeenCalled()
+  })
+
+  it('ушли с карточки — «Отменить» ничего не шлёт', async () => {
+    const toast = await markA()
+    w.unmount()
+    toast.action.onClick()
+    await flushPromises()
+    expect(api.undoStage).not.toHaveBeenCalled()
+  })
+})

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDotsThreeVertical, PhFileText, PhSealCheck } from '@phosphor-icons/vue'
+import { PhDotsThreeVertical, PhEye, PhFileText, PhSealCheck } from '@phosphor-icons/vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import type { FileKind, FilePatch, Party, TruckFile } from '@/api/autoTransit'
 
@@ -21,6 +21,8 @@ const KINDS: FileKind[] = ['invoice', 'packingList', 'cmr', 'driverPassport', 'v
 const kindLabel = (k: FileKind) => t(`broker.autoTransit.file.kind.${k}`)
 const stampable = computed(() => props.file.kind === 'invoice' || props.file.kind === 'packingList')
 const hasMenu = computed(() => props.canPatch || props.canDelete)
+// Общий документ машины, видимый получателям, открыт всем получателям машины (на деле — CMR).
+const visibleText = computed(() => t(props.file.partyId ? 'broker.autoTransit.file.visible' : 'broker.autoTransit.file.visibleAll'))
 
 const items = computed<ZDropdownItem[]>(() => {
   const out: ZDropdownItem[] = []
@@ -31,7 +33,7 @@ const items = computed<ZDropdownItem[]>(() => {
       key: `party:${p.id}`, label: t('broker.autoTransit.file.toParty', { n: p.number }), checked: props.file.partyId === p.id,
     }))
     if (stampable.value) out.push({ key: 'stamped', label: t('broker.autoTransit.file.stamped'), checked: props.file.stamped, divider: true })
-    out.push({ key: 'visible', label: t('broker.autoTransit.file.visible'), checked: props.file.visibleToRecipient, divider: !stampable.value })
+    out.push({ key: 'visible', label: visibleText.value, checked: props.file.visibleToRecipient, divider: !stampable.value })
   }
   if (props.canDelete) out.push({ key: 'delete', label: t('broker.autoTransit.file.delete'), danger: true, divider: out.length > 0 })
   return out
@@ -73,6 +75,10 @@ const onSelect = (key: string) => {
       <span class="shrink-0 text-muted" data-file-kind>· {{ kindLabel(file.kind) }}</span>
       <PhSealCheck v-if="file.stamped" :size="14" class="shrink-0 text-tone-done-fg" :aria-label="t('broker.autoTransit.file.stamped')" data-file-stamped />
     </button>
+    <span v-if="file.visibleToRecipient" class="inline-flex shrink-0 items-center pr-2 text-zircon-ink" :title="visibleText" data-file-visible>
+      <PhEye :size="14" aria-hidden="true" />
+      <span class="sr-only">{{ visibleText }}</span>
+    </span>
     <span v-if="hasMenu" class="h-5 w-px shrink-0 bg-line" aria-hidden="true" />
     <ZDropdown v-if="hasMenu" :items="items" @select="onSelect">
       <button

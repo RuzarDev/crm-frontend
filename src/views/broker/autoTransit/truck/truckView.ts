@@ -44,7 +44,8 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
     submitLocked: (card.currentStage ?? 7) < 5,
     td: (declare || border) && (inWork || released),
     upload: (border || declare) && !archived,
-    patchFile: (border || declare) && open,
+    // Выпущенной тоже (решение 23): ТД или чек СВХ, загруженные после выпуска, иначе не дошли бы до получателя.
+    patchFile: (border || declare) && (open || released),
     deleteFile: (declare || manage) && open,
     links: (declare || manage) && !archived,
     undo: (border || manage) && (inWork || released),

@@ -99,8 +99,13 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   }
 
   /** Общая обёртка правки: ответ — новая карточка; 409 — тост и перечитывание; 400 — ошибки полей. */
-  const run = async (fn: (truckId: string) => Promise<TruckCard>): Promise<ActionResult> => {
-    const myId = id()
+  /**
+   * truckId — машина, для которой действие создано (кнопка в тосте): после ухода с карточки или перехода на другую
+   * машину запрос не отправляется. Без него — текущая машина.
+   */
+  const run = async (fn: (truckId: string) => Promise<TruckCard>, truckId?: string): Promise<ActionResult> => {
+    const myId = truckId ?? id()
+    if (!alive || !myId || myId !== id()) return { ok: false, fieldErrors: {} }
     pending.value++
     try {
       const c = await fn(myId)
@@ -128,7 +133,7 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   }
 
   const mark = (stage: number, note?: string) => run((i) => api.markStage(i, stage, note))
-  const undo = () => run((i) => api.undoStage(i))
+  const undo = (truckId?: string) => run((i) => api.undoStage(i), truckId)
   const submit = (partyId: string) => run((i) => api.submitParty(i, partyId))
   const unsubmit = (partyId: string) => run((i) => api.unsubmitParty(i, partyId))
   const setTd = (partyId: string, body: TdBody) => run((i) => api.setTd(i, partyId, body))
@@ -139,7 +144,7 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   const addParty = (body: PartyFields = {}) => run((i) => api.addParty(i, body))
   const updateParty = (partyId: string, patch: PartyFields) => run((i) => api.updateParty(i, partyId, patch))
   const deleteParty = (partyId: string) => run((i) => api.deleteParty(i, partyId))
-  const patchFile = (fileId: string, patch: FilePatch) => run((i) => api.patchFile(i, fileId, patch))
+  const patchFile = (fileId: string, patch: FilePatch, truckId?: string) => run((i) => api.patchFile(i, fileId, patch), truckId)
   const deleteFile = (fileId: string) => run((i) => api.deleteFile(i, fileId))
 
   /**
