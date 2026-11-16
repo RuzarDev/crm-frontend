@@ -158,6 +158,15 @@ describe('AutoTransitView: фильтры и поиск', () => {
     expect(text(chips()[1]!.text())).toBe('Ждут документы')
   })
 
+  it('поле поиска — в строке-обёртке: flex-basis ListSearch не становится высотой в колонке', async () => {
+    await mountAt()
+    const input = w.find('input[type="search"]')
+    const wrap = w.find('[data-at-search]')
+    expect(wrap.classes()).toEqual(expect.arrayContaining(['flex', 'min-w-0']))
+    expect(wrap.classes()).not.toContain('flex-col')
+    expect(wrap.element.contains(input.element)).toBe(true)
+  })
+
   it('поиск — с задержкой 300 мс, без пробелов по краям, в адрес ?q=', async () => {
     await mountAt()
     const calls = api.listTrucks.mock.calls.length

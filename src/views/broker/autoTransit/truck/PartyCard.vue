@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhWarningCircle } from '@phosphor-icons/vue'
+import { PhCamera, PhPlus, PhWarningCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
+import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ZTag from '@/components/z/ZTag.vue'
 import ZTooltip from '@/components/z/ZTooltip.vue'
-import type { FilePatch, Party, TruckFile } from '@/api/autoTransit'
+import { UPLOAD_ACCEPT, type FileKind, type FilePatch, type Party, type TruckFile } from '@/api/autoTransit'
 import { formatNumberIn } from '@/ui/number'
 import FileChip from './FileChip.vue'
-import { dateText, type TruckRights } from './truckView'
+import { MISSING_UPLOAD, dateText, type TruckRights } from './truckView'
 
 // Партия машины (макет 2): номер и получатель, состояние декларации («Не подана» / «Подана» / «ТД № …»),
 // инвойс, места и брутто, стоимость, назначение; файлы партии и пунктиром — недостающие по блокерам; действия по правам.
+// Загрузка прямо в партию (как в макете): пунктирный чип «нет …» — кнопка, открывает выбор файла / камеру и грузит
+// с видом этого чипа; «+ файл» — сначала вид из короткого меню. Файлы идут той же очередью, что и остальные.
 const props = defineProps<{
   party: Party
   parties: Party[]
@@ -20,6 +23,8 @@ const props = defineProps<{
   rights: TruckRights
   canDeleteThis: boolean
   busy?: boolean
+  /** Загрузку сейчас начать нельзя (идёт другая правка). Пока идёт сама очередь — можно: она подхватит файлы. */
+  uploadDisabled?: boolean
 }>()
 const emit = defineEmits<{
   edit: [party: Party]
@@ -30,6 +35,7 @@ const emit = defineEmits<{
   download: [file: TruckFile]
   patchFile: [file: TruckFile, patch: FilePatch]
   removeFile: [file: TruckFile]
+  upload: [party: Party, files: File[], kind: FileKind, stamped: boolean]
 }>()
 const { t, locale } = useI18n()
 const P = 'broker.autoTransit.party'
@@ -62,6 +68,30 @@ const canSubmit = computed(() => props.rights.submit && !submitted.value)
 const canUnsubmit = computed(() => props.rights.submit && submitted.value && !hasTd.value)
 const canTd = computed(() => props.rights.td && submitted.value)
 const interest = computed(() => (props.party.importInterestAtUtc ? props.party.importInterestContact?.trim() ?? '' : null))
+
+// ---- Загрузка в партию ----
+const UPLOAD_KINDS: FileKind[] = ['invoice', 'packingList', 'cmr', 'td', 'other']
+const kindItems = computed<ZDropdownItem[]>(() => UPLOAD_KINDS.map((k) => ({ key: k, label: t(`broker.autoTransit.file.kind.${k}`) })))
+const picker = ref<HTMLInputElement | null>(null)
+let pending: { kind: FileKind; stamped: boolean } | null = null
+const pickFor = (kind: FileKind, stamped = false) => {
+  if (props.uploadDisabled || !props.rights.upload) return
+  pending = { kind, stamped }
+  picker.value?.click()
+}
+const onMissing = (code: string) => {
+  const m = MISSING_UPLOAD[code]
+  if (m) pickFor(m.kind, !!m.stamped)
+}
+const onPicked = (e: Event) => {
+  const el = e.target as HTMLInputElement
+  const files = Array.from(el.files ?? [])
+  el.value = ''
+  const p = pending
+  pending = null
+  if (p && files.length) emit('upload', props.party, files, p.kind, p.stamped)
+}
+const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPLOAD[code]
 </script>
 
 <template>
@@ -113,17 +143,43 @@ const interest = computed(() => (props.party.importInterestAtUtc ? props.party.i
           @remove="emit('removeFile', $event)"
         />
       </li>
-      <li
-        v-for="code in missing"
-        :key="code"
-        class="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-row border border-dashed border-gold-line bg-gold-soft px-2.5 text-xs text-gold-ink"
-        :data-party-missing="code"
-      >
-        <PhWarningCircle :size="14" aria-hidden="true" class="shrink-0" />
-        <span class="min-w-0 truncate">{{ t(`broker.autoTransit.blocker.${code}`) }}</span>
+      <li v-for="code in missing" :key="code" class="min-w-0 max-w-full">
+        <button
+          v-if="missingUploadable(code)"
+          type="button"
+          class="inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-row border border-dashed border-gold-line bg-gold-soft px-2.5 font-sans text-xs text-gold-ink outline-hidden hover:border-gold focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-60 max-sm:min-h-11"
+          :disabled="uploadDisabled"
+          :aria-label="t(`${P}.missingUpload`, { what: t(`broker.autoTransit.blocker.${code}`) })"
+          :data-party-missing="code"
+          @click="onMissing(code)"
+        >
+          <PhWarningCircle :size="14" aria-hidden="true" class="shrink-0" />
+          <span class="min-w-0 truncate">{{ t(`broker.autoTransit.blocker.${code}`) }}</span>
+          <span class="inline-flex shrink-0 items-center gap-1 font-semibold" aria-hidden="true">· <PhCamera :size="14" />{{ t(`${P}.missingAction`) }}</span>
+        </button>
+        <span
+          v-else
+          class="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-row border border-dashed border-gold-line bg-gold-soft px-2.5 text-xs text-gold-ink"
+          :data-party-missing="code"
+        >
+          <PhWarningCircle :size="14" aria-hidden="true" class="shrink-0" />
+          <span class="min-w-0 truncate">{{ t(`broker.autoTransit.blocker.${code}`) }}</span>
+        </span>
       </li>
     </ul>
     <p v-else class="m-0 text-xs text-ink-3">{{ t(`${P}.noFiles`) }}</p>
+    <input
+      v-if="rights.upload"
+      ref="picker"
+      type="file"
+      class="hidden"
+      tabindex="-1"
+      aria-hidden="true"
+      multiple
+      :accept="UPLOAD_ACCEPT"
+      data-party-upload-input
+      @change="onPicked"
+    >
 
     <div class="flex flex-wrap items-center gap-2">
       <ZButton v-if="rights.editParty" size="sm" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-edit @click="emit('edit', party)">{{ t(`${P}.edit`) }}</ZButton>
@@ -137,6 +193,11 @@ const interest = computed(() => (props.party.importInterestAtUtc ? props.party.i
       </template>
       <ZButton v-if="canUnsubmit" size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-unsubmit @click="emit('unsubmit', party)">{{ t(`${P}.unsubmit`) }}</ZButton>
       <ZButton v-if="canTd" size="sm" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-td @click="emit('td', party)">{{ t(`${P}.tdNumber`) }}</ZButton>
+      <ZDropdown v-if="rights.upload" :items="kindItems" @select="pickFor($event as FileKind)">
+        <ZButton size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :disabled="uploadDisabled" :aria-label="t(`${P}.addFileLabel`, { n: party.number })" data-party-add-file>
+          <PhPlus :size="14" aria-hidden="true" />{{ t(`${P}.addFile`) }}
+        </ZButton>
+      </ZDropdown>
       <ZButton v-if="canDeleteThis" size="sm" variant="danger-ghost" class="ml-auto max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-delete @click="emit('remove', party)">{{ t(`${P}.delete`) }}</ZButton>
     </div>
     <p v-if="canSubmit && rights.submitLocked" class="m-0 text-xs text-muted sm:hidden" data-party-submit-hint>{{ t(`${P}.submitLocked`) }}</p>

@@ -7,7 +7,8 @@ import type { Primary } from './truckView'
 
 // Главная кнопка следующего этапа (макет 3: одна большая кнопка). На компьютере — в шапке; на телефоне страница
 // ставит её последней и липкой снизу (с отступом безопасной зоны), рядом — «Сфотографировать» под большой палец.
-// Действия нет — вместо кнопки текст причины («Ждёт декларанта: подано 1 из 3»).
+// Действия нет — вместо кнопки текст причины («Ждёт декларанта: подано 1 из 3»). Полоса тянется на поля оболочки
+// (--shell-main-px, ShellFrame) — край в край при любой ширине.
 defineProps<{ primary: Primary; busy?: boolean; loading?: boolean; canUpload?: boolean }>()
 const emit = defineEmits<{ act: []; photos: [files: File[]] }>()
 const { t } = useI18n()
@@ -23,7 +24,7 @@ const onCamera = (e: Event) => {
 
 <template>
   <div
-    class="flex min-w-0 items-center gap-2 max-lg:sticky max-lg:bottom-0 max-lg:z-[5] max-lg:-mx-4 max-lg:border-t max-lg:border-line max-lg:bg-surface max-lg:px-4 max-lg:pt-3 max-lg:pb-[max(12px,env(safe-area-inset-bottom))]"
+    class="flex min-w-0 items-center gap-2 max-lg:sticky max-lg:bottom-0 max-lg:z-[5] max-lg:mx-[calc(var(--shell-main-px,1rem)*-1)] max-lg:border-t max-lg:border-line max-lg:bg-surface max-lg:px-(--shell-main-px,1rem) max-lg:pt-3 max-lg:pb-[max(12px,env(safe-area-inset-bottom))]"
     data-primary-bar
   >
     <ZButton

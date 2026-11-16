@@ -297,6 +297,15 @@ describe('AutoTransitPublicPage — «Оформить импорт»', () => {
     expect(text()).not.toContain('Мы свяжемся')
   })
 
+  it('429 — «Слишком много запросов», а не «Не удалось загрузить»', async () => {
+    api.publicImportInterest.mockRejectedValue(httpError(429))
+    await mount()
+    await field().setValue('user@example.com')
+    await w.get('[data-import] form').trigger('submit')
+    await flushPromises()
+    expect(w.get('[data-import-error]').text()).toBe('Слишком много запросов. Попробуйте через минуту.')
+  })
+
   it('400 без текста — запасное «Укажите телефон или почту»', async () => {
     api.publicImportInterest.mockRejectedValue(httpError(400, {}))
     await mount()

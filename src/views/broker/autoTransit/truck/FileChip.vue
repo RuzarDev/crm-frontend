@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { PhDotsThreeVertical, PhEye, PhFileText, PhSealCheck } from '@phosphor-icons/vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import type { FileKind, FilePatch, Party, TruckFile } from '@/api/autoTransit'
+import { recipientSees, truckLevelHidden } from './truckView'
 
 // Файл машины или партии: имя и вид, клик — скачать (blob с входом). Меню (граница или декларант): вид, партия /
 // общий документ, «с печатью» (инвойс и упаковочный лист), «виден получателю», удалить (декларант или РОП).
@@ -21,7 +22,10 @@ const KINDS: FileKind[] = ['invoice', 'packingList', 'cmr', 'driverPassport', 'v
 const kindLabel = (k: FileKind) => t(`broker.autoTransit.file.kind.${k}`)
 const stampable = computed(() => props.file.kind === 'invoice' || props.file.kind === 'packingList')
 const hasMenu = computed(() => props.canPatch || props.canDelete)
-// Общий документ машины, видимый получателям, открыт всем получателям машины (на деле — CMR).
+// Глаз и галочка — как на деле (решение 32): файл партии виден по признаку, общий документ машины — только CMR,
+// и тогда всем получателям машины. Общий не-CMR получатели не видят: пункт выключен с подсказкой «перенесите в партию».
+const sees = computed(() => recipientSees(props.file))
+const lockedHidden = computed(() => truckLevelHidden(props.file))
 const visibleText = computed(() => t(props.file.partyId ? 'broker.autoTransit.file.visible' : 'broker.autoTransit.file.visibleAll'))
 
 const items = computed<ZDropdownItem[]>(() => {
@@ -33,7 +37,10 @@ const items = computed<ZDropdownItem[]>(() => {
       key: `party:${p.id}`, label: t('broker.autoTransit.file.toParty', { n: p.number }), checked: props.file.partyId === p.id,
     }))
     if (stampable.value) out.push({ key: 'stamped', label: t('broker.autoTransit.file.stamped'), checked: props.file.stamped, divider: true })
-    out.push({ key: 'visible', label: visibleText.value, checked: props.file.visibleToRecipient, divider: !stampable.value })
+    // Выключенный пункт — обычный (не переключатель): у переключателя ZDropdown не показывает подсказку.
+    out.push(lockedHidden.value
+      ? { key: 'visible', label: t('broker.autoTransit.file.visible'), disabled: true, hint: t('broker.autoTransit.file.truckLevelHidden'), divider: !stampable.value }
+      : { key: 'visible', label: visibleText.value, checked: sees.value, divider: !stampable.value })
   }
   if (props.canDelete) out.push({ key: 'delete', label: t('broker.autoTransit.file.delete'), danger: true, divider: out.length > 0 })
   return out
@@ -44,7 +51,10 @@ const onSelect = (key: string) => {
   const f = props.file
   if (key === 'delete') return emit('remove', f)
   if (key === 'stamped') return emit('patch', f, { stamped: !f.stamped })
-  if (key === 'visible') return emit('patch', f, { visibleToRecipient: !f.visibleToRecipient })
+  if (key === 'visible') {
+    if (lockedHidden.value) return
+    return emit('patch', f, { visibleToRecipient: !sees.value })
+  }
   if (key.startsWith('kind:')) {
     const kind = key.slice(5) as FileKind
     if (kind !== f.kind) emit('patch', f, { kind })
@@ -75,7 +85,7 @@ const onSelect = (key: string) => {
       <span class="shrink-0 text-muted" data-file-kind>· {{ kindLabel(file.kind) }}</span>
       <PhSealCheck v-if="file.stamped" :size="14" class="shrink-0 text-tone-done-fg" :aria-label="t('broker.autoTransit.file.stamped')" data-file-stamped />
     </button>
-    <span v-if="file.visibleToRecipient" class="inline-flex shrink-0 items-center pr-2 text-zircon-ink" :title="visibleText" data-file-visible>
+    <span v-if="sees" class="inline-flex shrink-0 items-center pr-2 text-zircon-ink" :title="visibleText" data-file-visible>
       <PhEye :size="14" aria-hidden="true" />
       <span class="sr-only">{{ visibleText }}</span>
     </span>

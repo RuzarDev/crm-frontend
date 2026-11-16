@@ -4,7 +4,8 @@ import { useI18n } from 'vue-i18n'
 import type { Blocker, Party } from '@/api/autoTransit'
 import { blockerText } from './truckView'
 
-// «Что мешает» (макет 2, справа): тексты всех блокеров сервера, у блокера партии — её номер. Пусто — не показывается.
+// «Что мешает» (макет 2, справа): блокеры текущего этапа (страница передаёт currentBlockers), у блокера партии — её
+// номер. Пусто (в том числе на этапах 3–4) — не показывается.
 const props = defineProps<{ blockers: Blocker[]; parties: Party[] }>()
 const { t } = useI18n()
 const lines = computed(() => props.blockers.map((b, i) => ({ key: `${b.code}:${b.partyId ?? ''}:${i}`, code: b.code, text: blockerText(b, props, t) })))

@@ -11,7 +11,7 @@ import { listPath } from '@/shell/listReturn'
 import { pluralForm } from '@/views/broker/list'
 import PlateTag from '../PlateTag.vue'
 import { stateTag } from '../autoTransit'
-import { ddmm, hhmm, type TruckRights } from './truckView'
+import { ddmm, hhmm, lastMachineMark, type TruckRights } from './truckView'
 
 // Шапка карточки (макет 2): крошка к списку (с его фильтром), номер тягача и прицеп, строка «водитель · перевозчик ·
 // заехала · пост», метки (консолидация, состояние), «Ссылки получателям» и меню «…».
@@ -40,7 +40,8 @@ const items = computed<ZDropdownItem[]>(() => {
   const r = props.rights
   const out: ZDropdownItem[] = []
   if (r.editTruck) out.push({ key: 'edit', label: t(`${T}.edit`) })
-  if (r.undo) out.push({ key: 'undo', label: t(`${T}.undoLast`) })
+  // Отменять нечего (нет отметки машины 2–4 или 7; этап 1 не отменяется) — пункта нет.
+  if (r.undo && lastMachineMark(props.card) != null) out.push({ key: 'undo', label: t(`${T}.undoLast`) })
   if (r.problem) out.push({ key: 'problem', label: t(`${T}.problem`), divider: out.length > 0 })
   if (r.clearProblem) out.push({ key: 'clearProblem', label: t(`${T}.clearProblem`), divider: out.length > 0 })
   if (r.archive) out.push({ key: 'archive', label: t(`${T}.archive`), danger: true, divider: out.length > 0 })

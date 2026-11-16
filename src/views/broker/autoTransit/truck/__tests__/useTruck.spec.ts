@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountWithI18n } from '@/test/mountWithI18n'
-import { card, httpError } from './truckFixtures'
+import { card, file, httpError } from './truckFixtures'
 
 const api = vi.hoisted(() => ({
-  getTruck: vi.fn(), markStage: vi.fn(), undoStage: vi.fn(), updateParty: vi.fn(), uploadFile: vi.fn(), setTd: vi.fn(),
+  getTruck: vi.fn(), markStage: vi.fn(), undoStage: vi.fn(), updateParty: vi.fn(), uploadFile: vi.fn(), setTd: vi.fn(), patchFile: vi.fn(),
 }))
 vi.mock('@/api/autoTransit', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api/autoTransit')>()), ...api }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
@@ -127,17 +127,40 @@ describe('useTruck: загрузка файлов', () => {
     expect(api.uploadFile.mock.calls[0]![2]).toEqual({ partyId: 'p1' })
     expect(res).toEqual({ done: 2, failed: ['b.jpg'] })
     expect(s.uploading.value).toBeNull()
-    expect(msg.success).toHaveBeenCalledWith('Загружено файлов: 2')
+    // Загружены прямо в партию без вида («прочее») — один тост партии: получателю не видны.
+    expect(msg.success).toHaveBeenCalledWith('Загружено файлов в партию 1: 2. Получателю не видны')
+  })
+
+  it('без партии — «Загружено файлов: N»; в партию с видом для получателя — «Видны получателю партии N»', async () => {
+    await mountHost()
+    api.uploadFile.mockResolvedValue(card())
+    await s.upload([new File(['x'], 'a.jpg')])
+    expect(msg.success).toHaveBeenLastCalledWith('Загружено файлов: 1')
+    await s.upload([new File(['x'], 'b.jpg'), new File(['x'], 'c.jpg')], { partyId: 'p1', kind: 'packingList' })
+    expect(api.uploadFile.mock.calls.at(-1)![2]).toEqual({ partyId: 'p1', kind: 'packingList' })
+    expect(msg.success).toHaveBeenLastCalledWith('Загружено файлов: 2. Видны получателю партии 1')
+    expect(msg.success).toHaveBeenCalledTimes(2)
+  })
+
+  it('чип «нет инвойса с печатью»: после загрузки новый инвойс отмечается «с печатью»', async () => {
+    await mountHost()
+    api.uploadFile.mockResolvedValue(card({ files: [file('f1', { kind: 'driverPassport' }), file('n1', { kind: 'invoice', partyId: 'p1' })] }))
+    api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind: 'driverPassport' }), file('n1', { kind: 'invoice', partyId: 'p1', stamped: true })] }))
+    await s.upload([new File(['x'], 'inv.jpg')], { partyId: 'p1', kind: 'invoice' }, { stamped: true })
+    await flushPromises()
+    expect(api.uploadFile.mock.calls[0]![2]).toEqual({ partyId: 'p1', kind: 'invoice' })
+    expect(api.patchFile).toHaveBeenCalledTimes(1)
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'n1', { stamped: true })
   })
 
   it('файл больше лимита пропускается с тостом', async () => {
     await mountHost()
     const big = new File(['x'], 'big.pdf')
-    Object.defineProperty(big, 'size', { value: 101 * 1024 * 1024 })
+    Object.defineProperty(big, 'size', { value: 31 * 1024 * 1024 })
     const res = await s.upload([big])
     expect(api.uploadFile).not.toHaveBeenCalled()
     expect(res).toEqual({ done: 0, failed: [] })
-    expect(msg.error).toHaveBeenCalledWith('Файл big.pdf больше 100 МБ')
+    expect(msg.error).toHaveBeenCalledWith('Файл big.pdf больше 30 МБ')
   })
 })
 

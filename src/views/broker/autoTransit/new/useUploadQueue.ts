@@ -27,8 +27,11 @@ export interface QueueItem {
   /** Можно ли повторить (после 409 archived — нельзя). */
   retryable: boolean
   file: File
-  opts: UploadOpts
+  opts: QueueOpts
 }
+
+/** Параметры загрузки файла и пометки экрана: stamped — после загрузки отметить «с печатью» (чип «нет инвойса с печатью»). */
+export type QueueOpts = UploadOpts & { stamped?: boolean }
 
 export type RejectReason = 'tooBig' | 'badType'
 export interface Rejected { name: string; reason: RejectReason }
@@ -45,8 +48,8 @@ export interface RunSummary {
 }
 
 export interface UploadQueueOptions {
-  /** Свежая карточка после каждого успешного файла. */
-  onCard?: (card: TruckCard) => void
+  /** Свежая карточка после каждого успешного файла (и строка этого файла). */
+  onCard?: (card: TruckCard, item: QueueItem) => void
   /** Проход очереди закончился (не зовётся после размонтирования). */
   onIdle?: (summary: RunSummary) => void
 }
@@ -93,7 +96,7 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
   const doneCount = computed(() => count('done'))
 
   /** Добавить файлы в очередь (не запускает её). Возвращает отклонённые при выборе: тип и размер. */
-  const add = (files: File[], opts: UploadOpts = {}): Rejected[] => {
+  const add = (files: File[], opts: QueueOpts = {}): Rejected[] => {
     const rejected: Rejected[] = []
     for (const f of files) {
       const reason = rejectReason(f)
@@ -144,14 +147,16 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
         it.errorKey = null
         it.errorText = null
         try {
-          const c = await api.uploadFile(id, it.file, it.opts, (fraction) => {
+          const { partyId, kind } = it.opts
+          const up: UploadOpts = { ...(partyId ? { partyId } : {}), ...(kind ? { kind } : {}) }
+          const c = await api.uploadFile(id, it.file, up, (fraction) => {
             if (alive && it.state === 'uploading') it.progress = Math.round(fraction * 100)
           }, { silent: true })
           if (!alive) break
           it.state = 'done'
           it.progress = 100
           done++
-          o.onCard?.(c)
+          o.onCard?.(c, it)
         } catch (e) {
           if (!alive) break
           const status = (e as HttpError)?.response?.status

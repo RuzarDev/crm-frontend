@@ -68,7 +68,12 @@ const setField = (k: Key, v: string) => {
 }
 const errors = ref<Record<string, string>>({})
 
-const detailsOpen = ref(true)
+// Телефон (< 640 px): «Данные машины» свёрнуты с самого начала — сверху номер и фото; раскрываются по нажатию
+// и сами, если 400 пришла по одному из этих полей. Шире — открыты, пока подстановка не заполнила их с прошлого раза.
+const phone = (() => {
+  try { return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 639.98px)').matches } catch { return false }
+})()
+const detailsOpen = ref(!phone)
 let detailsToggled = false
 const toggleDetails = () => {
   detailsToggled = true
@@ -102,7 +107,7 @@ const applyPrefill = (p: PrefillDto) => {
     }
   }
   remembered.value = hasMemory(p) ? p : null
-  if (!detailsToggled) detailsOpen.value = !remembered.value
+  if (!detailsToggled) detailsOpen.value = !remembered.value && !phone
   existingId.value = p.existingTruckId
 }
 const runPrefill = async (value: string) => {
@@ -229,6 +234,9 @@ const submit = async () => {
     const res = (e as { response?: { status?: number; data?: Record<string, unknown> } })?.response
     if (!res) {
       netError.value = true
+      // «Завести ещё одну» действует на один запрос: ответ мог потеряться, а машина — создаться. Повторный «Готово»
+      // уходит без force и получит 409 duplicate_plate → «Загрузить фото в эту машину», а не вторую машину.
+      force.value = false
     } else if (res.status === 409 && res.data?.code === 'duplicate_plate') {
       existingId.value = typeof res.data.existingTruckId === 'string' ? res.data.existingTruckId : null
       force.value = false
@@ -319,7 +327,8 @@ onBeforeUnmount(() => {
       </ZEmpty>
     </div>
 
-    <div v-else class="flex min-w-0 flex-col gap-4" data-new-form>
+    <!-- Липкая полоса снизу (телефон) не закрывает последнюю строку очереди и ошибки: запас прокрутки под ней. -->
+    <div v-else class="flex min-w-0 flex-col gap-4 max-sm:[&_[data-upload-row]]:scroll-mb-40 max-sm:[&_[role=alert]]:scroll-mb-40" data-new-form>
       <ZField :label="t(`${F}.plate`)" required :error="errors.plate">
         <ZInput
           ref="plateInput"
@@ -355,6 +364,18 @@ onBeforeUnmount(() => {
         <span class="break-words">{{ memoryText }}</span>
       </ZAlert>
 
+      <section class="flex min-w-0 flex-col gap-2.5" aria-labelledby="new-truck-photos" data-new-photos>
+        <h2 id="new-truck-photos" class="m-0 text-sm font-semibold text-ink">{{ t(`${N}.photos`) }}</h2>
+        <UploadButtons size-check-off :disabled="creating" @files="onFiles" />
+        <ul v-if="rejected.length" role="alert" class="m-0 flex list-none flex-col gap-1 p-0 text-xs text-tone-danger-fg" data-new-rejected>
+          <li v-for="r in rejected" :key="r.name" class="min-w-0 break-words">
+            {{ r.reason === 'tooBig' ? t(`${N}.rejected.tooBig`, { name: r.name, mb: MAX_MB }) : t(`${N}.rejected.badType`, { name: r.name }) }}
+          </li>
+        </ul>
+        <UploadQueueList :items="queue.items.value" can-remove @retry="queue.retry" @remove="removeFile" />
+        <p v-if="!queue.items.value.length" class="m-0 text-xs text-ink-3">{{ t(`${N}.photosHint`) }}</p>
+      </section>
+
       <section class="flex min-w-0 flex-col gap-3" data-new-details>
         <button
           type="button"
@@ -371,17 +392,17 @@ onBeforeUnmount(() => {
           <ZField :label="t(`${F}.trailerPlate`)" :error="errors.trailerPlate">
             <ZInput :value="form.trailerPlate" mono :maxlength="30" :disabled="locked" autocomplete="off" autocapitalize="characters" class="[&_input]:uppercase" data-new-field="trailerPlate" @update:value="setField('trailerPlate', $event)" />
           </ZField>
-          <ZField :label="t(`${F}.trailerCountry`)" :error="errors.trailerCountry">
-            <ZCombobox :value="form.trailerCountry" :options="countries" mono allow-clear :disabled="locked" @update:value="setField('trailerCountry', $event)" />
-          </ZField>
           <ZField :label="t(`${F}.driverName`)" :error="errors.driverName">
             <ZInput :value="form.driverName" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="driverName" @update:value="setField('driverName', $event)" />
           </ZField>
-          <ZField :label="t(`${F}.driverDoc`)" :error="errors.driverDoc">
-            <ZInput :value="form.driverDoc" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="driverDoc" @update:value="setField('driverDoc', $event)" />
-          </ZField>
           <ZField :label="t(`${F}.carrierName`)" :error="errors.carrierName">
             <ZInput :value="form.carrierName" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="carrierName" @update:value="setField('carrierName', $event)" />
+          </ZField>
+          <ZField :label="t(`${F}.trailerCountry`)" :error="errors.trailerCountry">
+            <ZCombobox :value="form.trailerCountry" :options="countries" mono allow-clear :disabled="locked" @update:value="setField('trailerCountry', $event)" />
+          </ZField>
+          <ZField :label="t(`${F}.driverDoc`)" :error="errors.driverDoc">
+            <ZInput :value="form.driverDoc" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="driverDoc" @update:value="setField('driverDoc', $event)" />
           </ZField>
           <ZField :label="t(`${F}.carrierCountry`)" :error="errors.carrierCountry">
             <ZCombobox :value="form.carrierCountry" :options="countries" mono allow-clear :disabled="locked" @update:value="setField('carrierCountry', $event)" />
@@ -398,24 +419,13 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="flex min-w-0 flex-col gap-2.5" aria-labelledby="new-truck-photos" data-new-photos>
-        <h2 id="new-truck-photos" class="m-0 text-sm font-semibold text-ink">{{ t(`${N}.photos`) }}</h2>
-        <UploadButtons size-check-off :disabled="creating" @files="onFiles" />
-        <ul v-if="rejected.length" role="alert" class="m-0 flex list-none flex-col gap-1 p-0 text-xs text-tone-danger-fg" data-new-rejected>
-          <li v-for="r in rejected" :key="r.name" class="min-w-0 break-words">
-            {{ r.reason === 'tooBig' ? t(`${N}.rejected.tooBig`, { name: r.name, mb: MAX_MB }) : t(`${N}.rejected.badType`, { name: r.name }) }}
-          </li>
-        </ul>
-        <UploadQueueList :items="queue.items.value" can-remove @retry="queue.retry" @remove="removeFile" />
-        <p v-if="!queue.items.value.length" class="m-0 text-xs text-ink-3">{{ t(`${N}.photosHint`) }}</p>
-      </section>
-
-      <ZAlert v-if="failedMode" type="error" show-icon :message="t(`${N}.partial`, { n: queue.failedCount.value })" data-new-partial>
-        {{ t(`${N}.partialHint`) }}
+      <!-- «Нажмите Повторить» — только когда есть что повторять (после 409 archived / выпуска повторить нельзя). -->
+      <ZAlert v-if="failedMode" type="error" show-icon :message="t(`${N}.partial`, { n: queue.failedCount.value })" class="scroll-mb-40" data-new-partial>
+        <template v-if="retryableCount">{{ t(`${N}.partialHint`) }}</template>
       </ZAlert>
 
       <div
-        class="flex min-w-0 flex-col gap-2 max-sm:sticky max-sm:bottom-0 max-sm:z-[5] max-sm:-mx-4 max-sm:border-t max-sm:border-line max-sm:bg-surface max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(12px,env(safe-area-inset-bottom))]"
+        class="flex min-w-0 flex-col gap-2 max-sm:sticky max-sm:bottom-0 max-sm:z-[5] max-sm:mx-[calc(var(--shell-main-px,1rem)*-1)] max-sm:border-t max-sm:border-line max-sm:bg-surface max-sm:px-(--shell-main-px,1rem) max-sm:pt-3 max-sm:pb-[max(12px,env(safe-area-inset-bottom))]"
         data-new-bar
       >
         <p v-if="netError && !created" class="m-0 text-sm text-tone-danger-fg" role="alert" data-new-net-error>{{ t(`${N}.netError`) }}</p>

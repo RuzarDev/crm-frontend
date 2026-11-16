@@ -105,7 +105,7 @@ describe('useUploadQueue', () => {
   it('при выборе отклоняет файлы больше лимита и недопустимого типа — в очередь они не попадают', () => {
     mountQueue()
     const big = new File(['x'], 'big.pdf')
-    Object.defineProperty(big, 'size', { value: 101 * 1024 * 1024 })
+    Object.defineProperty(big, 'size', { value: 31 * 1024 * 1024 })
     const rejected = q.add([big, ...files('virus.exe', 'ok.HEIC', 'list.xlsx')])
     expect(rejected).toEqual([{ name: 'big.pdf', reason: 'tooBig' }, { name: 'virus.exe', reason: 'badType' }])
     expect(q.items.value.map((i) => i.name)).toEqual(['ok.HEIC', 'list.xlsx'])

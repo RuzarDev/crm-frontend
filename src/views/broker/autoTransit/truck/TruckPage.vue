@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhPlus } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
@@ -10,6 +10,7 @@ import ZPanel from '@/components/z/ZPanel.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import type { PartyFields } from '@/api/autoTransit'
 import { listPath } from '@/shell/listReturn'
+import { useConfirm } from '@/ui/confirm'
 import { sinceText } from '../autoTransit'
 import BlockersPanel from './BlockersPanel.vue'
 import LinksModal from './LinksModal.vue'
@@ -26,7 +27,7 @@ import TruckJournal from './TruckJournal.vue'
 import UploadButtons from './UploadButtons.vue'
 import { useTruck } from './useTruck'
 import { useTruckActions } from './useTruckActions'
-import { missingFiles, railCells, rights as rightsOf } from './truckView'
+import { currentBlockers, missingFiles, railCells, rights as rightsOf } from './truckView'
 
 // Карточка машины «Авто-транзита» (задача 9, макеты 2 и 3): шапка, этапы, партии, «Что мешает», общие документы,
 // журнал. ≥ 1024 px — две колонки; уже — одна (что мешает, этапы, партии, документы, журнал), главная кнопка —
@@ -61,6 +62,31 @@ const readonlyNote = computed(() => {
 })
 const saveParty = (fields: PartyFields) => (a.partyEditing.value ? s.updateParty(a.partyEditing.value.id, fields) : s.addParty(fields))
 const backTo = computed(() => listPath('autoTransit', '/auto-transit'))
+const blockersNow = computed(() => (card.value ? currentBlockers(card.value) : []))
+
+// ---- Уход, пока файлы грузятся: после ухода очередь встаёт, оставшиеся не загрузятся — спрашиваем (как «Новая машина») ----
+const { confirm } = useConfirm()
+const uploadingNow = () => s.queue.pending.value > 0
+const askLeave = () => {
+  if (!uploadingNow()) return true
+  return confirm({
+    title: t('broker.autoTransit.new.leave.title'),
+    content: t('broker.autoTransit.new.leave.uploading'),
+    okText: t('broker.autoTransit.new.leave.ok'),
+    cancelText: t('broker.autoTransit.new.leave.stay'),
+    danger: true,
+  })
+}
+onBeforeRouteLeave(askLeave)
+// Другая машина в той же странице (тот же компонент): очередь этой машины тоже встанет.
+onBeforeRouteUpdate((to, from) => (to.params.id === from.params.id ? true : askLeave()))
+const onBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (!uploadingNow()) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => { window.addEventListener('beforeunload', onBeforeUnload) })
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnload) })
 </script>
 
 <template>
@@ -131,6 +157,7 @@ const backTo = computed(() => listPath('autoTransit', '/auto-transit'))
                 :rights="rights"
                 :can-delete-this="canDeleteParty(!!p.submittedAtUtc)"
                 :busy="busy"
+                :upload-disabled="busy && !uploading"
                 @edit="a.editParty"
                 @submit="a.submit"
                 @unsubmit="a.unsubmit"
@@ -139,12 +166,13 @@ const backTo = computed(() => listPath('autoTransit', '/auto-transit'))
                 @download="a.download"
                 @patch-file="a.patchFile"
                 @remove-file="a.removeFile"
+                @upload="a.uploadToParty"
               />
             </div>
           </ZPanel>
         </div>
         <div class="flex min-w-0 flex-col gap-4 max-lg:contents">
-          <BlockersPanel class="max-lg:order-1" :blockers="card.blockers" :parties="card.parties" />
+          <BlockersPanel class="max-lg:order-1" :blockers="blockersNow" :parties="card.parties" />
           <ZPanel class="max-lg:order-4">
             <TruckFiles
               :files="filesOf(null)"

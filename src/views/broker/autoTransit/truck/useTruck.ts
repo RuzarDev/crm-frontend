@@ -4,7 +4,8 @@ import * as api from '@/api/autoTransit'
 import type { FilePatch, PartyFields, TdBody, TruckCard, TruckFields, UploadOpts } from '@/api/autoTransit'
 import { message } from '@/ui/message'
 import { errorKey } from '../autoTransit'
-import { useUploadQueue } from '../new/useUploadQueue'
+import { useUploadQueue, type QueueItem } from '../new/useUploadQueue'
+import { RECIPIENT_KINDS } from './truckView'
 
 // Карточка машины «Авто-транзита» (задача 9): загрузка, фоновое перечитывание раз в 60 с, все правки.
 // Каждая правка отвечает свежей карточкой целиком — она заменяет card. Ошибки:
@@ -74,12 +75,42 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   }
 
   // Очередь загрузки: ответ каждого файла — свежая карточка (если это всё ещё та же машина). По окончании прохода —
-  // тост «Загружено файлов: N», загруженные строки убираются (файлы уже в документах), упавшие остаются с «Повторить».
+  // тост «Загружено файлов: N» (для загруженных прямо в партию — один тост на партию: видны ли они её получателю),
+  // загруженные строки убираются (файлы уже в документах), упавшие остаются с «Повторить».
+  // Файлы с пометкой stamped (чип «нет инвойса с печатью») отмечаются «с печатью» после прохода — по одному.
+  const toStamp: string[] = []
+  const partyToasts = (done: QueueItem[]) => {
+    const byParty = new Map<string, QueueItem[]>()
+    for (const it of done) if (it.opts.partyId) byParty.set(it.opts.partyId, [...(byParty.get(it.opts.partyId) ?? []), it])
+    for (const [partyId, list] of byParty) {
+      const p = card.value?.parties.find((x) => x.id === partyId)
+      if (!p) continue
+      const visible = list.filter((i) => !!i.opts.kind && RECIPIENT_KINDS.includes(i.opts.kind)).length
+      const n = list.length
+      const key = visible === n ? 'partyUploadedVisible' : visible === 0 ? 'partyUploadedHidden' : 'partyUploadedSome'
+      message.success(t(`broker.autoTransit.file.${key}`, { n, p: p.number, v: visible }))
+    }
+  }
   const queue = useUploadQueue(() => id() || null, {
-    onCard: (c) => { if (alive && c.id === id()) setCard(c) },
+    onCard: (c, it) => {
+      if (!alive || c.id !== id()) return
+      const before = new Set((card.value?.files ?? []).map((f) => f.id))
+      setCard(c)
+      if (it.opts.stamped) {
+        const added = c.files.find((f) => !before.has(f.id) && f.kind === it.opts.kind && (f.partyId ?? null) === (it.opts.partyId ?? null))
+        if (added && !added.stamped) toStamp.push(added.id)
+      }
+    },
     onIdle: (sum) => {
-      if (sum.done) message.success(t('broker.autoTransit.file.uploaded', { n: sum.done }))
+      const done = queue.items.value.filter((i) => i.state === 'done')
+      const general = done.filter((i) => !i.opts.partyId).length
+      if (general) message.success(t('broker.autoTransit.file.uploaded', { n: general }))
+      partyToasts(done)
       queue.clearDone()
+      const stamps = toStamp.splice(0)
+      if (stamps.length && alive && !sum.stopCode) {
+        void (async () => { for (const fileId of stamps) if ((await patchFile(fileId, { stamped: true })).ok === false) break })()
+      }
       if (sum.stopCode) {
         message.error(t(errorKey(sum.stopCode)))
         if (alive) void reload()
@@ -177,8 +208,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
    * Загрузить файлы через очередь: по одному, последовательно; ошибка одного не останавливает остальные. Файлы больше
    * лимита или недопустимого типа не попадают в очередь (тост). Пока идёт проход, новые файлы он подхватит сам.
    */
-  const upload = async (files: File[], o: UploadOpts = {}): Promise<UploadSummary> => {
-    for (const r of queue.add(files, o)) {
+  const upload = async (files: File[], o: UploadOpts = {}, extra: { stamped?: boolean } = {}): Promise<UploadSummary> => {
+    for (const r of queue.add(files, { ...o, ...(extra.stamped ? { stamped: true } : {}) })) {
       message.error(r.reason === 'tooBig'
         ? t('broker.autoTransit.file.tooBig', { name: r.name, mb: Math.round(api.UPLOAD_MAX_BYTES / 1024 / 1024) })
         : t('broker.autoTransit.upload.badType', { name: r.name }))

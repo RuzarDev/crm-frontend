@@ -162,7 +162,7 @@ async function submitInterest() {
     thanks.value = true
     try { sessionStorage.setItem(keyOf(token.value), '1') } catch { /* не критично */ }
   } catch (e) {
-    contactError.value = serverContactError(e) ?? tx('error.network')
+    contactError.value = serverContactError(e) ?? (statusOf(e) === 429 ? tx('error.tooMany') : tx('error.network'))
   } finally {
     submitting.value = false
   }

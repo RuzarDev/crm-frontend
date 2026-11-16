@@ -253,10 +253,10 @@ describe('NewTruckPage: создание и файлы', () => {
   it('файл больше лимита и недопустимый тип отклоняются при выборе строкой рядом', async () => {
     await mountPage()
     const big = new File(['x'], 'big.jpg')
-    Object.defineProperty(big, 'size', { value: 101 * 1024 * 1024 })
+    Object.defineProperty(big, 'size', { value: 31 * 1024 * 1024 })
     await pick([big, ...files('notes.txt', 'ok.jpg')])
     const rejected = w.find('[data-new-rejected]').text()
-    expect(rejected).toContain('big.jpg: больше 100 МБ, не добавлен')
+    expect(rejected).toContain('big.jpg: больше 30 МБ, не добавлен')
     expect(rejected).toContain('notes.txt: такой файл не принимается')
     expect(w.findAll('[data-upload-name]').map((x) => x.text())).toEqual(['ok.jpg'])
   })
@@ -491,5 +491,83 @@ describe('NewTruckPage: уход со страницы', () => {
     await flushPromises()
     expect(api.uploadFile).toHaveBeenCalledTimes(1)
     expect(router.currentRoute.value.fullPath).toBe('/auto-transit')
+  })
+})
+
+describe('NewTruckPage: «Завести ещё одну» и обрыв связи', () => {
+  it('«Завести ещё одну» → сеть пропала → повторный «Готово» уходит без force (409, а не вторая машина)', async () => {
+    await mountPage()
+    api.prefill.mockResolvedValue({ ...NONE, existingTruckId: 'x1' })
+    await typePlate('A 318 KZ 19')
+    await w.find('[data-new-add-another]').trigger('click')
+    api.createTruck.mockRejectedValueOnce(new Error('Network Error'))
+    await submit()
+    expect(api.createTruck.mock.calls[0]![0].force).toBe(true)
+    expect(w.find('[data-new-net-error]').exists()).toBe(true)
+    api.createTruck.mockRejectedValueOnce(httpError(409, { code: 'duplicate_plate', existingTruckId: 'x2' }))
+    await submit()
+    expect(api.createTruck).toHaveBeenCalledTimes(2)
+    expect(api.createTruck.mock.calls[1]![0].force).toBeUndefined()
+    expect(w.find('[data-new-duplicate]').exists()).toBe(true)
+  })
+})
+
+describe('NewTruckPage: порядок экрана', () => {
+  it('фото сразу под номером и подсказками, данные машины — ниже, поля в порядке прицеп, водитель, перевозчик…', async () => {
+    await mountPage()
+    const form = w.find('[data-new-form]').element
+    const photos = form.querySelector('[data-new-photos]')!
+    const details = form.querySelector('[data-new-details]')!
+    expect(photos.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const labels = Array.from(form.querySelectorAll('[data-new-details-body] label')).map((l) => l.textContent?.replace(/\s+/g, ' ').trim())
+    expect(labels.map((l) => l?.replace(/\*$/, '').trim())).toEqual([
+      'Госномер прицепа', 'Водитель', 'Перевозчик', 'Страна прицепа', 'Документ водителя', 'Страна перевозчика',
+      'БИН / рег. номер перевозчика', 'Страна тягача', 'Код поста',
+    ])
+  })
+
+  it('телефон: «Данные машины» свёрнуты сразу; открываются по нажатию и сами при 400 по их полю', async () => {
+    const mm = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    const prev = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: mm })
+    try {
+      await mountPage()
+      expect(w.find('[data-new-details-body]').isVisible()).toBe(false)
+      await typePlate('A 318 KZ 19') // подстановка без памяти на телефоне не раскрывает
+      expect(w.find('[data-new-details-body]').isVisible()).toBe(false)
+      await w.find('[data-new-details-toggle]').trigger('click')
+      expect(w.find('[data-new-details-body]').isVisible()).toBe(true)
+      await w.find('[data-new-details-toggle]').trigger('click')
+      api.createTruck.mockRejectedValue(httpError(400, { errors: { DriverName: ['Не больше 300 знаков'] } }))
+      await submit()
+      expect(w.find('[data-new-details-body]').isVisible()).toBe(true)
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: prev })
+    }
+  })
+})
+
+describe('NewTruckPage: привязка к машине, в которую грузить нельзя', () => {
+  it('все упавшие не повторить (машина в архиве) — без «нажмите Повторить»', async () => {
+    await mountPage()
+    api.prefill.mockResolvedValue({ ...NONE, existingTruckId: 'x1' })
+    await typePlate('A 318 KZ 19')
+    await pick(files('a.jpg'))
+    api.uploadFile.mockRejectedValueOnce(httpError(409, { code: 'archived' }))
+    await w.find('[data-new-bind-existing]').trigger('click')
+    await flushPromises()
+    expect(w.find('[data-new-partial]').exists()).toBe(true)
+    expect(w.find('[data-new-partial]').text()).not.toContain('Повторить')
+    expect(w.find('[data-new-retry-all]').exists()).toBe(false)
+  })
+
+  it('повторить можно — подсказка есть', async () => {
+    await mountPage()
+    await typePlate('A 318 KZ 19')
+    await pick(files('a.jpg'))
+    api.createTruck.mockResolvedValue(card({ id: 'n1' }))
+    api.uploadFile.mockRejectedValue(new Error('Network Error'))
+    await submit()
+    expect(w.find('[data-new-partial]').text()).toContain('нажмите «Повторить»')
   })
 })

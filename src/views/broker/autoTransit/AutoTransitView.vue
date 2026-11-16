@@ -157,13 +157,16 @@ const openNew = () => { void router.push({ name: 'auto-transit-new' }) }
     </template>
 
     <div class="flex min-w-0 flex-col gap-3">
-      <ListSearch
-        :value="searchText"
-        :debounce="300"
-        :placeholder="t('broker.autoTransit.list.search')"
-        @update:value="searchText = $event"
-        @search="onSearch"
-      />
+      <!-- Обёртка-строка: flex-basis 15rem у ListSearch рассчитан на строку инструментов; в колонке он стал бы высотой. -->
+      <div class="flex min-w-0" data-at-search>
+        <ListSearch
+          :value="searchText"
+          :debounce="300"
+          :placeholder="t('broker.autoTransit.list.search')"
+          @update:value="searchText = $event"
+          @search="onSearch"
+        />
+      </div>
       <div class="min-w-0 max-w-full overflow-x-auto">
         <ZSegmented
           :value="filter"
