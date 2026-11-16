@@ -630,7 +630,24 @@ export default {
   // Общий набор брокерских списков (редизайн, волна 3а).
   broker: {
     autoTransit: {
-      list: { title: 'Auto transit' },
+      list: {
+        title: 'Auto transit',
+        newTruck: 'New truck',
+        search: 'Plate, recipient, TD number…',
+        filtersLabel: 'Truck filter',
+        listLabel: 'Truck list',
+        trailer: 'trailer {plate}',
+        parties: { one: '{n} batch', few: '{n} batches', many: '{n} batches' },
+        places: { one: '{n} package', few: '{n} packages', many: '{n} packages' },
+        kg: '{n} kg',
+        driver: 'driver {name}',
+        stageOf: 'Stage {n} of {total} · {name}',
+        allDone: 'All stages complete',
+        stalled: 'no movement',
+        empty: 'No trucks yet',
+        emptyHint: 'Add a truck when it arrives at the border.',
+        emptyHintReadonly: 'Trucks appear here once border staff add them.',
+      },
       new: { title: 'New truck' },
       truck: { title: 'Truck' },
       public: { title: 'Your cargo' },

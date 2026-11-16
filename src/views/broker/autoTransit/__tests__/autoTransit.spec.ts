@@ -178,8 +178,8 @@ describe('autoTransit: переводы', () => {
   it('английский и казахский переведены', () => {
     // Числовые шаблоны вида «{n} мин» и коды могут совпадать по форме; осмысленные тексты — нет.
     const same = (o: Record<string, string>) => Object.keys(r).filter((key) => /[А-Яа-яЁё]{4,}/.test(r[key]!) && o[key] === r[key])
-    // По-казахски эти слова пишутся так же: «Авто-транзит» (как группа прав), «Декларация».
-    expect(same(k)).toEqual(['list.title', 'stage.declaration'])
+    // По-казахски эти слова пишутся так же: «Авто-транзит» (как группа прав), «Декларация», «{n} партия» (без склонения).
+    expect(same(k).sort()).toEqual(['list.parties.one', 'list.title', 'stage.declaration'])
     expect(same(e)).toEqual([])
     expect(Object.values(e).filter((v) => /[А-Яа-яЁё]/.test(v))).toEqual([])
   })

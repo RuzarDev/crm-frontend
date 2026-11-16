@@ -630,7 +630,24 @@ export default {
   // Общий набор брокерских списков (редизайн, волна 3а).
   broker: {
     autoTransit: {
-      list: { title: 'Авто-транзит' },
+      list: {
+        title: 'Авто-транзит',
+        newTruck: 'Жаңа көлік',
+        search: 'Мемлекеттік нөмір, алушы, ТД нөмірі…',
+        filtersLabel: 'Көліктерді іріктеу',
+        listLabel: 'Көліктер тізімі',
+        trailer: 'тіркеме {plate}',
+        parties: { one: '{n} партия', few: '{n} партия', many: '{n} партия' },
+        places: { one: '{n} орын', few: '{n} орын', many: '{n} орын' },
+        kg: '{n} кг',
+        driver: 'жүргізуші {name}',
+        stageOf: 'Кезең {n}/{total} · {name}',
+        allDone: 'Барлық кезең өтті',
+        stalled: 'қозғалыссыз',
+        empty: 'Әзірге көлік жоқ',
+        emptyHint: 'Көлік шекараға келгенде оны қосыңыз.',
+        emptyHintReadonly: 'Шекарадағы қызметкерлер қосқанда көліктер осында пайда болады.',
+      },
       new: { title: 'Жаңа көлік' },
       truck: { title: 'Көлік' },
       public: { title: 'Сіздің жүгіңіз' },
