@@ -139,8 +139,13 @@ export function useTruckActions(s: TruckState, id: () => string) {
   // но тост говорит, кому теперь виден файл, и даёт «Скрыть» / «Показать»; перенос всегда скрывает файл.
   // «Виден» — как на деле (recipientSees, решение 32): общий документ машины получатели видят, только если это CMR.
   const F = 'broker.autoTransit.file'
+  // Все «Показать» / «Скрыть» из тостов идут сюда: общий документ машины не CMR показать нельзя — получатели его
+  // не увидят (решение 32), поэтому visibleToRecipient: true для него не отправляется ни из одного тоста.
   const setVisible = (truckId: string, fileId: string, visible: boolean) => {
-    if (sameTruck(truckId)) void s.patchFile(fileId, { visibleToRecipient: visible }, truckId)
+    if (!sameTruck(truckId)) return
+    const now = s.card.value?.files.find((x) => x.id === fileId)
+    if (visible && now && truckLevelHidden(now)) return
+    void s.patchFile(fileId, { visibleToRecipient: visible }, truckId)
   }
   /** «В партию N» из тоста: пользователь сам попросил — файл вида для получателя сразу виден получателю этой партии. */
   const moveToParty = async (truckId: string, f: TruckFile, p: Party) => {
@@ -161,7 +166,11 @@ export function useTruckActions(s: TruckState, id: () => string) {
     // Общий документ машины не CMR получатели не увидят при любом признаке: подсказываем перенести в партию
     // (только для видов, которые получателю нужны; паспорта и «прочее» — без шума).
     if (truckLevelHidden(f)) {
-      if (!RECIPIENT_KINDS.includes(f.kind)) return
+      if (!RECIPIENT_KINDS.includes(f.kind)) {
+        // Был виден (общий CMR) и стал скрыт сменой вида — сказать об этом; показать такой файл нельзя.
+        if (recipientSees(before)) message.info({ content: t(`${F}.hiddenAll`), duration: UNDO_TOAST_SEC })
+        return
+      }
       const one = c.parties.length === 1 ? c.parties[0]! : null
       message.info({
         content: t(`${F}.truckLevelHidden`),
@@ -195,8 +204,14 @@ export function useTruckActions(s: TruckState, id: () => string) {
       const res = await s.patchFile(f.id, { partyId: patch.partyId, visibleToRecipient: false }, truckId)
       if (res.ok) {
         // Кнопка говорит, кому файл станет виден: получателю своей партии или всем получателям машины.
+        // Общий документ не CMR получатели не увидят — «Показать» не предлагаем, подсказываем перенести в партию.
         const moved = res.card.files.find((x) => x.id === f.id)
-        const p = moved?.partyId ? res.card.parties.find((x) => x.id === moved.partyId) : undefined
+        if (!moved) return
+        if (truckLevelHidden(moved)) {
+          message.info({ content: t(`${F}.truckLevelHidden`), duration: UNDO_TOAST_SEC })
+          return
+        }
+        const p = moved.partyId ? res.card.parties.find((x) => x.id === moved.partyId) : undefined
         message.info({
           content: t(`${F}.movedHidden`),
           duration: UNDO_TOAST_SEC,

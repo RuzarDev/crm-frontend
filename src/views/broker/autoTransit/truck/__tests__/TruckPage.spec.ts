@@ -669,6 +669,42 @@ describe('TruckPage: общий документ машины не CMR полу�
     expect(lastInfo()).toMatchObject({ content: 'Виден получателю партии 1', action: { label: 'Скрыть' } })
   })
 
+  it('инвойс из партии в общие документы — подсказка «перенесите в партию», без «Показать»; true не уходит', async () => {
+    const two = [party('p1', 1), party('p2', 2)]
+    await mountWith(card({ parties: two, files: [file('f2', { kind: 'invoice', partyId: 'p1', visibleToRecipient: true })] }))
+    api.patchFile.mockResolvedValue(card({ parties: two, files: [file('f2', { kind: 'invoice', partyId: null })] }))
+    await openFileMenu('f2')
+    item('Общий документ машины')!.click()
+    await flushPromises()
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'f2', { partyId: null, visibleToRecipient: false })
+    expect(lastInfo().content).toBe('Общий документ получатели не видят — перенесите его в партию')
+    expect(lastInfo().action).toBeUndefined()
+    expect(api.patchFile.mock.calls.some((c) => (c[2] as { visibleToRecipient?: boolean }).visibleToRecipient === true)).toBe(false)
+  })
+
+  it('CMR из партии в общие документы — «Показать всем получателям машины» шлёт visibleToRecipient: true', async () => {
+    const two = [party('p1', 1), party('p2', 2)]
+    await mountWith(card({ parties: two, files: [file('f2', { kind: 'cmr', partyId: 'p1', visibleToRecipient: true })] }))
+    api.patchFile.mockResolvedValue(card({ parties: two, files: [file('f2', { kind: 'cmr', partyId: null })] }))
+    await openFileMenu('f2')
+    item('Общий документ машины')!.click()
+    await flushPromises()
+    expect(lastInfo()).toMatchObject({ content: 'Файл перенесён и скрыт от получателей', action: { label: 'Показать всем получателям машины' } })
+    lastInfo().action.onClick()
+    await flushPromises()
+    expect(api.patchFile).toHaveBeenLastCalledWith('t1', 'f2', { visibleToRecipient: true })
+  })
+
+  it('общий CMR, видимый получателям, сменил вид на «Прочее» — тост «Скрыт от получателей» без «Показать»', async () => {
+    await mountWith(card({ files: [file('f1', { kind: 'cmr', visibleToRecipient: true })] }))
+    api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind: 'other', visibleToRecipient: false })] }))
+    await openFileMenu('f1')
+    item('Прочее')!.click()
+    await flushPromises()
+    expect(lastInfo().content).toBe('Скрыт от получателей')
+    expect(lastInfo().action).toBeUndefined()
+  })
+
   it('при нескольких партиях — подсказка без кнопки (переносят через меню файла)', async () => {
     const two = [party('p1', 1), party('p2', 2)]
     await mountWith(card({ parties: two, files: [file('f1', { kind: 'other' })] }))

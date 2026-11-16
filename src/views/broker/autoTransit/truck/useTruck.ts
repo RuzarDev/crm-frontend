@@ -78,7 +78,9 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   // тост «Загружено файлов: N» (для загруженных прямо в партию — один тост на партию: видны ли они её получателю),
   // загруженные строки убираются (файлы уже в документах), упавшие остаются с «Повторить».
   // Файлы с пометкой stamped (чип «нет инвойса с печатью») отмечаются «с печатью» после прохода — по одному.
-  const toStamp: string[] = []
+  const toStamp: { truckId: string; fileId: string }[] = []
+  /** Имя без расширения: сервер переименовывает HEIC в JPG. */
+  const stem = (name: string) => name.replace(/\.[^.]*$/, '').trim().toLowerCase()
   const partyToasts = (done: QueueItem[]) => {
     const byParty = new Map<string, QueueItem[]>()
     for (const it of done) if (it.opts.partyId) byParty.set(it.opts.partyId, [...(byParty.get(it.opts.partyId) ?? []), it])
@@ -91,25 +93,39 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
       message.success(t(`broker.autoTransit.file.${key}`, { n, p: p.number, v: visible }))
     }
   }
+  /**
+   * Тосты о загруженных и уборка их строк. Зовётся в конце прохода, а также при уходе с карточки и переходе на
+   * другую машину посреди прохода (onIdle тогда не придёт) — чтобы уже загруженные в партию файлы, ставшие видимыми
+   * получателю, не прошли молча.
+   */
+  const announceDone = () => {
+    const done = queue.items.value.filter((i) => i.state === 'done')
+    if (!done.length) return
+    const general = done.filter((i) => !i.opts.partyId).length
+    if (general) message.success(t('broker.autoTransit.file.uploaded', { n: general }))
+    partyToasts(done)
+    queue.clearDone()
+  }
   const queue = useUploadQueue(() => id() || null, {
     onCard: (c, it) => {
       if (!alive || c.id !== id()) return
       const before = new Set((card.value?.files ?? []).map((f) => f.id))
       setCard(c)
       if (it.opts.stamped) {
-        const added = c.files.find((f) => !before.has(f.id) && f.kind === it.opts.kind && (f.partyId ?? null) === (it.opts.partyId ?? null))
-        if (added && !added.stamped) toStamp.push(added.id)
+        // Новый файл этой строки: тот же вид, партия и имя (чужой инвойс, пришедший в том же ответе, не отмечаем).
+        const added = c.files.find((f) => !before.has(f.id) && f.kind === it.opts.kind
+          && (f.partyId ?? null) === (it.opts.partyId ?? null) && stem(f.fileName) === stem(it.name))
+        if (added && !added.stamped) toStamp.push({ truckId: c.id, fileId: added.id })
       }
     },
     onIdle: (sum) => {
-      const done = queue.items.value.filter((i) => i.state === 'done')
-      const general = done.filter((i) => !i.opts.partyId).length
-      if (general) message.success(t('broker.autoTransit.file.uploaded', { n: general }))
-      partyToasts(done)
-      queue.clearDone()
+      announceDone()
       const stamps = toStamp.splice(0)
       if (stamps.length && alive && !sum.stopCode) {
-        void (async () => { for (const fileId of stamps) if ((await patchFile(fileId, { stamped: true })).ok === false) break })()
+        // run() с truckId: ушли на другую машину — запрос не уходит.
+        void (async () => {
+          for (const st of stamps) if ((await patchFile(st.fileId, { stamped: true }, st.truckId)).ok === false) break
+        })()
       }
       if (sum.stopCode) {
         message.error(t(errorKey(sum.stopCode)))
@@ -245,6 +261,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
 
   watch(id, (next, prev) => {
     if (next === prev) return
+    announceDone()
+    toStamp.splice(0)
     queue.clear()
     card.value = null
     notFound.value = false
@@ -259,6 +277,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
       document.addEventListener('visibilitychange', onVisibility)
     })
     onBeforeUnmount(() => {
+      // Ушли посреди прохода (подтвердили уход): сказать о том, что уже загружено и кому видно.
+      announceDone()
       alive = false
       stop()
       document.removeEventListener('visibilitychange', onVisibility)

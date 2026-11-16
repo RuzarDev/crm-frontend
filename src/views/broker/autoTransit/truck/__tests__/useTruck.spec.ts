@@ -144,13 +144,54 @@ describe('useTruck: загрузка файлов', () => {
 
   it('чип «нет инвойса с печатью»: после загрузки новый инвойс отмечается «с печатью»', async () => {
     await mountHost()
-    api.uploadFile.mockResolvedValue(card({ files: [file('f1', { kind: 'driverPassport' }), file('n1', { kind: 'invoice', partyId: 'p1' })] }))
+    api.uploadFile.mockResolvedValue(card({ files: [file('f1', { kind: 'driverPassport' }), file('n1', { kind: 'invoice', partyId: 'p1', fileName: 'inv.jpg' })] }))
     api.patchFile.mockResolvedValue(card({ files: [file('f1', { kind: 'driverPassport' }), file('n1', { kind: 'invoice', partyId: 'p1', stamped: true })] }))
     await s.upload([new File(['x'], 'inv.jpg')], { partyId: 'p1', kind: 'invoice' }, { stamped: true })
     await flushPromises()
     expect(api.uploadFile.mock.calls[0]![2]).toEqual({ partyId: 'p1', kind: 'invoice' })
     expect(api.patchFile).toHaveBeenCalledTimes(1)
     expect(api.patchFile).toHaveBeenCalledWith('t1', 'n1', { stamped: true })
+  })
+
+  it('«с печатью»: свой файл — по имени (HEIC → JPG), чужой инвойс того же ответа не отмечается', async () => {
+    await mountHost()
+    api.uploadFile.mockResolvedValue(card({ files: [
+      file('other', { kind: 'invoice', partyId: 'p1', fileName: 'чужой-инвойс.pdf' }),
+      file('mine', { kind: 'invoice', partyId: 'p1', fileName: 'IMG_0042.jpg' }),
+    ] }))
+    api.patchFile.mockResolvedValue(card())
+    await s.upload([new File(['x'], 'IMG_0042.HEIC')], { partyId: 'p1', kind: 'invoice' }, { stamped: true })
+    await flushPromises()
+    expect(api.patchFile).toHaveBeenCalledTimes(1)
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'mine', { stamped: true })
+  })
+
+  it('«с печатью» не уходит, если уже открыта другая машина', async () => {
+    await mountHost()
+    let release!: () => void
+    api.uploadFile.mockImplementationOnce(() => new Promise((res) => {
+      release = () => res(card({ files: [file('mine', { kind: 'invoice', partyId: 'p1', fileName: 'inv.jpg' })] }))
+    }))
+    const run = s.upload([new File(['x'], 'inv.jpg')], { partyId: 'p1', kind: 'invoice' }, { stamped: true })
+    await flushPromises()
+    release()
+    api.getTruck.mockResolvedValue(card({ id: 't2' }))
+    id.value = 't2'
+    await run
+    await flushPromises()
+    expect(api.patchFile).not.toHaveBeenCalled()
+  })
+
+  it('ушли с карточки посреди загрузки в партию — уже загруженные объявляются: кому видны', async () => {
+    await mountHost()
+    api.uploadFile.mockResolvedValueOnce(card())
+    api.uploadFile.mockImplementationOnce(() => new Promise(() => {}))
+    void s.upload([new File(['x'], 'a.pdf'), new File(['x'], 'b.pdf')], { partyId: 'p1', kind: 'invoice' })
+    await flushPromises()
+    expect(msg.success).not.toHaveBeenCalled()
+    w.unmount()
+    expect(msg.success).toHaveBeenCalledTimes(1)
+    expect(msg.success).toHaveBeenCalledWith('Загружено файлов: 1. Видны получателю партии 1')
   })
 
   it('файл больше лимита пропускается с тостом', async () => {
