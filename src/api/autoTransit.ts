@@ -196,9 +196,9 @@ export const listTrucks = async (params: TruckListParams = {}, opts: { silent?: 
 export const prefill = async (plate: string): Promise<PrefillDto> =>
   (await apiClient.get<PrefillDto>('/auto-transit/prefill', { params: { plate }, silent: true })).data
 
-/** 409 duplicate_plate (existingTruckId) экран показывает сам — без общего тоста. */
+/** 409 duplicate_plate (existingTruckId) и 400 под полями экран показывает сам — без общего тоста. */
 export const createTruck = (body: TruckCreate): Promise<TruckCard> =>
-  card(apiClient.post<TruckCard>('/auto-transit', body, { silentStatuses: [409] }))
+  card(apiClient.post<TruckCard>('/auto-transit', body, { silentStatuses: FORM_SILENT }))
 
 /** opts.silent — фоновое перечитывание карточки (раз в 60 с): без общего тоста. */
 export const getTruck = (id: string, opts: { silent?: boolean } = {}): Promise<TruckCard> =>
@@ -261,7 +261,8 @@ export const uploadFile = (id: string, file: File, opts: UploadOpts = {}, onProg
   const timeout = uploadTimeoutFor(file)
   return heicQueued(file, () => card(apiClient.post<TruckCard>(`${base(id)}/files`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    silentStatuses: [409],
+    // 400 и 409 очередь загрузки пишет в строке файла сама.
+    silentStatuses: FORM_SILENT,
     ...(timeout ? { timeout } : {}),
     ...(onProgress ? { onUploadProgress: (e: { loaded: number; total?: number }) => { if (e.total) onProgress(Math.min(1, e.loaded / e.total)) } } : {}),
   })))

@@ -464,10 +464,20 @@ describe('TruckPage: видимость файла получателю меня
     await openFileMenu('f2')
     await pickItem('В партию 2')
     expect(api.patchFile).toHaveBeenCalledWith('t1', 'f2', { partyId: 'p2', visibleToRecipient: false })
-    expect(lastInfo()).toMatchObject({ content: 'Файл перенесён и скрыт от получателей', action: { label: 'Показать' } })
+    expect(lastInfo()).toMatchObject({ content: 'Файл перенесён и скрыт от получателей', action: { label: 'Показать получателю партии 2' } })
     lastInfo().action.onClick()
     await flushPromises()
     expect(api.patchFile).toHaveBeenLastCalledWith('t1', 'f2', { visibleToRecipient: true })
+  })
+
+  it('перенос из партии в общие документы — «Показать всем получателям машины»', async () => {
+    const two = [party('p1', 1), party('p2', 2)]
+    await mountWith(card({ parties: two, files: [file('f2', { kind: 'cmr', partyId: 'p1' })] }))
+    api.patchFile.mockResolvedValue(card({ parties: two, files: [file('f2', { kind: 'cmr', partyId: null })] }))
+    await openFileMenu('f2')
+    await pickItem('Общий документ машины')
+    expect(api.patchFile).toHaveBeenCalledWith('t1', 'f2', { partyId: null, visibleToRecipient: false })
+    expect(lastInfo()).toMatchObject({ content: 'Файл перенесён и скрыт от получателей', action: { label: 'Показать всем получателям машины' } })
   })
 
   it('кнопка в тосте файла после перехода на другую машину ничего не шлёт', async () => {
@@ -520,5 +530,52 @@ describe('TruckPage: «Отменить» в тосте отметки прив�
     toast.action.onClick()
     await flushPromises()
     expect(api.undoStage).not.toHaveBeenCalled()
+  })
+})
+
+describe('TruckPage: «Добавить фото / файл» идёт через очередь', () => {
+  const pick = async (list: File[]) => {
+    const input = w.find<HTMLInputElement>('[data-truck-files] [data-upload-camera-input]')
+    Object.defineProperty(input.element, 'files', { value: list, configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+  }
+
+  it('строки файлов с состоянием; упавший — «Повторить»; ответ заменяет карточку; загруженные строки убираются', async () => {
+    await mountWith(card({ files: [] }))
+    let release!: () => void
+    api.uploadFile.mockImplementationOnce((_id: string, _f: File, _o: unknown, onProgress: (x: number) => void) => {
+      onProgress(0.3)
+      return new Promise((res) => { release = () => res(card({ files: [file('fa', { fileName: 'a.jpg' })] })) })
+    })
+    api.uploadFile.mockRejectedValueOnce(new Error('Network Error'))
+    await pick([new File(['x'], 'a.jpg'), new File(['x'], 'b.jpg')])
+    expect(w.find('[data-upload-row="uploading"]').text()).toContain('Загружается: 30 %')
+    expect(w.find('[data-upload-row="queued"] [data-upload-name]').text()).toBe('b.jpg')
+    expect(w.find('[data-upload-progress]').text()).toContain('Загрузка 1 из 2: a.jpg')
+    release()
+    await flushPromises()
+    expect(api.uploadFile).toHaveBeenCalledTimes(2)
+    expect(w.find('[data-file-chip="fa"]').exists()).toBe(true)
+    expect(w.findAll('[data-upload-row]')).toHaveLength(1)
+    expect(w.find('[data-upload-row="failed"]').text()).toContain('b.jpg')
+    expect(msg.success).toHaveBeenCalledWith('Загружено файлов: 1')
+
+    api.uploadFile.mockResolvedValueOnce(card({ files: [file('fa', { fileName: 'a.jpg' }), file('fb', { fileName: 'b.jpg' })] }))
+    await w.find('[data-upload-retry]').trigger('click')
+    await flushPromises()
+    expect(api.uploadFile).toHaveBeenCalledTimes(3)
+    expect(w.find('[data-file-chip="fb"]').exists()).toBe(true)
+    expect(w.findAll('[data-upload-row]')).toHaveLength(0)
+  })
+
+  it('409 archived — очередь встаёт, тост и перечитывание карточки', async () => {
+    await mountWith(card({ files: [] }))
+    api.uploadFile.mockRejectedValueOnce(httpError(409, { code: 'archived' }))
+    api.getTruck.mockResolvedValue(card({ status: 'archived', files: [] }))
+    await pick([new File(['x'], 'a.jpg'), new File(['x'], 'b.jpg')])
+    expect(api.uploadFile).toHaveBeenCalledTimes(1)
+    expect(msg.error).toHaveBeenCalledWith('Машина в архиве.')
+    expect(api.getTruck).toHaveBeenCalledTimes(2)
   })
 })

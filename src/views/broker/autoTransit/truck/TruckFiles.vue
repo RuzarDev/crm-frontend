@@ -2,15 +2,16 @@
 import { useI18n } from 'vue-i18n'
 import { PhDownloadSimple } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
-import ZProgress from '@/components/z/ZProgress.vue'
 import type { FilePatch, Party, TruckFile } from '@/api/autoTransit'
+import UploadQueueList from '../new/UploadQueueList.vue'
+import type { QueueItem } from '../new/useUploadQueue'
 import FileChip from './FileChip.vue'
 import UploadButtons from './UploadButtons.vue'
 import type { UploadProgress } from './useTruck'
 import type { TruckRights } from './truckView'
 
 // Общие документы машины (без партии), «Добавить фото / файл», «Скачать всё» (только когда у машины есть файлы:
-// пустой архив сервер отдаёт 400) и строка хода загрузки.
+// пустой архив сервер отдаёт 400) и строки очереди загрузки (ход каждого файла, «Повторить» у упавших).
 defineProps<{
   files: TruckFile[]
   parties: Party[]
@@ -18,6 +19,8 @@ defineProps<{
   rights: TruckRights
   busy?: boolean
   uploading: UploadProgress | null
+  queue: QueueItem[]
+  failedCount: number
   zipping?: boolean
 }>()
 const emit = defineEmits<{
@@ -26,6 +29,9 @@ const emit = defineEmits<{
   download: [file: TruckFile]
   patch: [file: TruckFile, patch: FilePatch]
   remove: [file: TruckFile]
+  retry: [index: number]
+  retryAll: []
+  dropUpload: [index: number]
 }>()
 const { t } = useI18n()
 </script>
@@ -39,10 +45,13 @@ const { t } = useI18n()
       </ZButton>
     </div>
     <UploadButtons v-if="rights.upload" :disabled="busy && !uploading" :loading="!!uploading" @files="emit('upload', $event)" />
-    <div v-if="uploading" class="flex flex-col gap-1" role="status" data-upload-progress>
-      <span class="min-w-0 truncate text-xs text-ink-2">{{ t('broker.autoTransit.file.uploading', { i: uploading.index, n: uploading.total, name: uploading.name }) }}</span>
-      <ZProgress :percent="Math.round(uploading.fraction * 100)" />
-    </div>
+    <p v-if="uploading" class="m-0 min-w-0 truncate text-xs text-ink-2" role="status" data-upload-progress>
+      {{ t('broker.autoTransit.file.uploading', { i: uploading.index, n: uploading.total, name: uploading.name }) }}
+    </p>
+    <UploadQueueList :items="queue" can-remove @retry="emit('retry', $event)" @remove="emit('dropUpload', $event)" />
+    <ZButton v-if="failedCount > 1 && !uploading" size="sm" class="self-start max-sm:h-11" data-upload-retry-all @click="emit('retryAll')">
+      {{ t('broker.autoTransit.upload.retryAll', { n: failedCount }) }}
+    </ZButton>
     <ul v-if="files.length" role="list" class="m-0 flex min-w-0 list-none flex-wrap gap-1.5 p-0">
       <li v-for="f in files" :key="f.id" class="min-w-0 max-w-full">
         <FileChip

@@ -153,12 +153,17 @@ const backTo = computed(() => listPath('autoTransit', '/auto-transit'))
               :rights="rights"
               :busy="busy"
               :uploading="uploading"
+              :queue="s.queue.items.value"
+              :failed-count="s.queue.failedCount.value"
               :zipping="a.zipping.value"
               @upload="a.upload"
               @zip="a.downloadZip"
               @download="a.download"
               @patch="a.patchFile"
               @remove="a.removeFile"
+              @retry="s.retryUpload"
+              @retry-all="s.retryAllUploads"
+              @drop-upload="s.removeUpload"
             />
           </ZPanel>
           <ZPanel class="max-lg:order-5">

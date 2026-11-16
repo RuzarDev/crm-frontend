@@ -4,13 +4,15 @@ import * as api from '@/api/autoTransit'
 import type { FilePatch, PartyFields, TdBody, TruckCard, TruckFields, UploadOpts } from '@/api/autoTransit'
 import { message } from '@/ui/message'
 import { errorKey } from '../autoTransit'
+import { useUploadQueue } from '../new/useUploadQueue'
 
 // Карточка машины «Авто-транзита» (задача 9): загрузка, фоновое перечитывание раз в 60 с, все правки.
 // Каждая правка отвечает свежей карточкой целиком — она заменяет card. Ошибки:
 //  • 409 { code } — тост t(errorKey(code)) и перечитывание карточки (для conflict текст просит повторить);
 //  • 400 { errors: { поле: [тексты] } } — первая строка каждого поля уходит форме (fieldErrors);
 //  • прочее — общий тост перехватчика (кроме фонового перечитывания: оно silent и пишет только reloadError).
-// Загрузка файлов — одна точка входа upload(files, opts): задача 10 заменит её общей очередью.
+// Загрузка файлов — одна точка входа upload(files, opts) через общую очередь useUploadQueue (задача 10): строки
+// файлов с ходом загрузки и «Повторить» у упавших — queue.
 
 export const POLL_MS = 60_000
 
@@ -59,8 +61,6 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   /** Фоновое перечитывание не удалось — карточка на экране может быть устаревшей. */
   const reloadError = ref(false)
   const pending = ref(0)
-  const busy = computed(() => pending.value > 0)
-  const uploading = ref<UploadProgress | null>(null)
 
   // Поколение карточки: ответ перечитывания, начатого до свежей правки, её не перезапишет.
   let gen = 0
@@ -72,6 +72,29 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
     loadedAt = Date.now()
     reloadError.value = false
   }
+
+  // Очередь загрузки: ответ каждого файла — свежая карточка (если это всё ещё та же машина). По окончании прохода —
+  // тост «Загружено файлов: N», загруженные строки убираются (файлы уже в документах), упавшие остаются с «Повторить».
+  const queue = useUploadQueue(() => id() || null, {
+    onCard: (c) => { if (alive && c.id === id()) setCard(c) },
+    onIdle: (sum) => {
+      if (sum.done) message.success(t('broker.autoTransit.file.uploaded', { n: sum.done }))
+      queue.clearDone()
+      if (sum.stopCode) {
+        message.error(t(errorKey(sum.stopCode)))
+        if (alive) void reload()
+      }
+    },
+  })
+  const busy = computed(() => pending.value > 0 || queue.running.value)
+  /** Ход загрузки текущего файла (для подписи «Загрузка i из n»). */
+  const uploading = computed<UploadProgress | null>(() => {
+    const list = queue.items.value
+    const n = list.findIndex((i) => i.state === 'uploading')
+    if (n < 0) return null
+    const it = list[n]!
+    return { index: n + 1, total: list.length, name: it.name, fraction: it.progress / 100 }
+  })
 
   const reload = async (o: { silent?: boolean } = {}): Promise<void> => {
     const myId = id()
@@ -148,39 +171,26 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   const deleteFile = (fileId: string) => run((i) => api.deleteFile(i, fileId))
 
   /**
-   * Загрузить файлы по одному (один файл — один запрос). Слишком большие пропускаются с тостом,
-   * ошибка одного файла не останавливает остальные. Прогресс — uploading. Задача 10 заменит эту функцию очередью.
+   * Загрузить файлы через очередь: по одному, последовательно; ошибка одного не останавливает остальные. Файлы больше
+   * лимита или недопустимого типа не попадают в очередь (тост). Пока идёт проход, новые файлы он подхватит сам.
    */
   const upload = async (files: File[], o: UploadOpts = {}): Promise<UploadSummary> => {
-    const list = files.filter((f) => {
-      if (f.size <= api.UPLOAD_MAX_BYTES) return true
-      message.error(t('broker.autoTransit.file.tooBig', { name: f.name, mb: Math.round(api.UPLOAD_MAX_BYTES / 1024 / 1024) }))
-      return false
-    })
-    const summary: UploadSummary = { done: 0, failed: [] }
-    if (!list.length) return summary
-    pending.value++
-    try {
-      for (const [n, f] of list.entries()) {
-        if (!alive) break
-        uploading.value = { index: n + 1, total: list.length, name: f.name, fraction: 0 }
-        const res = await run((i) => api.uploadFile(i, f, o, (fraction) => {
-          if (uploading.value) uploading.value = { ...uploading.value, fraction }
-        }))
-        if (res.ok) summary.done++
-        else summary.failed.push(f.name)
-      }
-    } finally {
-      uploading.value = null
-      pending.value--
+    for (const r of queue.add(files, o)) {
+      message.error(r.reason === 'tooBig'
+        ? t('broker.autoTransit.file.tooBig', { name: r.name, mb: Math.round(api.UPLOAD_MAX_BYTES / 1024 / 1024) })
+        : t('broker.autoTransit.upload.badType', { name: r.name }))
     }
-    if (summary.done) message.success(t('broker.autoTransit.file.uploaded', { n: summary.done }))
-    return summary
+    if (!queue.pending.value) return { done: 0, failed: [] }
+    const sum = await queue.start()
+    return { done: sum.done, failed: sum.failed }
   }
+  const retryUpload = (index: number) => { void queue.retry(index) }
+  const retryAllUploads = () => { void queue.retryAll() }
+  const removeUpload = (index: number) => queue.remove(index)
 
   // ---- Фоновое перечитывание: раз в 60 с при видимой вкладке, не при окнах, правках и загрузке ----
   let timer: ReturnType<typeof setInterval> | undefined
-  const canPoll = () => !busy.value && !uploading.value && !opts.paused?.()
+  const canPoll = () => !busy.value && !queue.running.value && !opts.paused?.()
   const tick = () => { if (canPoll()) void reload({ silent: true }) }
   const stop = () => {
     if (timer !== undefined) clearInterval(timer)
@@ -201,6 +211,7 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
 
   watch(id, (next, prev) => {
     if (next === prev) return
+    queue.clear()
     card.value = null
     notFound.value = false
     loadError.value = false
@@ -224,6 +235,7 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
     card, loading, notFound, loadError, reloadError, busy, uploading,
     reload, mark, undo, submit, unsubmit, setTd, setProblem, clearProblem, archive, updateTruck,
     addParty, updateParty, deleteParty, patchFile, deleteFile, upload,
+    queue, retryUpload, retryAllUploads, removeUpload,
   }
 }
 

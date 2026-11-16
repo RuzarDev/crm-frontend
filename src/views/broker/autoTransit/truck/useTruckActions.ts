@@ -162,10 +162,13 @@ export function useTruckActions(s: TruckState, id: () => string) {
       if ((patch.partyId ?? null) === f.partyId) return
       const res = await s.patchFile(f.id, { partyId: patch.partyId, visibleToRecipient: false }, truckId)
       if (res.ok) {
+        // Кнопка говорит, кому файл станет виден: получателю своей партии или всем получателям машины.
+        const moved = res.card.files.find((x) => x.id === f.id)
+        const p = moved?.partyId ? res.card.parties.find((x) => x.id === moved.partyId) : undefined
         message.info({
           content: t(`${F}.movedHidden`),
           duration: UNDO_TOAST_SEC,
-          action: { label: t(`${F}.show`), onClick: () => setVisible(truckId, f.id, true) },
+          action: { label: p ? t(`${F}.showParty`, { n: p.number }) : t(`${F}.showAll`), onClick: () => setVisible(truckId, f.id, true) },
         })
       }
       return

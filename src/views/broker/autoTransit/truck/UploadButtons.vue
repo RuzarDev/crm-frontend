@@ -8,7 +8,8 @@ import { UPLOAD_ACCEPT, UPLOAD_MAX_BYTES } from '@/api/autoTransit'
 
 // «Добавить фото / файл»: несколько файлов, допустимые типы и лимит — из модуля API. На телефоне — две кнопки:
 // «Сфотографировать» (камера, capture) и «Выбрать файлы» (галерея и файлы, без capture).
-defineProps<{ disabled?: boolean; loading?: boolean }>()
+// sizeCheckOff — размер проверяет сам экран и пишет об отказе строкой рядом (страница «Новая машина»), без тоста.
+defineProps<{ disabled?: boolean; loading?: boolean; sizeCheckOff?: boolean }>()
 const emit = defineEmits<{ files: [files: File[]] }>()
 const { t } = useI18n()
 const MAX_MB = Math.round(UPLOAD_MAX_BYTES / 1024 / 1024)
@@ -50,7 +51,7 @@ defineExpose({ openCamera: () => camera.value?.click(), openFiles: () => picker.
       ref="picker"
       multiple
       :accept="UPLOAD_ACCEPT"
-      :max-size-mb="MAX_MB"
+      :max-size-mb="sizeCheckOff ? undefined : MAX_MB"
       :disabled="disabled"
       :loading="loading"
       class="max-sm:[&_button]:h-12 max-sm:[&_button]:w-full"
