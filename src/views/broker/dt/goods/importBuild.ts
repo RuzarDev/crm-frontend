@@ -90,8 +90,23 @@ export function packageKindByWord(text: string | null | undefined, kinds: readon
   if (word === 'carton') return byCode('CT') ?? byName(/картон/i)
   if (word === 'bag') return byCode('BG') ?? byName(/меш[оо]?к|мешк/i)
   if (!kinds.length) return null
-  return (['PX', 'PL'].map((c) => kinds.find((k) => norm(k.code) === c && /паллет|поддон/i.test(k.nameRu ?? ''))?.code).find(Boolean))
-    ?? byName(/паллет|поддон/i)
+  // Поддон — PX (Рек. ООН №21; PL — ведро, 16.11.2026). По названию — только не PL: в старом сиде PL назывался «Паллета»
+  return (kinds.find((k) => norm(k.code) === 'PX')?.code)
+    ?? kinds.find((k) => norm(k.code) !== 'PL' && /паллет|поддон/i.test(k.nameRu ?? ''))?.code ?? null
+}
+
+/** Производитель из гр.2 «X ПО ПОРУЧЕНИЮ Y»: Y — тот, по чьему поручению отправлено (завод/продавец); иначе всё. */
+export function makerOfSender(sender: string): string {
+  const m = /\sПО\s+ПОРУЧЕНИЮ\s+(.+)$/iu.exec(sender)
+  return (m ? m[1] : sender).trim()
+}
+
+/** «SHANGHAI RUIAOJIA MEDICAL TECHNOLOGY CO.,LTD.» → «SHANGHAI RUIAOJIA MEDICAL TECHNOLOGY» (товарный знак, 16.11.2026). */
+export function withoutCompanyForm(name: string): string {
+  const form = /[\s,.;]+(?:CO\.?\s*[,;]?\s*LTD\.?|CO\.?\s*[,;]?\s*LIMITED|COMPANY\s+LIMITED|LIMITED|LTD\.?|LLC|L\.L\.C\.?|INC\.?|CORP(?:ORATION)?\.?|GMBH|S\.?R\.?L\.?|S\.?A\.?|ТОО|ООО)[\s,.;]*$/iu
+  let out = name.trim()
+  for (let i = 0; i < 2 && form.test(out); i++) out = out.replace(form, '').trim()
+  return out.replace(/[\s,.;]+$/u, '') || name.trim()
 }
 
 export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResult {
@@ -142,7 +157,8 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     g.tnvedDescription = codeInfo?.valid ? codeInfo.name : null
 
     // ---- описание: двуязычная ячейка — только русская часть (2.4); только китайский — как есть, с замечанием ----
-    const description = russianPart(r.description)
+    // «… GENERATOR SERIAL NUMBERS:» — подпись к номерам ниже в инвойсе, не описание (16.11.2026)
+    const description = russianPart(r.description)?.replace(/[\s,;]*(?:serial\s+(?:numbers?|nos?\.?)|s\/n|серийн\w*\s+номер\w*)\s*[:：]?\s*$/iu, '') || null
     g.description = upperRu(description)
     if (hasHan(description)) note('han')
     else if (hasHan(r.description)) note('hanDropped')
@@ -164,12 +180,19 @@ export function buildGoods(rows: readonly ImportRow[], ctx: BuildCtx): BuildResu
     row.productSortName = upperRu(r.productSortName)
     row.serialNumbers = upperRu(r.serialNumbers)
     row.invoiceValue = r.value != null && Math.abs(r.value) >= MAX_NUMBER ? null : r.value ?? null
-    // Отправитель — производителем, товарным знаком и маркой, если их нет в документах (настройка организации, 12.11.2026)
+    // Настройка организации «нет производителя — отправитель» (12.11.2026), правило декларанта 16.11.2026:
+    // производитель в документе есть — товарный знак и марка как у него; нет — производитель = отправитель (при
+    // «X ПО ПОРУЧЕНИЮ Y» — Y, по чьему поручению), товарный знак и марка = отправитель без «CO., LTD».
     if (opts.senderAsManufacturer && (!row.manufacturerName || !row.tradeMarkName || !row.productMarkName)) {
-      const sender = upperRu(opts.senderAsManufacturer)
-      row.manufacturerName ||= sender
-      row.tradeMarkName ||= sender
-      row.productMarkName ||= sender
+      if (row.manufacturerName) {
+        row.tradeMarkName ||= row.manufacturerName
+        row.productMarkName ||= row.manufacturerName
+      } else {
+        const sender = upperRu(makerOfSender(opts.senderAsManufacturer)) ?? ''
+        row.manufacturerName = sender
+        row.tradeMarkName ||= withoutCompanyForm(sender)
+        row.productMarkName ||= withoutCompanyForm(sender)
+      }
       note('senderAsManufacturer')
     }
 
