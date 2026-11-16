@@ -179,13 +179,17 @@ export const UPLOAD_MAX_BYTES = DOC_MAX_BYTES
 const enc = encodeURIComponent
 const base = (id: string) => `/auto-transit/${enc(id)}`
 const party = (id: string, partyId: string) => `${base(id)}/parties/${enc(partyId)}`
+// Формы (машина, партия, номер ТД, «Проблема») сами пишут 400 под полем — без общего тоста; 409 — у всех мутаций.
+const FORM_SILENT = [400, 409]
 const card = async (p: Promise<{ data: TruckCard }>): Promise<TruckCard> => (await p).data
 
 // ───────── машины ─────────
 
-export const listTrucks = async (params: TruckListParams = {}): Promise<TruckListResponse> =>
+/** opts.silent — фоновое обновление: ошибку экран показывает плашкой на месте, без общего тоста. */
+export const listTrucks = async (params: TruckListParams = {}, opts: { silent?: boolean } = {}): Promise<TruckListResponse> =>
   (await apiClient.get<TruckListResponse>('/auto-transit', {
     params: { filter: params.filter || undefined, q: params.q?.trim() || undefined, page: params.page && params.page > 1 ? params.page : undefined },
+    ...(opts.silent ? { silent: true } : {}),
   })).data
 
 /** Подстановка по номеру тягача — экран сам решает, что показать: без тоста. */
@@ -196,10 +200,12 @@ export const prefill = async (plate: string): Promise<PrefillDto> =>
 export const createTruck = (body: TruckCreate): Promise<TruckCard> =>
   card(apiClient.post<TruckCard>('/auto-transit', body, { silentStatuses: [409] }))
 
-export const getTruck = (id: string): Promise<TruckCard> => card(apiClient.get<TruckCard>(base(id)))
+/** opts.silent — фоновое перечитывание карточки (раз в 60 с): без общего тоста. */
+export const getTruck = (id: string, opts: { silent?: boolean } = {}): Promise<TruckCard> =>
+  card(apiClient.get<TruckCard>(base(id), opts.silent ? { silent: true } : undefined))
 
 export const updateTruck = (id: string, patch: TruckFields): Promise<TruckCard> =>
-  card(apiClient.put<TruckCard>(base(id), patch, { silentStatuses: [409] }))
+  card(apiClient.put<TruckCard>(base(id), patch, { silentStatuses: FORM_SILENT }))
 
 // ───────── этапы и статус ─────────
 
@@ -211,7 +217,7 @@ export const undoStage = (id: string): Promise<TruckCard> =>
   card(apiClient.post<TruckCard>(`${base(id)}/stages/undo`, undefined, { silentStatuses: [409] }))
 
 export const setProblem = (id: string, note: string): Promise<TruckCard> =>
-  card(apiClient.post<TruckCard>(`${base(id)}/problem`, { note }, { silentStatuses: [409] }))
+  card(apiClient.post<TruckCard>(`${base(id)}/problem`, { note }, { silentStatuses: FORM_SILENT }))
 
 export const clearProblem = (id: string): Promise<TruckCard> =>
   card(apiClient.post<TruckCard>(`${base(id)}/problem/clear`, undefined, { silentStatuses: [409] }))
@@ -222,10 +228,10 @@ export const archiveTruck = (id: string): Promise<TruckCard> =>
 // ───────── партии ─────────
 
 export const addParty = (id: string, body: PartyFields = {}): Promise<TruckCard> =>
-  card(apiClient.post<TruckCard>(`${base(id)}/parties`, body, { silentStatuses: [409] }))
+  card(apiClient.post<TruckCard>(`${base(id)}/parties`, body, { silentStatuses: FORM_SILENT }))
 
 export const updateParty = (id: string, partyId: string, patch: PartyFields): Promise<TruckCard> =>
-  card(apiClient.put<TruckCard>(party(id, partyId), patch, { silentStatuses: [409] }))
+  card(apiClient.put<TruckCard>(party(id, partyId), patch, { silentStatuses: FORM_SILENT }))
 
 export const deleteParty = (id: string, partyId: string): Promise<TruckCard> =>
   card(apiClient.delete<TruckCard>(party(id, partyId), { silentStatuses: [409] }))
@@ -239,7 +245,7 @@ export const unsubmitParty = (id: string, partyId: string): Promise<TruckCard> =
 
 /** Номер и дата ТД; пустой номер очищает. */
 export const setTd = (id: string, partyId: string, body: TdBody): Promise<TruckCard> =>
-  card(apiClient.put<TruckCard>(`${party(id, partyId)}/td`, body, { silentStatuses: [409] }))
+  card(apiClient.put<TruckCard>(`${party(id, partyId)}/td`, body, { silentStatuses: FORM_SILENT }))
 
 // ───────── файлы ─────────
 

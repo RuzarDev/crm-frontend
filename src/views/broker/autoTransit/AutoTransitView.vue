@@ -15,6 +15,7 @@ import ListSearch from '@/components/broker/ListSearch.vue'
 import TruckRow from './TruckRow.vue'
 import { LIST_PAGE_SIZE, listTrucks, type FilterId, type TruckListResponse } from '@/api/autoTransit'
 import { useAuthStore } from '@/stores/auth'
+import { rememberListPath } from '@/shell/listReturn'
 import { FILTERS } from './autoTransit'
 
 // «Авто-транзит» — список машин (задача 8, макет 1): одна строка — одна машина на границе, полоса из семи этапов.
@@ -44,11 +45,13 @@ const loading = ref(false)
 const error = ref(false)
 let loadedAt = 0
 let seq = 0
-const load = async () => {
+// background — таймер и возврат на вкладку: сбой показывает только плашка на месте, без общего тоста.
+const load = async (background = false) => {
   const my = ++seq
   loading.value = true
   try {
-    const res = await listTrucks({ filter: filter.value, q: q.value, page: page.value })
+    const params = { filter: filter.value, q: q.value, page: page.value }
+    const res = await (background ? listTrucks(params, { silent: true }) : listTrucks(params))
     if (my !== seq) return
     data.value = res
     error.value = false
@@ -69,7 +72,12 @@ const pushQuery = (next: { filter?: FilterId; q?: string }) => {
   if (s) query.q = s
   void router.replace({ query })
 }
+// Уход на карточку машины меняет адрес (query пустеет) — список под уходящим экраном не перезапрашиваем.
+const LIST_ROUTE = 'auto-transit'
+// Крошка карточки машины ведёт сюда же, с фильтром и поиском (как «Заявки» в Импорте 40).
+watch(() => route.fullPath, (p) => { if (route.name === LIST_ROUTE) rememberListPath('autoTransit', p) }, { immediate: true })
 watch([filter, q], () => {
+  if (route.name !== LIST_ROUTE) return
   page.value = 1
   void load()
 })
@@ -108,7 +116,7 @@ const stopTimers = () => {
 }
 const startTimers = () => {
   stopTimers()
-  refreshTimer = setInterval(() => { void load() }, REFRESH_MS)
+  refreshTimer = setInterval(() => { void load(true) }, REFRESH_MS)
   clockTimer = setInterval(() => { now.value = new Date() }, CLOCK_MS)
 }
 const onVisibility = () => {
@@ -117,7 +125,7 @@ const onVisibility = () => {
     return
   }
   now.value = new Date()
-  if (Date.now() - loadedAt >= REFRESH_MS) void load()
+  if (Date.now() - loadedAt >= REFRESH_MS) void load(true)
   startTimers()
 }
 onMounted(() => {
@@ -170,7 +178,7 @@ const openNew = () => { void router.push({ name: 'auto-transit-new' }) }
 
     <ZAlert v-if="error" type="error" :message="t('broker.list.loadError')" data-at-error>
       <template #action>
-        <ZButton size="sm" :loading="loading" class="max-sm:h-11" data-at-retry @click="load">{{ t('broker.list.retry') }}</ZButton>
+        <ZButton size="sm" :loading="loading" class="max-sm:h-11" data-at-retry @click="load()">{{ t('broker.list.retry') }}</ZButton>
       </template>
     </ZAlert>
 

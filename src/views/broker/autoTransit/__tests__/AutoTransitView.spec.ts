@@ -293,3 +293,38 @@ describe('AutoTransitView: автообновление', () => {
     expect(api.listTrucks).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('AutoTransitView: фоновое обновление без тоста и уход на машину', () => {
+  it('таймер и возврат на вкладку — silent; первая загрузка и «Повторить» — с общим тостом', async () => {
+    await mountAt()
+    expect(api.listTrucks.mock.calls[0]).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(api.listTrucks.mock.calls[1]![1]).toEqual({ silent: true })
+    hidden = true
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(61_000)
+    hidden = false
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(api.listTrucks.mock.calls[2]![1]).toEqual({ silent: true })
+  })
+
+  it('сбой фонового обновления — только плашка на месте', async () => {
+    await mountAt()
+    api.listTrucks.mockRejectedValueOnce(new Error('net'))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(api.listTrucks.mock.calls.at(-1)![1]).toEqual({ silent: true })
+    expect(w.find('[data-at-retry]').exists()).toBe(true)
+    await w.find('[data-at-retry]').trigger('click')
+    await flushPromises()
+    expect(api.listTrucks.mock.calls.at(-1)).toHaveLength(1)
+  })
+
+  it('переход на карточку машины не перезапрашивает список', async () => {
+    await mountAt('/auto-transit?filter=control')
+    expect(api.listTrucks).toHaveBeenCalledTimes(1)
+    await router.push('/auto-transit/t1')
+    await flushPromises()
+    expect(api.listTrucks).toHaveBeenCalledTimes(1)
+  })
+})
