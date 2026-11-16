@@ -58,7 +58,7 @@ describe('useUploadQueue', () => {
     expect(order).toEqual(['a.jpg', 'b.jpg', 'c.pdf'])
     expect(states()).toEqual(['done', 'failed', 'done'])
     expect(q.items.value[1]!.errorKey).toBe('broker.autoTransit.upload.failed')
-    expect(sum).toEqual({ done: 2, failed: ['b.jpg'], stopCode: null })
+    expect(sum).toEqual({ done: 2, failed: ['b.jpg'], stopCode: null, failedNow: 1 })
     expect(onCard).toHaveBeenCalledTimes(2)
     expect(q.failedCount.value).toBe(1)
     expect(q.doneCount.value).toBe(2)
@@ -99,7 +99,7 @@ describe('useUploadQueue', () => {
     expect(states()).toEqual(['done', 'failed', 'failed', 'failed'])
     expect(q.items.value.slice(1).every((i) => i.errorKey === 'broker.autoTransit.error.archived')).toBe(true)
     expect(sum.stopCode).toBe('archived')
-    expect(onIdle).toHaveBeenCalledWith({ done: 1, failed: ['b.jpg', 'c.jpg', 'd.jpg'], stopCode: 'archived' })
+    expect(onIdle).toHaveBeenCalledWith({ done: 1, failed: ['b.jpg', 'c.jpg', 'd.jpg'], stopCode: 'archived', failedNow: 3 })
   })
 
   it('при выборе отклоняет файлы больше лимита и недопустимого типа — в очередь они не попадают', () => {
@@ -163,4 +163,43 @@ describe('useUploadQueue', () => {
     expect(onCard).not.toHaveBeenCalled()
     expect(onIdle).not.toHaveBeenCalled()
   })
+
+  it('без общего тоста: uploadFile зовётся с { silent: true }', async () => {
+    mountQueue()
+    api.uploadFile.mockResolvedValue(card())
+    q.add(files('a.jpg'))
+    await q.start()
+    expect(api.uploadFile.mock.calls[0]![4]).toEqual({ silent: true })
+  })
+
+  it('после 409 archived упавшие не повторяются', async () => {
+    mountQueue()
+    api.uploadFile.mockRejectedValueOnce(httpError(409, { code: 'archived' }))
+    q.add(files('a.jpg', 'b.jpg'))
+    await q.start()
+    expect(q.items.value.every((i) => !i.retryable)).toBe(true)
+    await q.retryAll()
+    await q.retry(0)
+    expect(api.uploadFile).toHaveBeenCalledTimes(1)
+    expect(states()).toEqual(['failed', 'failed'])
+  })
+
+  it('сменилась машина во время загрузки — файлы новой машины уходят следующим проходом, а не висят в очереди', async () => {
+    mountQueue()
+    const first = deferred<ReturnType<typeof card>>()
+    api.uploadFile.mockReturnValueOnce(first.promise).mockResolvedValue(card({ id: 't2' }))
+    q.add(files('old.jpg'))
+    const run1 = q.start()
+    await flushPromises()
+    truckId.value = 't2'
+    q.add(files('new.jpg'))
+    const run2 = q.start()
+    expect(run2).not.toBe(run1)
+    first.resolve(card())
+    await run2
+    expect(api.uploadFile.mock.calls.map((c) => [c[0], (c[1] as File).name])).toEqual([['t1', 'old.jpg'], ['t2', 'new.jpg']])
+    expect(states()).toEqual(['done', 'done'])
+    expect(q.running.value).toBe(false)
+  })
 })
+

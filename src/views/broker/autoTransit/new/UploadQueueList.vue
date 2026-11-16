@@ -7,7 +7,8 @@ import type { QueueItem } from './useUploadQueue'
 
 // Строки очереди загрузки: имя, размер, состояние (в очереди / идёт N % / загружен / ошибка). Упавший — «Повторить»;
 // ещё не начатый или упавший можно убрать. Общий для «Новой машины» и карточки машины.
-defineProps<{ items: QueueItem[]; canRemove?: boolean }>()
+// canRetry=false — грузить в машину сейчас нельзя (права, статус): «Повторить» не показываем.
+withDefaults(defineProps<{ items: QueueItem[]; canRemove?: boolean; canRetry?: boolean }>(), { canRemove: false, canRetry: true })
 const emit = defineEmits<{ retry: [index: number]; remove: [index: number] }>()
 const { t } = useI18n()
 const U = 'broker.autoTransit.upload'
@@ -51,7 +52,7 @@ const errorOf = (it: QueueItem) => it.errorText ?? (it.errorKey ? t(it.errorKey)
         </span>
       </div>
       <ZButton
-        v-if="it.state === 'failed'"
+        v-if="it.state === 'failed' && it.retryable && canRetry"
         size="sm"
         class="shrink-0 max-sm:h-11"
         data-upload-retry

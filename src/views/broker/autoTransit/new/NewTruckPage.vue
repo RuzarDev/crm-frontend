@@ -109,7 +109,7 @@ const runPrefill = async (value: string) => {
   const my = ++prefillSeq
   try {
     const p = await api.prefill(value)
-    if (!alive || my !== prefillSeq || created.value) return
+    if (!alive || my !== prefillSeq || created.value || creating.value) return
     applyPrefill(p)
   } catch {
     // подстановка — удобство: ошибка молча
@@ -150,6 +150,21 @@ const addAnother = () => {
   force.value = true
   existingId.value = null
 }
+/**
+ * «Загрузить фото в эту машину»: машина с этим номером уже есть — часто это та, которую только что создал наш же
+ * «Готово», чей ответ потерялся на слабой связи. Страница привязывается к ней так же, как после обычного создания.
+ */
+const bindExisting = () => {
+  const id = existingId.value
+  if (!id || created.value) return
+  if (debounce !== undefined) clearTimeout(debounce)
+  debounce = undefined
+  prefillSeq++
+  netError.value = false
+  existingId.value = null
+  created.value = id
+  finishUploads()
+}
 
 // ---- Файлы ----
 // Все файлы загружены (после создания или после «Повторить») — в карточку машины.
@@ -168,6 +183,10 @@ const onFiles = (files: File[]) => {
 
 // ---- Создание и загрузка ----
 const creating = ref(false)
+/** «Готово» не дошло до сервера или ответ потерялся — машина могла уже создаться. */
+const netError = ref(false)
+/** Поля выключены, пока машина создаётся и после того, как страница привязана к машине. */
+const locked = computed(() => creating.value || !!created.value)
 let leaving = false
 const goTruck = (id: string) => {
   leaving = true
@@ -197,6 +216,7 @@ const submit = async () => {
   prefillSeq++
   creating.value = true
   errors.value = {}
+  netError.value = false
   try {
     const c = await api.createTruck(bodyOf())
     if (!alive) return
@@ -207,7 +227,9 @@ const submit = async () => {
   } catch (e) {
     if (!alive) return
     const res = (e as { response?: { status?: number; data?: Record<string, unknown> } })?.response
-    if (res?.status === 409 && res.data?.code === 'duplicate_plate') {
+    if (!res) {
+      netError.value = true
+    } else if (res.status === 409 && res.data?.code === 'duplicate_plate') {
       existingId.value = typeof res.data.existingTruckId === 'string' ? res.data.existingTruckId : null
       force.value = false
     } else if (res?.status === 409) {
@@ -229,6 +251,8 @@ const submit = async () => {
 const uploadingMode = computed(() => !!created.value && (queue.running.value || queue.pending.value > 0))
 const failedMode = computed(() => !!created.value && !queue.running.value && !queue.pending.value && queue.failedCount.value > 0)
 const totalCount = computed(() => queue.items.value.length)
+/** Упавшие, которые можно повторить (после 409 archived — нельзя). */
+const retryableCount = computed(() => queue.items.value.filter((i) => i.state === 'failed' && i.retryable).length)
 const goAnyway = async () => {
   const id = created.value
   if (!id) return
@@ -242,12 +266,17 @@ const goAnyway = async () => {
 }
 
 // ---- Уход со страницы, пока файлы не загружены ----
-const unsaved = () => queue.pending.value > 0
+// Несохранённое: файлы ждут или грузятся, а после создания — ещё и упавшие файлы (как у «Перейти к машине»).
+const unsaved = () => queue.pending.value > 0 || (!!created.value && queue.failedCount.value > 0)
+const leaveText = () => {
+  if (created.value) return queue.pending.value ? t(`${N}.leave.uploading`) : t(`${N}.leave.failed`, { n: queue.failedCount.value })
+  return existingId.value ? t(`${N}.leave.filesLost`) : t(`${N}.leave.notCreated`)
+}
 onBeforeRouteLeave(() => {
   if (leaving || !unsaved()) return true
   return confirm({
     title: t(`${N}.leave.title`),
-    content: t(created.value ? `${N}.leave.uploading` : `${N}.leave.notCreated`),
+    content: leaveText(),
     okText: t(`${N}.leave.ok`),
     cancelText: t(`${N}.leave.stay`),
     danger: true,
@@ -297,7 +326,7 @@ onBeforeUnmount(() => {
           v-model:value="plate"
           mono
           :maxlength="30"
-          :disabled="!!created"
+          :disabled="locked"
           :placeholder="t(`${N}.platePlaceholder`)"
           autocomplete="off"
           autocapitalize="characters"
@@ -311,7 +340,13 @@ onBeforeUnmount(() => {
 
       <ZAlert v-if="existingId" type="warning" show-icon :message="t(`${N}.duplicate.title`)" data-new-duplicate>
         <p class="m-0">{{ t(`${N}.duplicate.text`) }}</p>
-        <div class="mt-2.5 flex flex-wrap gap-2 max-sm:grid max-sm:grid-cols-2">
+        <!-- Выбраны файлы — главное действие «Загрузить фото в эту машину», «Открыть» вторым, «Завести ещё одну» — тише всех. -->
+        <div v-if="queue.pending.value" class="mt-2.5 flex flex-wrap gap-2 max-sm:flex-col">
+          <ZButton variant="primary" class="max-sm:h-11 max-sm:w-full" data-new-bind-existing @click="bindExisting">{{ t(`${N}.duplicate.bind`) }}</ZButton>
+          <ZButton class="max-sm:h-11 max-sm:w-full" data-new-open-existing @click="openExisting">{{ t(`${N}.duplicate.open`) }}</ZButton>
+          <ZButton variant="ghost" class="max-sm:h-11 max-sm:w-full" data-new-add-another @click="addAnother">{{ t(`${N}.duplicate.force`) }}</ZButton>
+        </div>
+        <div v-else class="mt-2.5 flex flex-wrap gap-2 max-sm:grid max-sm:grid-cols-2">
           <ZButton variant="primary" class="max-sm:h-11" data-new-open-existing @click="openExisting">{{ t(`${N}.duplicate.open`) }}</ZButton>
           <ZButton class="max-sm:h-11" data-new-add-another @click="addAnother">{{ t(`${N}.duplicate.force`) }}</ZButton>
         </div>
@@ -334,31 +369,31 @@ onBeforeUnmount(() => {
         </button>
         <div v-show="detailsOpen" id="new-truck-details" class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2" data-new-details-body>
           <ZField :label="t(`${F}.trailerPlate`)" :error="errors.trailerPlate">
-            <ZInput :value="form.trailerPlate" mono :maxlength="30" :disabled="!!created" autocomplete="off" autocapitalize="characters" class="[&_input]:uppercase" data-new-field="trailerPlate" @update:value="setField('trailerPlate', $event)" />
+            <ZInput :value="form.trailerPlate" mono :maxlength="30" :disabled="locked" autocomplete="off" autocapitalize="characters" class="[&_input]:uppercase" data-new-field="trailerPlate" @update:value="setField('trailerPlate', $event)" />
           </ZField>
           <ZField :label="t(`${F}.trailerCountry`)" :error="errors.trailerCountry">
-            <ZCombobox :value="form.trailerCountry" :options="countries" mono allow-clear :disabled="!!created" @update:value="setField('trailerCountry', $event)" />
+            <ZCombobox :value="form.trailerCountry" :options="countries" mono allow-clear :disabled="locked" @update:value="setField('trailerCountry', $event)" />
           </ZField>
           <ZField :label="t(`${F}.driverName`)" :error="errors.driverName">
-            <ZInput :value="form.driverName" :maxlength="300" :disabled="!!created" autocomplete="off" data-new-field="driverName" @update:value="setField('driverName', $event)" />
+            <ZInput :value="form.driverName" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="driverName" @update:value="setField('driverName', $event)" />
           </ZField>
           <ZField :label="t(`${F}.driverDoc`)" :error="errors.driverDoc">
-            <ZInput :value="form.driverDoc" :maxlength="300" :disabled="!!created" autocomplete="off" data-new-field="driverDoc" @update:value="setField('driverDoc', $event)" />
+            <ZInput :value="form.driverDoc" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="driverDoc" @update:value="setField('driverDoc', $event)" />
           </ZField>
           <ZField :label="t(`${F}.carrierName`)" :error="errors.carrierName">
-            <ZInput :value="form.carrierName" :maxlength="300" :disabled="!!created" autocomplete="off" data-new-field="carrierName" @update:value="setField('carrierName', $event)" />
+            <ZInput :value="form.carrierName" :maxlength="300" :disabled="locked" autocomplete="off" data-new-field="carrierName" @update:value="setField('carrierName', $event)" />
           </ZField>
           <ZField :label="t(`${F}.carrierCountry`)" :error="errors.carrierCountry">
-            <ZCombobox :value="form.carrierCountry" :options="countries" mono allow-clear :disabled="!!created" @update:value="setField('carrierCountry', $event)" />
+            <ZCombobox :value="form.carrierCountry" :options="countries" mono allow-clear :disabled="locked" @update:value="setField('carrierCountry', $event)" />
           </ZField>
           <ZField :label="t(`${F}.carrierRegNumber`)" :error="errors.carrierRegNumber">
-            <ZInput :value="form.carrierRegNumber" mono :maxlength="50" :disabled="!!created" autocomplete="off" data-new-field="carrierRegNumber" @update:value="setField('carrierRegNumber', $event)" />
+            <ZInput :value="form.carrierRegNumber" mono :maxlength="50" :disabled="locked" autocomplete="off" data-new-field="carrierRegNumber" @update:value="setField('carrierRegNumber', $event)" />
           </ZField>
           <ZField :label="t(`${F}.plateCountry`)" :error="errors.plateCountry" :extra="t('broker.autoTransit.truck.countryHint')">
-            <ZCombobox :value="form.plateCountry" :options="countries" mono allow-clear :disabled="!!created" @update:value="setField('plateCountry', $event)" />
+            <ZCombobox :value="form.plateCountry" :options="countries" mono allow-clear :disabled="locked" @update:value="setField('plateCountry', $event)" />
           </ZField>
           <ZField :label="t(`${F}.customsPostCode`)" :error="errors.customsPostCode" :extra="t(`${N}.postHint`)">
-            <ZInput :value="form.customsPostCode" mono :maxlength="20" :disabled="!!created" autocomplete="off" inputmode="numeric" data-new-field="customsPostCode" @update:value="setField('customsPostCode', $event)" />
+            <ZInput :value="form.customsPostCode" mono :maxlength="20" :disabled="locked" autocomplete="off" inputmode="numeric" data-new-field="customsPostCode" @update:value="setField('customsPostCode', $event)" />
           </ZField>
         </div>
       </section>
@@ -383,9 +418,10 @@ onBeforeUnmount(() => {
         class="flex min-w-0 flex-col gap-2 max-sm:sticky max-sm:bottom-0 max-sm:z-[5] max-sm:-mx-4 max-sm:border-t max-sm:border-line max-sm:bg-surface max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(12px,env(safe-area-inset-bottom))]"
         data-new-bar
       >
+        <p v-if="netError && !created" class="m-0 text-sm text-tone-danger-fg" role="alert" data-new-net-error>{{ t(`${N}.netError`) }}</p>
         <template v-if="failedMode">
-          <ZButton variant="primary" block class="h-12 text-base" data-new-retry-all @click="queue.retryAll()">
-            {{ t('broker.autoTransit.upload.retryAll', { n: queue.failedCount.value }) }}
+          <ZButton v-if="retryableCount" variant="primary" block class="h-12 text-base" data-new-retry-all @click="queue.retryAll()">
+            {{ t('broker.autoTransit.upload.retryAll', { n: retryableCount }) }}
           </ZButton>
           <ZButton block class="h-12 text-base" data-new-go-truck @click="goAnyway">{{ t(`${N}.goTruck`) }}</ZButton>
         </template>

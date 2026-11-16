@@ -154,7 +154,6 @@ const backTo = computed(() => listPath('autoTransit', '/auto-transit'))
               :busy="busy"
               :uploading="uploading"
               :queue="s.queue.items.value"
-              :failed-count="s.queue.failedCount.value"
               :zipping="a.zipping.value"
               @upload="a.upload"
               @zip="a.downloadZip"

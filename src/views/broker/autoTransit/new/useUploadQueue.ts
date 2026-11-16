@@ -24,6 +24,8 @@ export interface QueueItem {
   errorKey: string | null
   /** Текст ошибки от сервера (400), уже на языке пользователя. */
   errorText: string | null
+  /** Можно ли повторить (после 409 archived — нельзя). */
+  retryable: boolean
   file: File
   opts: UploadOpts
 }
@@ -38,6 +40,8 @@ export interface RunSummary {
   failed: string[]
   /** Код 409, остановивший очередь (archived), иначе null. */
   stopCode: string | null
+  /** Сколько файлов упало за этот проход. */
+  failedNow: number
 }
 
 export interface UploadQueueOptions {
@@ -98,7 +102,7 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
         continue
       }
       items.value.push({
-        key: ++seq, name: f.name, size: f.size, state: 'queued', progress: 0, errorKey: null, errorText: null,
+        key: ++seq, name: f.name, size: f.size, state: 'queued', progress: 0, errorKey: null, errorText: null, retryable: true,
         // File в реактивной обёртке FormData не примет.
         file: markRaw(f), opts: { ...opts },
       })
@@ -116,7 +120,10 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
   /** Убрать всё, кроме загружающегося сейчас (другая машина на карточке). */
   const clear = () => { items.value = items.value.filter((i) => i.state === 'uploading') }
 
-  const fail = (it: QueueItem, key: string | null, text: string | null = null) => {
+  let failedNow = 0
+  const fail = (it: QueueItem, key: string | null, text: string | null = null, retryable = true) => {
+    failedNow++
+    it.retryable = retryable
     it.state = 'failed'
     it.progress = 0
     it.errorKey = text ? null : key
@@ -125,6 +132,7 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
 
   const run = async (id: string): Promise<RunSummary> => {
     running.value = true
+    failedNow = 0
     let done = 0
     let stopCode: string | null = null
     try {
@@ -138,7 +146,7 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
         try {
           const c = await api.uploadFile(id, it.file, it.opts, (fraction) => {
             if (alive && it.state === 'uploading') it.progress = Math.round(fraction * 100)
-          })
+          }, { silent: true })
           if (!alive) break
           it.state = 'done'
           it.progress = 100
@@ -150,10 +158,11 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
           const data = (e as HttpError)?.response?.data
           if (status === 409) {
             const code = String((data as Record<string, unknown> | undefined)?.code ?? '')
-            fail(it, errorKey(code))
-            if (STOP_CODES.includes(code)) {
+            const stop = STOP_CODES.includes(code)
+            fail(it, errorKey(code), null, !stop)
+            if (stop) {
               stopCode = code
-              for (const rest of items.value) if (rest.state === 'queued') fail(rest, errorKey(code))
+              for (const rest of items.value) if (rest.state === 'queued') fail(rest, errorKey(code), null, false)
               break
             }
           } else if (status === 400) {
@@ -166,23 +175,32 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
     } finally {
       if (alive) running.value = false
     }
-    const summary: RunSummary = { done, failed: items.value.filter((i) => i.state === 'failed').map((i) => i.name), stopCode }
+    const summary: RunSummary = { done, failed: items.value.filter((i) => i.state === 'failed').map((i) => i.name), stopCode, failedNow }
     if (alive) o.onIdle?.(summary)
     return summary
   }
 
-  /** Запустить очередь. Пока идёт проход — возвращает его же (новые файлы он подхватит сам). */
+  /**
+   * Запустить очередь. Пока идёт проход для этой же машины — возвращает его же (новые файлы он подхватит сам).
+   * Идёт проход для другой машины (карточку переключили во время загрузки) — новый проход встаёт следом за ним.
+   */
+  let currentId: string | null = null
   const start = (): Promise<RunSummary> => {
-    if (current) return current
     const id = truckId()
-    if (!alive || !id) return Promise.resolve({ done: 0, failed: [], stopCode: null })
-    current = run(id).finally(() => { current = null })
-    return current
+    if (!alive || !id) return current ?? Promise.resolve({ done: 0, failed: [], stopCode: null, failedNow: 0 })
+    if (current && currentId === id) return current
+    const before = current
+    // Без предыдущего прохода — сразу (running выставляется синхронно).
+    const p: Promise<RunSummary> = (before ? before.then(() => run(id), () => run(id)) : run(id))
+      .finally(() => { if (current === p) { current = null; currentId = null } })
+    current = p
+    currentId = id
+    return p
   }
 
   const retry = (index: number): Promise<RunSummary> => {
     const it = items.value[index]
-    if (it?.state === 'failed') {
+    if (it?.state === 'failed' && it.retryable) {
       it.state = 'queued'
       it.errorKey = null
       it.errorText = null
@@ -191,7 +209,7 @@ export function useUploadQueue(truckId: () => string | null, o: UploadQueueOptio
   }
   const retryAll = (): Promise<RunSummary> => {
     for (const it of items.value) {
-      if (it.state !== 'failed') continue
+      if (it.state !== 'failed' || !it.retryable) continue
       it.state = 'queued'
       it.errorKey = null
       it.errorText = null

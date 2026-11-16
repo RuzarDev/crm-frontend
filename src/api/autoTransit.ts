@@ -253,7 +253,10 @@ export const setTd = (id: string, partyId: string, body: TdBody): Promise<TruckC
  * Один файл за запрос (multipart: file, partyId?, kind?). onProgress — доля 0..1. HEIC переводит сервер:
  * такие файлы идут по два за раз и с длинным таймаутом (utils/heic.ts), как в Импорте 40.
  */
-export const uploadFile = (id: string, file: File, opts: UploadOpts = {}, onProgress?: (fraction: number) => void): Promise<TruckCard> => {
+/** cfg.silent — без общего тоста вообще (и на обрыв связи): очередь загрузки пишет ошибку в строке файла и одну сводку. */
+export const uploadFile = (
+  id: string, file: File, opts: UploadOpts = {}, onProgress?: (fraction: number) => void, cfg: { silent?: boolean } = {},
+): Promise<TruckCard> => {
   const form = new FormData()
   form.append('file', file)
   if (opts.partyId) form.append('partyId', opts.partyId)
@@ -263,6 +266,7 @@ export const uploadFile = (id: string, file: File, opts: UploadOpts = {}, onProg
     headers: { 'Content-Type': 'multipart/form-data' },
     // 400 и 409 очередь загрузки пишет в строке файла сама.
     silentStatuses: FORM_SILENT,
+    ...(cfg.silent ? { silent: true } : {}),
     ...(timeout ? { timeout } : {}),
     ...(onProgress ? { onUploadProgress: (e: { loaded: number; total?: number }) => { if (e.total) onProgress(Math.min(1, e.loaded / e.total)) } } : {}),
   })))

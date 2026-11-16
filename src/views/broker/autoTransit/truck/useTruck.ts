@@ -83,6 +83,9 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
       if (sum.stopCode) {
         message.error(t(errorKey(sum.stopCode)))
         if (alive) void reload()
+      } else if (sum.failedNow) {
+        // Одна сводка за проход вместо общего тоста на каждый файл (запросы очереди — silent).
+        message.error(t('broker.autoTransit.upload.failedSummary', { n: sum.failedNow }))
       }
     },
   })

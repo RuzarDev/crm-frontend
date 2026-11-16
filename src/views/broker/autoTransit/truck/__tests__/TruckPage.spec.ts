@@ -577,5 +577,18 @@ describe('TruckPage: «Добавить фото / файл» идёт чере�
     expect(api.uploadFile).toHaveBeenCalledTimes(1)
     expect(msg.error).toHaveBeenCalledWith('Машина в архиве.')
     expect(api.getTruck).toHaveBeenCalledTimes(2)
+    expect(w.findAll('[data-upload-row="failed"]')).toHaveLength(2)
+    expect(w.find('[data-upload-retry]').exists()).toBe(false)
+    expect(w.find('[data-upload-retry-all]').exists()).toBe(false)
+  })
+
+  it('нет связи: одна сводка за проход, а не тост на каждый файл', async () => {
+    await mountWith(card({ files: [] }))
+    api.uploadFile.mockRejectedValue(new Error('Network Error'))
+    await pick([new File(['x'], 'a.jpg'), new File(['x'], 'b.jpg'), new File(['x'], 'c.jpg')])
+    expect(api.uploadFile.mock.calls.every((c) => (c[4] as { silent?: boolean })?.silent === true)).toBe(true)
+    expect(msg.error).toHaveBeenCalledTimes(1)
+    expect(msg.error).toHaveBeenCalledWith('Не загрузилось файлов: 3. Проверьте связь и нажмите «Повторить».')
+    expect(w.findAll('[data-upload-retry]')).toHaveLength(3)
   })
 })

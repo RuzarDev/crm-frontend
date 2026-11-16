@@ -357,6 +357,77 @@ describe('NewTruckPage: создание и файлы', () => {
   })
 })
 
+describe('NewTruckPage: потерянный ответ при создании', () => {
+  it('сеть пропала → строка у кнопки; второй «Готово» → 409 → «Загрузить фото в эту машину» грузит в неё без force', async () => {
+    await mountPage()
+    await typePlate('A 318 KZ 19')
+    await pick(files('a.jpg', 'b.jpg'))
+    api.createTruck.mockRejectedValueOnce(new Error('Network Error'))
+    await submit()
+    expect(w.find('[data-new-net-error]').text())
+      .toBe('Не удалось связаться с сервером. Машина могла уже создаться — нажмите «Готово» ещё раз, мы проверим.')
+    expect(w.findAll('[data-upload-row="queued"]')).toHaveLength(2)
+    expect(plateInput().element.value).toBe('A 318 KZ 19')
+    expect(w.find('[data-new-submit]').attributes('disabled')).toBeUndefined()
+
+    api.createTruck.mockRejectedValueOnce(httpError(409, { code: 'duplicate_plate', existingTruckId: 't9' }))
+    await submit()
+    expect(w.find('[data-new-net-error]').exists()).toBe(false)
+    const bind = w.find('[data-new-bind-existing]')
+    expect(bind.text()).toBe('Загрузить фото в эту машину')
+    expect(bind.classes().join(' ')).toContain('bg-navy')
+    expect(w.find('[data-new-open-existing]').classes().join(' ')).not.toContain('bg-navy')
+
+    api.uploadFile.mockResolvedValue(card({ id: 't9' }))
+    await bind.trigger('click')
+    await flushPromises()
+    expect(api.uploadFile.mock.calls.map((c) => [c[0], (c[1] as File).name])).toEqual([['t9', 'a.jpg'], ['t9', 'b.jpg']])
+    expect(api.createTruck).toHaveBeenCalledTimes(2)
+    expect(api.createTruck.mock.calls.every((c) => !c[0].force)).toBe(true)
+    expect(router.currentRoute.value.fullPath).toBe('/auto-transit/t9')
+    expect(confirmState.open).toBe(false)
+  })
+
+  it('дубль из подстановки при выбранных файлах: главное — «Загрузить фото в эту машину»; уход — «файлы пропадут»', async () => {
+    await mountPage()
+    api.prefill.mockResolvedValue({ ...NONE, existingTruckId: 'x1' })
+    await typePlate('A 318 KZ 19')
+    expect(w.find('[data-new-bind-existing]').exists()).toBe(false)
+    expect(w.find('[data-new-open-existing]').classes().join(' ')).toContain('bg-navy')
+    await pick(files('a.jpg'))
+    expect(w.find('[data-new-bind-existing]').exists()).toBe(true)
+
+    const nav = router.push('/auto-transit')
+    await flushPromises()
+    expect(confirmState.content).toBe('Выбранные файлы не загружены и пропадут.')
+    confirmState.resolve(false)
+    await nav
+
+    api.uploadFile.mockRejectedValueOnce(new Error('Network Error'))
+    await w.find('[data-new-bind-existing]').trigger('click')
+    await flushPromises()
+    expect(api.createTruck).not.toHaveBeenCalled()
+    expect(api.uploadFile.mock.calls[0]![0]).toBe('x1')
+    expect(router.currentRoute.value.fullPath).toBe('/auto-transit/new')
+    expect(text(w.find('[data-new-partial]').text())).toContain('Не загрузилось файлов: 1')
+    expect(plateInput().attributes('disabled')).toBeDefined()
+  })
+
+  it('пока идёт создание, поля выключены', async () => {
+    await mountPage()
+    await typePlate('A 318 KZ 19')
+    let done!: (v: unknown) => void
+    api.createTruck.mockReturnValue(new Promise((res) => { done = res }))
+    await w.find('[data-new-submit]').trigger('click')
+    await flushPromises()
+    expect(plateInput().attributes('disabled')).toBeDefined()
+    expect(field('driverName').attributes('disabled')).toBeDefined()
+    done(card({ id: 'n1' }))
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/auto-transit/n1')
+  })
+})
+
 describe('NewTruckPage: уход со страницы', () => {
   it('выбраны файлы, машина не заведена — уход спрашивает подтверждение; beforeunload тоже', async () => {
     await mountPage()
@@ -369,6 +440,24 @@ describe('NewTruckPage: уход со страницы', () => {
     await flushPromises()
     expect(confirmState.open).toBe(true)
     expect(confirmState.content).toBe('Машина ещё не заведена: номер и выбранные файлы пропадут.')
+    confirmState.resolve(false)
+    await nav
+    expect(router.currentRoute.value.fullPath).toBe('/auto-transit/new')
+  })
+
+  it('машина заведена, часть файлов упала — «Назад» тоже спрашивает', async () => {
+    await mountPage()
+    await typePlate('A 318 KZ 19')
+    await pick(files('a.jpg'))
+    api.createTruck.mockResolvedValue(card({ id: 'n1' }))
+    api.uploadFile.mockRejectedValue(new Error('Network Error'))
+    await submit()
+    const ev = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(ev)
+    expect(ev.defaultPrevented).toBe(true)
+    const nav = router.push('/auto-transit')
+    await flushPromises()
+    expect(confirmState.content).toBe('Не загрузилось файлов: 1. Если уйти, их не будет в машине.')
     confirmState.resolve(false)
     await nav
     expect(router.currentRoute.value.fullPath).toBe('/auto-transit/new')
