@@ -95,3 +95,23 @@ describe('страница /privacy', () => {
     expect(r.meta.requiresAuth).toBe(false)
   })
 })
+
+// Авто-транзит (16.11.2026): три страницы сотрудника по autotransit.read и страница получателя без входа.
+describe('маршруты Авто-транзита', () => {
+  it.each([
+    ['/auto-transit', 'auto-transit'],
+    ['/auto-transit/new', 'auto-transit-new'],
+    ['/auto-transit/abc', 'auto-transit-truck'],
+  ])('%s → %s по праву autotransit.read', (path, name) => {
+    const r = router.resolve(path)
+    expect(r.name).toBe(name)
+    expect(r.meta.requiresPermission).toBe('autotransit.read')
+  })
+  it('/t/:token → auto-transit-public, вне оболочки и без входа', () => {
+    const r = router.resolve('/t/abc')
+    expect(r.name).toBe('auto-transit-public')
+    expect(r.params.token).toBe('abc')
+    expect(r.meta.requiresAuth).toBe(false)
+    expect(r.matched).toHaveLength(1)
+  })
+})

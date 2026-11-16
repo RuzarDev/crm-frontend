@@ -19,7 +19,7 @@ export function safeInternalPath(raw: unknown): string | null {
 }
 
 // Страницы, куда после входа не возвращаем: сам вход и открытые без входа (регистрация, приглашение, сброс пароля).
-const PUBLIC = ['/login', '/register', '/forgot-password', '/reset-password', '/invite', '/verify']
+const PUBLIC = ['/login', '/register', '/forgot-password', '/reset-password', '/invite', '/verify', '/t']
 const isPublic = (path: string) => PUBLIC.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`))
 
 /** Куда вести после входа: ?next=, если это свой непубличный путь, иначе «/». */

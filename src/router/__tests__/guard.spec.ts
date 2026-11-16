@@ -53,6 +53,22 @@ describe('guardRedirect', () => {
       expect(guardRedirect(p, {}, a), p).toBe('/finance')
     expect(guardRedirect('/home', {}, a)).toBeNull()
   })
+  // Авто-транзит (16.11.2026): по праву autotransit.read; клиенту и бухгалтеру закрыт; страница получателя — без входа.
+  it('/auto-transit: без права — на /, с правом — открыто, клиенту и бухгалтеру — нет', () => {
+    const meta = { requiresPermission: 'autotransit.read' }
+    for (const p of ['/auto-transit', '/auto-transit/new', '/auto-transit/abc']) {
+      expect(guardRedirect(p, meta, auth()), p).toBe('/')
+      expect(guardRedirect(p, meta, auth({ perms: ['autotransit.read'] })), p).toBeNull()
+      expect(guardRedirect(p, meta, auth({ role: 'administrator' })), p).toBeNull()
+      expect(guardRedirect(p, meta, auth({ role: 'client', perms: ['autotransit.read'] })), p).toBe('/')
+      expect(guardRedirect(p, meta, auth({ isFinanceOnly: true, perms: ['finance.read', 'autotransit.read'] })), p).toBe('/finance')
+    }
+  })
+  it('/t/:token — страница получателя без входа и при временном пароле', () => {
+    expect(guardRedirect('/t/abc', { requiresAuth: false }, auth({ isAuthenticated: false }))).toBeNull()
+    expect(guardRedirect('/t/abc', { requiresAuth: false }, auth({ role: 'client', mustChangePassword: true }))).toBeNull()
+    expect(guardRedirect('/t/abc', { requiresAuth: false }, auth({ isFinanceOnly: true }))).toBeNull()
+  })
   it('/reestr без reestr.read — на импорт, продажи или /', () => {
     expect(guardRedirect('/reestr', {}, auth({ perms: ['import40.read'] }))).toBe('/import-40')
     expect(guardRedirect('/reestr', {}, auth({ perms: ['sales.read'] }))).toBe('/sales')

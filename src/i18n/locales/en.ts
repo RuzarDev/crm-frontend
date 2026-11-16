@@ -127,6 +127,7 @@ export default {
       home: 'Home',
       requests: 'Requests',
       transit: 'Transit',
+      autoTransit: 'Auto transit',
       packages: 'Document packages',
       keden: 'KEDEN',
       clients: 'Clients',
@@ -628,6 +629,20 @@ export default {
   },
   // Общий набор брокерских списков (редизайн, волна 3а).
   broker: {
+    autoTransit: {
+      list: { title: 'Auto transit' },
+      new: { title: 'New truck' },
+      truck: { title: 'Truck' },
+      public: { title: 'Your cargo' },
+      stage: { docs: 'Documents', stamps: 'Number and stamps', transport: 'Transport control', inspection: 'Inspection', declaration: 'Declaration', tdNumber: 'TD number', warehouse: 'TWH and payment' },
+      filter: { all: 'All', waitDocs: 'Awaiting documents', control: 'Under control', waitDeclaration: 'Awaiting declaration', warehouse: 'TWH payment', releasedToday: 'Released today', problem: 'Problem' },
+      state: { waitDocs: 'Awaiting documents', control: 'Under control', waitDeclarant: 'Awaiting declarant', waitTd: 'Awaiting TD number', warehouse: 'TWH payment', released: 'Released', problem: 'Problem', archived: 'Archived' },
+      blocker: { no_files: 'No documents', party_no_recipient: 'Recipient not specified', party_no_invoice: 'No invoice number', no_stamped_invoice: 'No stamped invoice', not_submitted: 'TD not submitted', no_td_number: 'No TD number', no_td_file: 'No TD file', no_warehouse_receipt: 'No TWH receipt' },
+      row: { consolidation: 'Consolidation · {n}', noRecipient: 'Recipient not specified' },
+      since: { min: '{m} min', hour: '{h} h', hourMin: '{h} h {m} min', day: '{d} d', dayHour: '{d} d {h} h' },
+      wait: { declarant: 'Awaiting the declarant', border: 'Awaiting the border manager', problem: 'The truck has a problem: clear it first', archived: 'The truck is archived', released: 'The truck is released' },
+      error: { stage_order: 'Stages are marked in order.', td_number_missing: 'Enter the TD number for every batch first.', party_submitted: 'A batch is submitted: remove “TD submitted” first.', nothing_to_undo: 'There is no mark to undo.', problem: 'The truck has a problem: clear it first.', archived: 'The truck is archived.', released: 'The truck is already released.', inspection_required: '“TD submitted” is marked after inspection (stage 4).', already_submitted: 'The batch is already submitted.', not_submitted: 'The batch is not submitted yet: the TD number is entered after “TD submitted”.', td_number_set: 'A TD number is entered: clear it first.', last_party: 'A truck must keep at least one batch.', not_in_problem: 'The truck has no problem status.', not_in_work: 'A problem can be set only on a truck in progress.', duplicate_plate: 'A truck with this plate is already in progress.', conflict: 'Another employee has just changed this truck. The card is refreshed — repeat the action.', unknown: 'The action failed. Refresh the card and try again.' },
+    },
     settings: {
       roles: {
         title: 'Roles and permissions',
