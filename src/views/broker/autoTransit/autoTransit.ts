@@ -16,11 +16,22 @@ export type StageCell = 'done' | 'current' | 'warn' | 'todo'
 
 const isReleased = (i: Pick<TruckListItem, 'status' | 'currentStage'>) => i.status === 'released' || i.currentStage == null
 
-/** Полоса из семи делений; текущий этап с блокером или в «Проблеме» — warn. Выпущенная — все done. */
+/**
+ * Коды, которые на своём этапе есть по определению: этап 1 «ждёт документы» (no_files), 5 «ждёт декларанта»
+ * (not_submitted), 6 «ждёт номер ТД» (no_td_number). Это обычное ожидание этапа, а не препятствие: подпись этапа
+ * и цвет current. Препятствие — остальные известные коды (печать на инвойсе, получатель, файл ТД, чек СВХ).
+ */
+const EXPECTED_BLOCKERS = new Set(['no_files', 'not_submitted', 'no_td_number'])
+const OBSTACLE_BLOCKERS = new Set(['party_no_recipient', 'party_no_invoice', 'no_stamped_invoice', 'no_td_file', 'no_warehouse_receipt'])
+/** Код блокера — настоящее препятствие (не ожидание этапа и не неизвестный серверу фронта код). */
+export const isObstacle = (code: string | null | undefined): code is string =>
+  !!code && !EXPECTED_BLOCKERS.has(code) && OBSTACLE_BLOCKERS.has(code)
+
+/** Полоса из семи делений; текущий этап с препятствием или в «Проблеме» — warn. Выпущенная — все done. */
 export function stageBar(item: Pick<TruckListItem, 'status' | 'currentStage' | 'blockerCode'>): StageCell[] {
   if (isReleased(item)) return STAGES.map(() => 'done')
   const cur = item.currentStage!
-  const warn = !!item.blockerCode || item.status === 'problem'
+  const warn = isObstacle(item.blockerCode) || item.status === 'problem'
   return STAGES.map((s) => (s < cur ? 'done' : s > cur ? 'todo' : warn ? 'warn' : 'current'))
 }
 
@@ -35,12 +46,12 @@ const STAGE_STATE: Record<number, { tone: ZTone; key: string }> = {
   7: { tone: 'pay', key: 'warehouse' },
 }
 
-/** Метка строки: архив, «Проблема», выпуск; иначе «что мешает» (блокер этапа), иначе состояние этапа. */
+/** Метка строки: архив, «Проблема», выпуск; иначе препятствие этапа (isObstacle), иначе состояние этапа. */
 export function stateTag(item: Pick<TruckListItem, 'status' | 'currentStage' | 'blockerCode'>): { tone: ZTone; key: string } {
   if (item.status === 'archived') return { tone: 'neutral', key: 'broker.autoTransit.state.archived' }
   if (item.status === 'problem') return { tone: 'danger', key: 'broker.autoTransit.state.problem' }
   if (isReleased(item)) return { tone: 'done', key: 'broker.autoTransit.state.released' }
-  if (item.blockerCode) return { tone: 'wait', key: `broker.autoTransit.blocker.${item.blockerCode}` }
+  if (isObstacle(item.blockerCode)) return { tone: 'wait', key: `broker.autoTransit.blocker.${item.blockerCode}` }
   const s = STAGE_STATE[item.currentStage!] ?? STAGE_STATE[1]!
   return { tone: s.tone, key: `broker.autoTransit.state.${s.key}` }
 }

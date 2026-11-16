@@ -1,6 +1,5 @@
 import apiClient from './client'
 import { heicQueued, uploadTimeoutFor } from '@/utils/heic'
-import { DOC_MAX_BYTES } from '@/utils/uploadLimits'
 
 // «Авто-транзит» (очередь 1, 16.11.2026): машины на автомобильной границе, партии получателей, семь этапов, файлы,
 // ссылки получателям. Контракт — docs/superpowers/plans/2026-11-16-auto-transit-phase1.md, «Контракт API».
@@ -173,8 +172,17 @@ export interface PublicTruckView {
 
 /** Допустимые файлы (как на сервере) — для accept поля выбора файла. */
 export const UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.docx,.xlsx'
-/** Лимит одного файла — 100 МБ, общий лимит документов платформы. */
-export const UPLOAD_MAX_BYTES = DOC_MAX_BYTES
+/** Лимит одного файла модуля — 30 МБ (как на сервере: лимит «Авто-транзита», меньше общего лимита документов). */
+export const UPLOAD_MAX_BYTES = 30 * 1024 * 1024
+
+/**
+ * Таймаут загрузки по размеру: связь на границе слабая, общие 30 с клиента обрывали фото камеры 4–15 МБ.
+ * 60 с + 1 с на каждые 20 КБ (≈ 160 Кбит/с), не меньше 2 и не больше 15 минут; у HEIC — не меньше его таймаута.
+ */
+export const uploadTimeoutMs = (file: Pick<File, 'name' | 'type' | 'size'>): number => {
+  const bySize = Math.min(15 * 60_000, Math.max(120_000, Math.round(60_000 + (file.size / 20_000) * 1000)))
+  return Math.max(bySize, uploadTimeoutFor(file) ?? 0)
+}
 
 const enc = encodeURIComponent
 const base = (id: string) => `/auto-transit/${enc(id)}`
@@ -250,8 +258,8 @@ export const setTd = (id: string, partyId: string, body: TdBody): Promise<TruckC
 // ───────── файлы ─────────
 
 /**
- * Один файл за запрос (multipart: file, partyId?, kind?). onProgress — доля 0..1. HEIC переводит сервер:
- * такие файлы идут по два за раз и с длинным таймаутом (utils/heic.ts), как в Импорте 40.
+ * Один файл за запрос (multipart: file, partyId?, kind?). onProgress — доля 0..1. Таймаут — по размеру (uploadTimeoutMs).
+ * HEIC переводит сервер: такие файлы идут по два за раз (utils/heic.ts), как в Импорте 40.
  */
 /** cfg.silent — без общего тоста вообще (и на обрыв связи): очередь загрузки пишет ошибку в строке файла и одну сводку. */
 export const uploadFile = (
@@ -261,13 +269,13 @@ export const uploadFile = (
   form.append('file', file)
   if (opts.partyId) form.append('partyId', opts.partyId)
   if (opts.kind) form.append('kind', opts.kind)
-  const timeout = uploadTimeoutFor(file)
+  const timeout = uploadTimeoutMs(file)
   return heicQueued(file, () => card(apiClient.post<TruckCard>(`${base(id)}/files`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     // 400 и 409 очередь загрузки пишет в строке файла сама.
     silentStatuses: FORM_SILENT,
     ...(cfg.silent ? { silent: true } : {}),
-    ...(timeout ? { timeout } : {}),
+    timeout,
     ...(onProgress ? { onUploadProgress: (e: { loaded: number; total?: number }) => { if (e.total) onProgress(Math.min(1, e.loaded / e.total)) } } : {}),
   })))
 }

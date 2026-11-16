@@ -43,6 +43,14 @@ describe('autoTransit: этапы', () => {
     expect(stageBar(item({ currentStage: 2, blockerCode: 'no_stamped_invoice' }))[1]).toBe('warn'))
   it('stageBar: проблема красит текущий этап', () =>
     expect(stageBar(item({ currentStage: 3, status: 'problem' }))[2]).toBe('warn'))
+  it('stageBar: «ждёт по определению» (no_files, not_submitted, no_td_number) — не препятствие', () => {
+    expect(stageBar(item({ currentStage: 1, blockerCode: 'no_files' }))[0]).toBe('current')
+    expect(stageBar(item({ currentStage: 5, blockerCode: 'not_submitted' }))[4]).toBe('current')
+    expect(stageBar(item({ currentStage: 6, blockerCode: 'no_td_number' }))[5]).toBe('current')
+    expect(stageBar(item({ currentStage: 6, blockerCode: 'no_td_file' }))[5]).toBe('warn')
+  })
+  it('stageBar: неизвестный код — не препятствие', () =>
+    expect(stageBar(item({ currentStage: 2, blockerCode: 'something_new' }))[1]).toBe('current'))
   it('stageBar: выпущена', () =>
     expect(stageBar(item({ currentStage: null, status: 'released' }))).toEqual(Array(7).fill('done')))
 })
@@ -56,14 +64,21 @@ describe('autoTransit: состояние строки', () => {
   it('блокер важнее этапа', () =>
     expect(stateTag(item({ currentStage: 2, blockerCode: 'no_stamped_invoice' })))
       .toEqual({ tone: 'wait', key: 'broker.autoTransit.blocker.no_stamped_invoice' }))
+  it('этапы 1, 5, 6 с ожидаемым блокером — обычная подпись этапа', () => {
+    expect(stateTag(item({ currentStage: 1, blockerCode: 'no_files' }))).toEqual({ tone: 'wait', key: 'broker.autoTransit.state.waitDocs' })
+    expect(stateTag(item({ currentStage: 5, blockerCode: 'not_submitted' }))).toEqual({ tone: 'submitted', key: 'broker.autoTransit.state.waitDeclarant' })
+    expect(stateTag(item({ currentStage: 6, blockerCode: 'no_td_number' }))).toEqual({ tone: 'submitted', key: 'broker.autoTransit.state.waitTd' })
+    expect(stateTag(item({ currentStage: 7, blockerCode: 'no_warehouse_receipt' })).key).toBe('broker.autoTransit.blocker.no_warehouse_receipt')
+  })
+  it('неизвестный код блокера — подпись этапа, а не сырой ключ', () =>
+    expect(stateTag(item({ currentStage: 2, blockerCode: 'something_new' }))).toEqual({ tone: 'info', key: 'broker.autoTransit.state.control' }))
   it('по этапу', () => {
     expect([1, 2, 3, 4, 5, 6, 7].map((s) => stateTag(item({ currentStage: s })).key.split('.').pop())).toEqual(
       ['waitDocs', 'control', 'control', 'control', 'waitDeclarant', 'waitTd', 'warehouse'],
     )
   })
   it('у каждого блокера сервера есть подпись', () => {
-    for (const code of ['no_files', 'party_no_recipient', 'party_no_invoice', 'no_stamped_invoice', 'not_submitted',
-      'no_td_number', 'no_td_file', 'no_warehouse_receipt']) {
+    for (const code of ['party_no_recipient', 'party_no_invoice', 'no_stamped_invoice', 'no_td_file', 'no_warehouse_receipt']) {
       const key = stateTag(item({ blockerCode: code })).key
       expect(t(key)).not.toBe(key)
     }
@@ -157,7 +172,7 @@ describe('autoTransit: адреса файлов', () => {
   })
   it('допустимые файлы и лимит', () => {
     expect(UPLOAD_ACCEPT.split(',')).toEqual(['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.docx', '.xlsx'])
-    expect(UPLOAD_MAX_BYTES).toBe(100 * 1024 * 1024)
+    expect(UPLOAD_MAX_BYTES).toBe(30 * 1024 * 1024)
   })
 })
 
@@ -179,9 +194,9 @@ describe('autoTransit: переводы', () => {
     // Числовые шаблоны вида «{n} мин» и коды могут совпадать по форме; осмысленные тексты — нет.
     const same = (o: Record<string, string>) => Object.keys(r).filter((key) => /[А-Яа-яЁё]{4,}/.test(r[key]!) && o[key] === r[key])
     // По-казахски эти слова пишутся так же: «Авто-транзит» (как группа прав), «Декларация», «{n} партия» (без склонения),
-    // «Инвойс», «Журнал», «Валюта», «Брутто, кг» (задача 9).
+    // «Инвойс», «Журнал», «Валюта», «Брутто, кг» (задача 9), «Файл» (кнопка «+ файл» партии).
     expect(same(k).sort()).toEqual([
-      'file.kind.invoice', 'journal.title', 'list.parties.one', 'list.title', 'party.fields.currency', 'party.fields.grossKg',
+      'file.kind.invoice', 'journal.title', 'list.parties.one', 'list.title', 'party.addFile', 'party.fields.currency', 'party.fields.grossKg',
       'party.invoice', 'stage.declaration',
     ])
     expect(same(e)).toEqual([])

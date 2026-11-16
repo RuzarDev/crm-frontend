@@ -1,5 +1,5 @@
-import type { Blocker, Party, RecipientLink, TruckCard, TruckEvent } from '@/api/autoTransit'
-import { STAGES, nextAction, stageKey } from '../autoTransit'
+import type { Blocker, FileKind, Party, RecipientLink, TruckCard, TruckEvent, TruckFile } from '@/api/autoTransit'
+import { STAGES, isObstacle, nextAction, stageKey } from '../autoTransit'
 
 // Чистая логика карточки машины (задача 9): права на каждое действие по card.can и статусу, ячейки этапов,
 // главная кнопка, «что мешает», недостающие файлы партии, состояние ссылки получателя.
@@ -60,9 +60,9 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
 export type RailState = 'done' | 'current' | 'warn' | 'todo'
 export interface RailCell { stage: number; name: string; state: RailState; meta: string }
 
-/** Время последней отметки «пройден» этапа (без отменённых после неё), ЧЧ:ММ. */
-const doneAt = (events: TruckEvent[], stage: number): string | null => {
-  const own = [...events].filter((e) => e.stage === stage && (e.action === 'done' || e.action === 'undone'))
+/** Время последней отметки «пройден» этапа (без отменённых после неё), ЧЧ:ММ. partyLevel=false — только отметки машины. */
+const doneAt = (events: TruckEvent[], stage: number, partyLevel = true): string | null => {
+  const own = [...events].filter((e) => e.stage === stage && (e.action === 'done' || e.action === 'undone') && (partyLevel || e.partyId == null))
     .sort((a, b) => a.atUtc.localeCompare(b.atUtc))
   const last = own[own.length - 1]
   return last?.action === 'done' ? last.atUtc : null
@@ -90,7 +90,7 @@ export const dateText = (ymd: string | null): string => {
 export function railCells(card: TruckCard, since: string, t: Translate): RailCell[] {
   const released = card.status === 'released' || card.currentStage == null
   const cur = card.currentStage ?? 8
-  const warn = card.status === 'problem' || !!card.blockerCode
+  const warn = card.status === 'problem' || isObstacle(card.blockerCode)
   const total = card.parties.length
   return STAGES.map((stage) => {
     const state: RailState = released || stage < cur ? 'done' : stage > cur ? 'todo' : warn ? 'warn' : 'current'
@@ -107,6 +107,15 @@ export function railCells(card: TruckCard, since: string, t: Translate): RailCel
     }
     return { stage, name: t(stageKey(stage)), state, meta }
   })
+}
+
+/**
+ * Этап, который снимет «Отменить последнюю отметку» (как сервер: последняя отметка машины 2–4 или 7; этап 1 ставит
+ * загрузка файла и здесь не отменяется). null — отменять нечего, пункт меню не показываем.
+ */
+export function lastMachineMark(card: Pick<TruckCard, 'events'>): number | null {
+  for (const stage of [7, 4, 3, 2]) if (doneAt(card.events, stage, false)) return stage
+  return null
 }
 
 // ---- Главная кнопка ----
@@ -157,6 +166,29 @@ export const sortedParties = (card: Pick<TruckCard, 'parties'>): Party[] => [...
 
 const FILE_CODES = new Set(['no_stamped_invoice', 'no_td_file', 'no_warehouse_receipt', 'no_files'])
 
+/** Какие коды важны на каком этапе — зеркало AutoTransitBlockers.ByStage сервера (этапы 3 и 4 — ничего). */
+export const STAGE_BLOCKERS: Readonly<Record<number, readonly string[]>> = {
+  1: ['no_files'],
+  2: ['party_no_recipient', 'party_no_invoice', 'no_stamped_invoice'],
+  5: ['party_no_recipient', 'party_no_invoice', 'not_submitted'],
+  6: ['no_td_number', 'no_td_file'],
+  7: ['no_warehouse_receipt'],
+}
+
+/** «Что мешает» сейчас: блокеры только текущего этапа (сервер присылает полный список всех этапов). */
+export function currentBlockers(card: Pick<TruckCard, 'blockers' | 'currentStage' | 'status'>): Blocker[] {
+  if (card.status === 'released' || card.status === 'archived' || card.currentStage == null) return []
+  const own = STAGE_BLOCKERS[card.currentStage] ?? []
+  return card.blockers.filter((b) => own.includes(b.code))
+}
+
+/** Недостающий файл партии (пунктирный чип) → что загружать: вид и «с печатью». */
+export const MISSING_UPLOAD: Readonly<Record<string, { kind: FileKind; stamped?: boolean }>> = {
+  no_stamped_invoice: { kind: 'invoice', stamped: true },
+  no_td_file: { kind: 'td' },
+  no_warehouse_receipt: { kind: 'warehouseReceipt' },
+}
+
 /** Недостающие файлы партии — пунктирные чипы: коды блокеров этой партии, которые закрываются файлом. */
 export const missingFiles = (blockers: Blocker[], partyId: string): string[] =>
   blockers.filter((b) => b.partyId === partyId && FILE_CODES.has(b.code)).map((b) => b.code)
@@ -171,6 +203,21 @@ export function blockerText(b: Blocker, card: Pick<TruckCard, 'parties'>, t: Tra
   const p = b.partyId ? card.parties.find((x) => x.id === b.partyId) : undefined
   return p ? t(`${K}.blocker.party`, { n: p.number, text: body }) : cap(body)
 }
+
+// ---- Видимость получателю ----
+
+/** Виды, которые получатель видит по умолчанию (как DefaultVisibleToRecipient на сервере). */
+export const RECIPIENT_KINDS: readonly FileKind[] = ['invoice', 'packingList', 'cmr', 'td', 'warehouseReceipt']
+
+/**
+ * Видит ли получатель файл на самом деле: файл партии — по признаку «виден получателю»; общий документ машины —
+ * только CMR с этим признаком (сервер, VisibleFiles). Признак у общего не-CMR ничего не открывает.
+ */
+export const recipientSees = (f: Pick<TruckFile, 'visibleToRecipient' | 'partyId' | 'kind'>): boolean =>
+  f.visibleToRecipient && (f.partyId != null || f.kind === 'cmr')
+
+/** Общий документ машины, который получатели не увидят ни при каком признаке (не CMR). */
+export const truckLevelHidden = (f: Pick<TruckFile, 'partyId' | 'kind'>): boolean => f.partyId == null && f.kind !== 'cmr'
 
 // ---- Ссылки получателям ----
 
