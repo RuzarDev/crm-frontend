@@ -14,6 +14,7 @@ export const isAdminPermission = (code: string): boolean => ADMIN_PERMISSIONS.in
 const GROUP_KEYS: Record<string, string> = {
   'Импорт 40': 'import40',
   'Транзит': 'transit',
+  'Авто-транзит': 'autotransit',
   'Клиенты': 'clients',
   'Продажи': 'sales',
   'Финансы': 'finance',
