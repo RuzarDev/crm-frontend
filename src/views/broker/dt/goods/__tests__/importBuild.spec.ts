@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ClassifierItem } from '@/types/api'
-import { buildGoods, noteCount, noteDetails, packageKindByWord, type BuildCtx } from '../importBuild'
+import { buildGoods, withoutCompanyForm, noteCount, noteDetails, packageKindByWord, type BuildCtx } from '../importBuild'
 import type { ResolveResult } from '../importResolve'
 import { emptyImportRow, fromExtraction, type ImportRow } from '../importRows'
 
@@ -159,7 +159,25 @@ describe('importBuild №2/5/16: строка гр. 31 всегда и со зн
       return [c.manufacturerName, c.tradeMarkName, c.productMarkName]
     }
     expect(pick(0)).toEqual(['YIWU TRADING', 'YIWU TRADING', 'YIWU TRADING'])
-    expect(pick(1)).toEqual(['OWN', 'TM', 'YIWU TRADING'])
+    // производитель в документе есть — марка как у него, а не отправитель (правило декларанта 16.11.2026)
+    expect(pick(1)).toEqual(['OWN', 'TM', 'OWN'])
+  })
+
+  it('отправитель с «CO.,LTD.»: производитель полностью, товарный знак и марка — без формы; «X ПО ПОРУЧЕНИЮ Y» — Y (16.11.2026)', () => {
+    const one = (sender: string) => {
+      const c = buildGoods([row()], ctx(resolved({ '7323990000': {} }), { senderAsManufacturer: sender })).goods[0].characteristics![0]
+      return [c.manufacturerName, c.tradeMarkName, c.productMarkName]
+    }
+    expect(one('SHANGHAI RUIAOJIA MEDICAL TECHNOLOGY CO.,LTD.')).toEqual([
+      'SHANGHAI RUIAOJIA MEDICAL TECHNOLOGY CO.,LTD.', 'SHANGHAI RUIAOJIA MEDICAL TECHNOLOGY', 'SHANGHAI RUIAOJIA MEDICAL TECHNOLOGY'])
+    expect(one('SICHUAN NORASDA FORWARDING CO., LTD ПО ПОРУЧЕНИЮ XINGJIANG SCULPTOR CO., LTD.')[0]).toBe('XINGJIANG SCULPTOR CO., LTD.')
+    expect(withoutCompanyForm('HANGZHOU SHENGNENG TRADING CO; LTD.')).toBe('HANGZHOU SHENGNENG TRADING')
+    expect(withoutCompanyForm('MIMOSA')).toBe('MIMOSA')
+  })
+
+  it('«SERIAL NUMBERS:» в конце описания — подпись, не описание', () => {
+    const { goods } = buildGoods([row({ description: 'Cosman RFG-4-120V Radiofrequency Generator SERIAL NUMBERS:' })], ctx(resolved({ '7323990000': {} })))
+    expect(goods[0].description).toBe('COSMAN RFG-4-120V RADIOFREQUENCY GENERATOR')
   })
 })
 
@@ -183,10 +201,11 @@ describe('importBuild №3: упаковка', () => {
     expect(noteDetails(notes, 'unknownPackaging')).toEqual(['PC'])
   })
 
-  it('слова → коды классификатора: коробка CT, мешок BG, поддон — по названию (PL «Паллета»)', () => {
+  it('слова → коды классификатора: коробка CT, мешок BG, поддон — PX; PL — ведро, даже если в старом сиде «Паллета»', () => {
     expect(packageKindByWord('ctns', KINDS)).toBe('CT')
     expect(packageKindByWord('Bags', KINDS)).toBe('BG')
-    expect(packageKindByWord('Pallets', KINDS)).toBe('PL')
+    expect(packageKindByWord('Pallets', KINDS)).toBeNull()
+    expect(packageKindByWord('Pallets', [...KINDS, kind('PX', 'Поддон')])).toBe('PX')
     expect(packageKindByWord('Pallets', [])).toBeNull()
   })
 

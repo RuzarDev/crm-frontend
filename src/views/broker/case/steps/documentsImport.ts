@@ -82,7 +82,31 @@ export function onBehalfSender(
   const differs = (name: string | null | undefined) => !!name?.trim() && !looksLikeLabel(name) && !nearlySameName(normPartyName(name), key)
   const seller = differs(sellerName) ? sellerName!
     : (valid.find((x) => x.kind === 'invoice' && differs(x.name)) ?? valid.find((x) => x.docType !== 'transport' && differs(x.name)))?.name
-  return seller ? { consignor, seller: seller.trim() } : null
+  return seller ? { consignor: completeFromSameCompany(consignor, valid), seller: seller.trim() } : null
+}
+
+/**
+ * Отправитель по CMR (графа 1) без полного наименования или адреса — дополняется из инвойса/упаковочного той же компании
+ * (правило декларанта 16.11.2026, поставка ALEM): название там длиннее и начинается так же, адрес — если в CMR его нет.
+ * Чужая компания (продавец вместо экспедитора) не подставляется: только то же название или его продолжение.
+ */
+export function completeFromSameCompany(
+  consignor: Import40ExtractionPartySource, sources: readonly Import40ExtractionPartySource[],
+): Import40ExtractionPartySource {
+  const key = normPartyName(consignor.name)
+  if (!key) return consignor
+  const same = sources.filter((x) => x.docType !== 'transport' && x.name?.trim() && !hasHan(x.name))
+    .filter((x) => {
+      const k = normPartyName(x.name)
+      return !!k && (nearlySameName(k, key) || (k.startsWith(key) && key.length >= 8))
+    })
+  if (!same.length) return consignor
+  // длиннее — и по словам, и по форме компании («… TECHNOLOGY» и «… TECHNOLOGY CO.,LTD.» — одни слова)
+  const size = (n: string) => normPartyName(n).length * 1000 + n.trim().length
+  const longest = same.reduce((a, b) => (size(b.name) > size(a.name) ? b : a))
+  const name = hasHan(consignor.name) || size(longest.name) > size(consignor.name) ? longest.name.trim() : consignor.name
+  const address = consignor.address?.trim() ? consignor.address : (same.find((x) => x.address?.trim())?.address ?? null)
+  return name === consignor.name && address === consignor.address ? consignor : { ...consignor, name, address }
 }
 
 /** Конец латинского названия компании в начале адреса: «… Co.,Ltd», «… Ltd.», «… LLC», «… Inc.». */
