@@ -23,6 +23,9 @@ describe('afterLoginPath / loginPath', () => {
     expect(afterLoginPath('/login?next=/x')).toBe('/')
     expect(afterLoginPath('/register')).toBe('/')
     expect(afterLoginPath('/invite/t1')).toBe('/')
+    // Страница получателя Авто-транзита — открытая; похожий префикс /tnved — нет.
+    expect(afterLoginPath('/t/abc')).toBe('/')
+    expect(afterLoginPath('/tnved/tree')).toBe('/tnved/tree')
     expect(afterLoginPath('https://evil.example')).toBe('/')
     expect(afterLoginPath(undefined)).toBe('/')
   })

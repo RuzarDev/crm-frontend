@@ -16,7 +16,7 @@ export interface GuardAuth {
 
 // Финансист видит только платежи и документы: операционные разделы закрыты
 // даже по прямой ссылке (решение владельца 2026-09-23).
-const FINANCE_BLOCKED = ['/import-40', '/reestr', '/document-packages', '/keden', '/tnved', '/dt-guide', '/requests-registry']
+const FINANCE_BLOCKED = ['/import-40', '/reestr', '/auto-transit', '/document-packages', '/keden', '/tnved', '/dt-guide', '/requests-registry']
 
 /** Куда перенаправить; `null` — пропустить как есть. */
 export const MUST_CHANGE_PASSWORD_TARGET = '/profile?tab=password'
@@ -26,6 +26,8 @@ export const MUST_CHANGE_PASSWORD_TARGET = '/profile?tab=password'
 export function guardRedirect(path: string, meta: Record<string, unknown>, a: GuardAuth, fullPath?: string): string | null {
   // Проверка подписей по QR (20.10.2026) — публичная для всех, даже при незаменённом временном пароле.
   if (path.startsWith('/verify/')) return null
+  // Страница получателя «Авто-транзита» по ссылке брокера (16.11.2026) — тоже без входа для всех.
+  if (path.startsWith('/t/')) return null
   // Политика конфиденциальности (30.10.2026) — тоже для всех: читать её должен и вошедший по временному паролю.
   if (path === '/privacy') return null
   // Временный пароль (волна 5б): пока не сменён, всё, кроме профиля и входа, ведёт на смену пароля.
@@ -84,6 +86,11 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   } else if (
     // Рабочие экраны сотрудников внутри справочников: в меню клиента их нет, по адресу тоже не открываем.
     staffOnly && normalizedRole === 'client'
+  ) {
+    return '/'
+  } else if (
+    // Авто-транзит — только сотрудникам: клиенту закрыт, даже если право попало ему в токен (как на сервере).
+    (path === '/auto-transit' || path.startsWith('/auto-transit/')) && normalizedRole === 'client'
   ) {
     return '/'
   } else if (

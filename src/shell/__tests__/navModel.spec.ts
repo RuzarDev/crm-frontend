@@ -26,6 +26,7 @@ describe('buildBrokerNav', () => {
       'home:home',
       'requests:requests,manage,registry',
       'transit:transit',
+      'autoTransit:autoTransit',
       'packages:packages',
       'keden:kedenDeclarations',
       'clients:clientsList,clientDocuments',
@@ -51,6 +52,19 @@ describe('buildBrokerNav', () => {
     const m = buildBrokerNav(access({ perms: ['finance.read', 'import40.read', 'reestr.read'], isFinanceOnly: true }))
     // finance.read открывает просмотр «Организации» в «Настройках» (как на сервере).
     expect(keys(m)).toEqual(['home:home', 'finance:financeOverview,billing', 'settings:organization'])
+  })
+
+  // Авто-транзит (16.11.2026): по праву autotransit.read, сразу после «Транзита»; клиенту и бухгалтеру — нет.
+  it('авто-транзит: виден с autotransit.read, скрыт у клиента и бухгалтера', () => {
+    const m = buildBrokerNav(access({ perms: ['reestr.read', 'autotransit.read'] }))
+    expect(keys(m)).toEqual(['home:home', 'transit:transit', 'autoTransit:autoTransit', 'keden:kedenStatuses'])
+    const s = allSections(m).find((x) => x.key === 'autoTransit')!
+    expect(s).toMatchObject({ labelKey: 'shell.nav.autoTransit', icon: 'transit' })
+    expect(s.pages[0]!.to).toBe('/auto-transit')
+    expect(keys(buildBrokerNav(access({ perms: ['autotransit.border'] })))).not.toContain('autoTransit:autoTransit')
+    expect(keys(buildBrokerNav(access({ role: 'client', perms: ['autotransit.read'] })))).not.toContain('autoTransit:autoTransit')
+    expect(keys(buildClientNav(access({ role: 'client', perms: ['autotransit.read'] }))).some((k) => k.startsWith('autoTransit'))).toBe(false)
+    expect(keys(buildBrokerNav(access({ perms: ['finance.read', 'autotransit.read'], isFinanceOnly: true })))).not.toContain('autoTransit:autoTransit')
   })
 
   it('руководитель: вкладка «Распределение» в заявках', () => {

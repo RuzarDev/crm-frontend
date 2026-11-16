@@ -84,6 +84,10 @@ export function buildBrokerNav(a: NavAccess): NavModel {
         section({ key: 'transit', labelKey: 'shell.nav.transit', icon: 'transit', pages: [
           page('transit', '/reestr', 'shell.nav.transit', !fo && (admin || (role !== 'client' && p('reestr.read')))),
         ] }),
+        // Авто-транзит (16.11.2026): значок «транзита» — уже грузовик (PhTruck).
+        section({ key: 'autoTransit', labelKey: 'shell.nav.autoTransit', icon: 'transit', pages: [
+          page('autoTransit', '/auto-transit', 'shell.nav.autoTransit', !fo && role !== 'client' && (admin || p('autotransit.read'))),
+        ] }),
         section({ key: 'packages', labelKey: 'shell.nav.packages', icon: 'packages', pages: [
           page('packages', '/document-packages', 'shell.nav.packages', !fo && (admin || role === 'expeditor' || p('packages.manage'))),
         ] }),

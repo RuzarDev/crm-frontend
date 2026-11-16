@@ -51,6 +51,13 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      // Страница получателя «Авто-транзита» (16.11.2026): ссылка от брокера, без входа и вне оболочки.
+      path: '/t/:token',
+      name: 'auto-transit-public',
+      component: () => import('@/views/public/AutoTransitPublicPage.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       // Политика конфиденциальности (30.10.2026) — без входа: ссылка с форм регистрации и приглашения.
       path: '/privacy',
       name: 'privacy',
@@ -97,6 +104,26 @@ const router = createRouter({
           path: '/reestr/:id',
           name: 'reestr-record',
           component: () => import('@/views/broker/transit/record/TransitRecordPage.vue'),
+        },
+        {
+          // Авто-транзит (16.11.2026): машины на автомобильной границе. Клиенту и бухгалтеру закрыт (guard).
+          path: '/auto-transit',
+          name: 'auto-transit',
+          component: () => import('@/views/broker/autoTransit/AutoTransitView.vue'),
+          meta: { requiresPermission: 'autotransit.read' },
+        },
+        {
+          // До /auto-transit/:id, иначе «new» станет id машины.
+          path: '/auto-transit/new',
+          name: 'auto-transit-new',
+          component: () => import('@/views/broker/autoTransit/new/NewTruckPage.vue'),
+          meta: { requiresPermission: 'autotransit.read' },
+        },
+        {
+          path: '/auto-transit/:id',
+          name: 'auto-transit-truck',
+          component: () => import('@/views/broker/autoTransit/truck/TruckPage.vue'),
+          meta: { requiresPermission: 'autotransit.read' },
         },
         {
           path: '/requests-registry',
