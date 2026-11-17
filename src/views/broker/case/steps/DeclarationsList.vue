@@ -472,7 +472,7 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
       <span class="rounded-pill bg-sunken px-1.5 text-[11.5px] font-semibold tabular-nums text-ink-3" data-dt-count>{{ all.length }}</span>
 
       <div v-if="editable" class="ml-auto flex flex-wrap justify-end gap-1.5 max-sm:ml-0 max-sm:w-full max-sm:justify-start" data-dt-toolbar>
-        <template v-if="kase.status === 2">
+        <template v-if="kase.status === 2 || draft">
           <ZTooltip :title="declHint">
             <span class="inline-flex" :tabindex="declHint ? 0 : undefined">
               <ZButton variant="ghost" size="sm" :class="toolBtn" :disabled="blocked('dt-add')" :loading="pending('dt-add')" data-dt-add @click="addDt">
@@ -502,7 +502,7 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
             </span>
           </ZTooltip>
         </template>
-        <ZTooltip v-if="all.length && canDeclare" :title="t('import40Case.readyCount', { ready: readyCount, total: totalCount })">
+        <ZTooltip v-if="all.length && canDeclare && !draft" :title="t('import40Case.readyCount', { ready: readyCount, total: totalCount })">
           <span class="inline-flex" tabindex="0">
             <ZButton
               size="sm"
@@ -533,7 +533,7 @@ const openLink = 'inline-flex h-7 items-center rounded-field bg-sunken px-2.5 te
 
     <div v-if="!all.length" class="border-t border-line px-4 py-5" data-dt-empty>
       <p class="m-0 text-sm text-ink-2">{{ t('import40Case.noDt') }}</p>
-      <p v-if="editable && kase.status === 2 && canDeclare" class="m-0 mt-1 text-[13px] text-muted">{{ t('broker.case.declaring.list.emptyHint') }}</p>
+      <p v-if="editable && (kase.status === 2 || draft) && canDeclare" class="m-0 mt-1 text-[13px] text-muted">{{ t('broker.case.declaring.list.emptyHint') }}</p>
     </div>
     <p v-else-if="!rows.length" class="m-0 border-t border-line px-4 py-4 text-sm text-ink-3" data-dt-nothing>{{ t('broker.case.declaring.list.nothingFound') }}</p>
 
