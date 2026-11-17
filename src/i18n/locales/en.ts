@@ -4361,6 +4361,10 @@ export default {
         current: 'current',
         future: 'upcoming',
       },
+      draftDt: {
+        title: 'Draft declaration',
+        note: 'You can fill it in advance from the goods, before the border. Add transport and the TWH once the cargo arrives. The declaration is submitted at the “Declaration and release” step.',
+      },
       step: {
         of: 'step {n} of {total}',
         passedTitle: 'Completed steps',
