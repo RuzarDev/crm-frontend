@@ -1,4 +1,18 @@
 import apiClient from './client'
+import type {
+  ReestrCargoOperationInput,
+  ReestrCarrierInput,
+  ReestrContainerInput,
+  ReestrDoc44ItemInput,
+  ReestrGoodsItemInput,
+  ReestrGuaranteeInput,
+  ReestrIdentificationMeansInput,
+  ReestrOrganizationInput,
+  ReestrPackageInput,
+  ReestrPrecedingDocInput,
+  ReestrTransitFields,
+  ReestrTransportMeansInput,
+} from '@/types/api'
 import { heicQueued, uploadTimeoutFor } from '@/utils/heic'
 
 // «Авто-транзит» (очередь 1, 16.11.2026): машины на автомобильной границе, партии получателей, семь этапов, файлы,
@@ -63,6 +77,10 @@ export interface Party {
   tdDate: string | null
   importInterestAtUtc: string | null
   importInterestContact: string | null
+  /** ТД партии сохранена (очередь 2а). Старый сервер поле не шлёт — считаем «нет». */
+  hasDeclaration?: boolean
+  /** Сколько пунктов ТД не заполнено (подсказка, этапы не блокирует). */
+  declarationMissingCount?: number
 }
 
 export interface TruckFile {
@@ -144,7 +162,8 @@ export type TruckCreate = TruckFields & { plate: string; force?: boolean }
 
 /** Поля партии. В PUT пропущенное поле не меняется, null очищает. */
 export type PartyFields = Partial<Omit<Party,
-  'id' | 'number' | 'submittedAtUtc' | 'submittedBy' | 'tdNumber' | 'tdDate' | 'importInterestAtUtc' | 'importInterestContact'>>
+  'id' | 'number' | 'submittedAtUtc' | 'submittedBy' | 'tdNumber' | 'tdDate' | 'importInterestAtUtc' | 'importInterestContact'
+  | 'hasDeclaration' | 'declarationMissingCount'>>
 
 export interface TdBody { tdNumber: string; tdDate: string | null }
 export interface FilePatch { partyId?: string | null; kind?: FileKind; stamped?: boolean; visibleToRecipient?: boolean }
@@ -254,6 +273,55 @@ export const unsubmitParty = (id: string, partyId: string): Promise<TruckCard> =
 /** Номер и дата ТД; пустой номер очищает. */
 export const setTd = (id: string, partyId: string, body: TdBody): Promise<TruckCard> =>
   card(apiClient.put<TruckCard>(`${party(id, partyId)}/td`, body, { silentStatuses: FORM_SILENT }))
+
+// ───────── транзитная декларация партии (очередь 2а, 17.11.2026) ─────────
+// Контракт — docs/superpowers/plans/2026-11-17-auto-transit-td-form.md, «Контракт API». data — форма фронтового
+// RecordDraft записи транзита без fields (имена полей — как у Reestr*Input).
+
+export interface DeclarationData {
+  sealNumber: string | null
+  packagingType: string | null
+  transit: ReestrTransitFields
+  goods: ReestrGoodsItemInput[]
+  doc44: ReestrDoc44ItemInput[]
+  organizations: ReestrOrganizationInput[]
+  carriers: ReestrCarrierInput[]
+  transportMeans: ReestrTransportMeansInput[]
+  identificationMeans: ReestrIdentificationMeansInput[]
+  packages: ReestrPackageInput[]
+  containers: ReestrContainerInput[]
+  precedingDocs: ReestrPrecedingDocInput[]
+  cargoOperations: ReestrCargoOperationInput[]
+  guarantees: ReestrGuaranteeInput[]
+}
+
+/** Пункт «Не заполнено»: key — путь поля (goods[2].tnvedCode), section — ключ раздела (SectionKey). */
+export interface DeclarationMissing { key: string; section: string }
+
+export interface DeclarationResponse {
+  /** ТД не сохранялась: data собрана из машины и партии, в базе ничего нет. */
+  isDraft: boolean
+  /** «ТД подана», машина в архиве или нет права autotransit.declare. */
+  readOnly: boolean
+  /** Версия строки партии: уходит в PUT, при расхождении 409 conflict. */
+  version: number
+  data: DeclarationData
+  missing: DeclarationMissing[]
+  updatedAtUtc: string | null
+  updatedBy: string | null
+  truck: { id: string; plate: string; trailerPlate: string }
+  party: { id: string; number: number; recipientName: string; submitted: boolean }
+}
+
+export interface DeclarationSaveBody { version: number; data: DeclarationData }
+
+/** Страница сама показывает 404/403 и сбой загрузки — без общего тоста. */
+export const getDeclaration = async (id: string, partyId: string): Promise<DeclarationResponse> =>
+  (await apiClient.get<DeclarationResponse>(`${party(id, partyId)}/declaration`, { silent: true })).data
+
+/** 400 (больше 2 МБ, больше 999 товаров; 413 — от прокси) и 409 (conflict, submitted, archived) страница пишет плашкой сама. */
+export const saveDeclaration = async (id: string, partyId: string, body: DeclarationSaveBody): Promise<DeclarationResponse> =>
+  (await apiClient.put<DeclarationResponse>(`${party(id, partyId)}/declaration`, body, { silentStatuses: [...FORM_SILENT, 413] })).data
 
 // ───────── файлы ─────────
 

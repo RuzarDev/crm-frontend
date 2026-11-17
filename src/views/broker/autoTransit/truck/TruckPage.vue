@@ -150,6 +150,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnloa
               <PartyCard
                 v-for="p in parties"
                 :key="p.id"
+                :truck-id="card.id"
                 :party="p"
                 :parties="parties"
                 :files="filesOf(p.id)"

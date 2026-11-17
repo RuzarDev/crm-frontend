@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { PhCamera, PhPlus, PhWarningCircle } from '@phosphor-icons/vue'
 import ZButton from '@/components/z/ZButton.vue'
@@ -16,6 +17,8 @@ import { MISSING_UPLOAD, dateText, type TruckRights } from './truckView'
 // Загрузка прямо в партию (как в макете): пунктирный чип «нет …» — кнопка, открывает выбор файла / камеру и грузит
 // с видом этого чипа; «+ файл» — сначала вид из короткого меню. Файлы идут той же очередью, что и остальные.
 const props = defineProps<{
+  /** id машины — для ссылки на страницу ТД партии. */
+  truckId: string
   party: Party
   parties: Party[]
   files: TruckFile[]
@@ -67,6 +70,9 @@ const destination = computed(() => [props.party.destinationOfficeCode, props.par
 const canSubmit = computed(() => props.rights.submit && !submitted.value)
 const canUnsubmit = computed(() => props.rights.submit && submitted.value && !hasTd.value)
 const canTd = computed(() => props.rights.td && submitted.value)
+// ТД партии (очередь 2а): «Заполнить ТД» / «Открыть ТД» — страница формы; без права записи она откроется для чтения.
+const tdPath = computed(() => `/auto-transit/${encodeURIComponent(props.truckId)}/parties/${encodeURIComponent(props.party.id)}/td`)
+const tdMissingCount = computed(() => props.party.declarationMissingCount ?? 0)
 const interest = computed(() => (props.party.importInterestAtUtc ? props.party.importInterestContact?.trim() ?? '' : null))
 
 // ---- Загрузка в партию ----
@@ -101,6 +107,7 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
         <span class="tabular-nums">{{ party.number }}</span> · {{ recipient }}
       </h3>
       <ZTag :tone="decl.tone" size="sm" data-party-decl>{{ decl.text }}</ZTag>
+      <ZTag v-if="tdMissingCount > 0" tone="accent" size="sm" data-party-td-missing>{{ t(`${P}.tdMissing`, { n: tdMissingCount }) }}</ZTag>
       <template v-if="interest !== null">
         <ZTooltip :title="interest ? t(`${P}.importContact`, { contact: interest }) : ''">
           <span tabindex="0" class="rounded-pill outline-hidden focus-visible:shadow-focus" data-party-interest>
@@ -182,6 +189,11 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
     >
 
     <div class="flex flex-wrap items-center gap-2">
+      <RouterLink
+        :to="tdPath"
+        class="inline-flex h-7 items-center justify-center gap-1.5 rounded-field bg-sunken px-2.5 font-sans text-xs font-semibold whitespace-nowrap text-ink no-underline outline-hidden transition-[background-color] duration-150 hover:bg-line-strong focus-visible:shadow-focus motion-reduce:transition-none max-sm:h-11 max-sm:px-4"
+        data-party-td-form
+      >{{ party.hasDeclaration ? t(`${P}.openTd`) : t(`${P}.fillTd`) }}</RouterLink>
       <ZButton v-if="rights.editParty" size="sm" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-edit @click="emit('edit', party)">{{ t(`${P}.edit`) }}</ZButton>
       <template v-if="canSubmit">
         <ZTooltip v-if="rights.submitLocked" :title="t(`${P}.submitLocked`)">
@@ -191,6 +203,7 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
         </ZTooltip>
         <ZButton v-else size="sm" variant="primary" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-submit @click="emit('submit', party)">{{ t(`${P}.submit`) }}</ZButton>
       </template>
+      <span v-if="canSubmit && !rights.submitLocked" class="text-xs text-muted" data-party-submit-keden>{{ t(`${P}.submitKeden`) }}</span>
       <ZButton v-if="canUnsubmit" size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-unsubmit @click="emit('unsubmit', party)">{{ t(`${P}.unsubmit`) }}</ZButton>
       <ZButton v-if="canTd" size="sm" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-td @click="emit('td', party)">{{ t(`${P}.tdNumber`) }}</ZButton>
       <ZDropdown v-if="rights.upload" :items="kindItems" @select="pickFor($event as FileKind)">
