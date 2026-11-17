@@ -1,13 +1,13 @@
 import { computed, nextTick, reactive, ref, shallowRef, toRaw, watch, type ComputedRef, type Ref } from 'vue'
-import { getDeclaration, saveDeclaration, type DeclarationMissing, type DeclarationResponse } from '@/api/autoTransit'
+import { getDeclaration, saveDeclaration, type DeclarationData, type DeclarationMissing, type DeclarationResponse } from '@/api/autoTransit'
 import { i18n } from '@/i18n'
 import { message } from '@/ui/message'
 import { useGoodsTotalsSync } from '@/views/broker/transit/record/goodsTotalsSync'
 import { assignDraft, changedSections, mergeDrafts, type RecordDraft, type SectionKey } from '@/views/broker/transit/record/recordModel'
-import { TD_SECTIONS, dataToDraft, draftToData } from './tdModel'
+import { TD_SECTIONS, applyCopy, dataExtras, dataToDraft, draftToData } from './tdModel'
 
-/** Почему ТД не сохранилась — ключ broker.autoTransit.td.error.*. */
-export type TdSaveError = 'conflict' | 'submitted' | 'archived' | 'tooLarge' | 'forbidden' | 'unknown'
+/** Почему ТД не сохранилась — ключ broker.autoTransit.td.error.*. invalid — 400 «данные не читаются» / нет версии. */
+export type TdSaveError = 'conflict' | 'submitted' | 'archived' | 'tooLarge' | 'invalid' | 'forbidden' | 'unknown'
 
 export interface Td {
   draft: RecordDraft
@@ -28,6 +28,8 @@ export interface Td {
   save(): Promise<boolean>
   reload(): Promise<void>
   revert(): void
+  /** Подставить прошлую ТД (applyCopy) в черновик на месте; не сохраняет. Итоги «Основного» остаются прежними. */
+  applyCopy(source: Partial<DeclarationData>, withGoods: boolean): void
 }
 
 const statusOf = (e: unknown): number | undefined => (e as { response?: { status?: number } })?.response?.status
@@ -40,7 +42,16 @@ function saveErrorOf(e: unknown): TdSaveError {
     const code = codeOf(e)
     return code === 'submitted' || code === 'archived' ? code : 'conflict'
   }
-  if (status === 400 || status === 413) return 'tooLarge'
+  if (status === 413) return 'tooLarge'
+  if (status === 400) {
+    // Сервер (7c905cb): 400 { error, errors: { goods | data | version: [текст] } }. goods — больше 999 товаров,
+    // data с «2 МБ» — тело больше лимита; прочее (data не читается, нет version) — invalid.
+    const data = (e as { response?: { data?: { error?: unknown; errors?: Record<string, unknown> } } })?.response?.data
+    const errors = data?.errors ?? {}
+    if ('goods' in errors) return 'tooLarge'
+    const texts = [data?.error, ...Object.values(errors).flat()].map((x) => String(x ?? '')).join(' ')
+    return /2\s*МБ|2\s*MB/i.test(texts) ? 'tooLarge' : 'invalid'
+  }
   if (status === 403) return 'forbidden'
   return 'unknown'
 }
@@ -65,6 +76,8 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
   const saving = ref(false)
   const saveError = ref<TdSaveError | null>(null)
   const snapshot = ref<string | null>(null)
+  // Незнакомые поля верхнего уровня data последнего ответа: PUT заменяет ТД целиком — уходят обратно как были.
+  let extras: Record<string, unknown> = {}
   const snapshotDraft = computed<RecordDraft | null>(() => (snapshot.value ? JSON.parse(snapshot.value) : null))
   let seq = 0
   let snapSeq = 0
@@ -88,6 +101,7 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
   const apply = (fresh: DeclarationResponse, base: RecordDraft | null, inPlace = false) => {
     response.value = fresh
     saveError.value = null
+    extras = dataExtras(fresh.data)
     const theirs = dataToDraft(fresh.data)
     if (!base) {
       setDraft(theirs, inPlace)
@@ -108,6 +122,7 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     saveError.value = null
     reloading.value = false
     setSnapshot(null)
+    extras = {}
     setDraft(dataToDraft(null), false)
     if (!truckId() || !partyId()) return
     loading.value = true
@@ -150,7 +165,7 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     const my = seq
     saving.value = true
     try {
-      const fresh = await saveDeclaration(truckId(), partyId(), { version: cur.version, data: draftToData(sent) })
+      const fresh = await saveDeclaration(truckId(), partyId(), { version: cur.version, data: draftToData(sent, extras) })
       if (my !== seq) return true
       message.success(i18n.global.t('broker.autoTransit.td.saved'))
       // Правки, сделанные пока шёл запрос, остаются поверх ответа.
@@ -169,6 +184,11 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     if (snap) setDraft(structuredClone(snap), true)
   }
 
+  const doApplyCopy = (source: Partial<DeclarationData>, withGoods: boolean) => {
+    if (readOnlyNow()) return
+    setDraft(applyCopy(plain(draft), source, withGoods), true)
+  }
+
   const draftJson = computed(() => JSON.stringify(draft))
   const dirty = computed(() => snapshot.value !== null && draftJson.value !== snapshot.value)
   const changed = computed<SectionKey[]>(() => {
@@ -176,6 +196,8 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     if (!dirty.value || !snap) return []
     return changedSections(snap, draft).filter((k) => TD_SECTIONS.includes(k) || k === 'containers')
   })
+
+  function readOnlyNow() { return response.value?.readOnly ?? true }
 
   watch(() => [truckId(), partyId()] as const, () => { void load() }, { immediate: true })
 
@@ -187,6 +209,6 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     missing: computed(() => response.value?.missing ?? []),
     version: computed(() => response.value?.version ?? null),
     loading, notFound, loadError, reloading, saving, saveError, dirty, changed,
-    load, save, reload, revert,
+    load, save, reload, revert, applyCopy: doApplyCopy,
   }
 }

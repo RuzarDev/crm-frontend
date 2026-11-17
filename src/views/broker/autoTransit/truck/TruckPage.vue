@@ -58,7 +58,8 @@ const uploader = ref<InstanceType<typeof UploadButtons> | null>(null)
 const pickFiles = () => uploader.value?.openFiles()
 const readonlyNote = computed(() => {
   const st = card.value?.status
-  return st === 'released' ? t('broker.autoTransit.truck.readonlyReleased') : st === 'archived' ? t('broker.autoTransit.truck.readonlyArchived') : ''
+  if (st === 'released') return t(card.value?.can.manage ? 'broker.autoTransit.truck.readonlyReleasedManage' : 'broker.autoTransit.truck.readonlyReleased')
+  return st === 'archived' ? t(card.value?.can.manage ? 'broker.autoTransit.truck.readonlyArchivedManage' : 'broker.autoTransit.truck.readonlyArchived') : ''
 })
 const saveParty = (fields: PartyFields) => (a.partyEditing.value ? s.updateParty(a.partyEditing.value.id, fields) : s.addParty(fields))
 const backTo = computed(() => listPath('autoTransit', '/auto-transit'))

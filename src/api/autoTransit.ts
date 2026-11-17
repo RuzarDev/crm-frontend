@@ -79,8 +79,8 @@ export interface Party {
   importInterestContact: string | null
   /** ТД партии сохранена (очередь 2а). Старый сервер поле не шлёт — считаем «нет». */
   hasDeclaration?: boolean
-  /** Сколько пунктов ТД не заполнено (подсказка, этапы не блокирует). */
-  declarationMissingCount?: number
+  /** Сколько пунктов ТД не заполнено (подсказка, этапы не блокирует); null — ТД нет (сервер 7c905cb шлёт null). */
+  declarationMissingCount?: number | null
 }
 
 export interface TruckFile {
@@ -105,7 +105,8 @@ export interface TruckEvent {
   note: string
 }
 
-export interface Blocker { code: string; partyId: string | null }
+/** count — только у declaration_incomplete: сколько полей ТД не заполнено (очередь 2а). */
+export interface Blocker { code: string; partyId: string | null; count?: number | null }
 export interface TruckCan { border: boolean; declare: boolean; manage: boolean }
 
 export interface TruckCard extends TruckListItem {
@@ -252,6 +253,10 @@ export const clearProblem = (id: string): Promise<TruckCard> =>
 export const archiveTruck = (id: string): Promise<TruckCard> =>
   card(apiClient.post<TruckCard>(`${base(id)}/archive`, undefined, { silentStatuses: [409] }))
 
+/** «Вернуть из архива» (autotransit.manage): все этапы закрыты — «Выпущена», иначе «В работе». Не в архиве — карточка как есть. */
+export const unarchiveTruck = (id: string): Promise<TruckCard> =>
+  card(apiClient.post<TruckCard>(`${base(id)}/unarchive`, undefined, { silentStatuses: [409] }))
+
 // ───────── партии ─────────
 
 export const addParty = (id: string, body: PartyFields = {}): Promise<TruckCard> =>
@@ -303,7 +308,7 @@ export interface DeclarationResponse {
   isDraft: boolean
   /** «ТД подана», машина в архиве или нет права autotransit.declare. */
   readOnly: boolean
-  /** Версия строки партии: уходит в PUT, при расхождении 409 conflict. */
+  /** Версия ТД (DeclarationRevision: 0 — ТД не сохраняли, растёт при каждом сохранении ТД): уходит в PUT как есть, при расхождении 409 conflict. */
   version: number
   data: DeclarationData
   missing: DeclarationMissing[]
@@ -319,9 +324,31 @@ export interface DeclarationSaveBody { version: number; data: DeclarationData }
 export const getDeclaration = async (id: string, partyId: string): Promise<DeclarationResponse> =>
   (await apiClient.get<DeclarationResponse>(`${party(id, partyId)}/declaration`, { silent: true })).data
 
-/** 400 (больше 2 МБ, больше 999 товаров; 413 — от прокси) и 409 (conflict, submitted, archived) страница пишет плашкой сама. */
+/**
+ * PUT заменяет ТД целиком: body.data — вся форма (draftToData), не частичный патч. 400 { error, errors: { data|goods|version: [текст] } }
+ * (больше 2 МБ, больше 999 товаров, данные не читаются; 413 — от прокси), 403 { error }, 409 { code: conflict|submitted|archived, error } —
+ * страница пишет плашкой сама.
+ */
 export const saveDeclaration = async (id: string, partyId: string, body: DeclarationSaveBody): Promise<DeclarationResponse> =>
-  (await apiClient.put<DeclarationResponse>(`${party(id, partyId)}/declaration`, body, { silentStatuses: [...FORM_SILENT, 413] })).data
+  (await apiClient.put<DeclarationResponse>(`${party(id, partyId)}/declaration`, body, { silentStatuses: [...FORM_SILENT, 403, 413] })).data
+
+/** Прошлая ТД того же получателя (тот же непустой БИН/регномер), кроме текущей партии; новые сверху, не больше 20. */
+export interface DeclarationCopySource {
+  partyId: string
+  truckId: string
+  truckPlate: string
+  tdNumber: string
+  updatedAtUtc: string | null
+  goodsCount: number
+}
+
+/** Список источников — подсказка на странице: сбой не мешает работать, без тоста. */
+export const listCopySources = async (id: string, partyId: string): Promise<DeclarationCopySource[]> =>
+  (await apiClient.get<DeclarationCopySource[]>(`${party(id, partyId)}/declaration/copy-sources`, { silent: true })).data
+
+/** Данные прошлой ТД; 404 — источник не из списка (другой получатель, ТД удалена). Окно копии пишет ошибку само. */
+export const getCopySource = async (id: string, partyId: string, sourcePartyId: string): Promise<{ data: DeclarationData }> =>
+  (await apiClient.get<{ data: DeclarationData }>(`${party(id, partyId)}/declaration/copy-sources/${enc(sourcePartyId)}`, { silent: true })).data
 
 // ───────── файлы ─────────
 

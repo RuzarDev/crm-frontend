@@ -7,8 +7,9 @@ import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import type { DeclarationMissing } from '@/api/autoTransit'
-import { useConfirm } from '@/ui/confirm'
+import { getCopySource, listCopySources, type DeclarationCopySource, type DeclarationMissing } from '@/api/autoTransit'
+import { confirmState, useConfirm } from '@/ui/confirm'
+import { message } from '@/ui/message'
 import RecordNav from '@/views/broker/transit/record/RecordNav.vue'
 import RecordSaveBar from '@/views/broker/transit/record/RecordSaveBar.vue'
 import SectionCarriers from '@/views/broker/transit/record/sections/SectionCarriers.vue'
@@ -25,8 +26,9 @@ import SectionTransport from '@/views/broker/transit/record/sections/SectionTran
 import { provideRecordRefs } from '@/views/broker/transit/record/sections/refs'
 import { sectionDomId } from '@/views/broker/transit/record/sections/sectionId'
 import PlateTag from '../PlateTag.vue'
+import CopyTdModal, { type CopyResult } from './CopyTdModal.vue'
 import TdSectionMain from './TdSectionMain.vue'
-import { TD_SECTIONS, missingLabel, missingSection, missingTarget } from './tdModel'
+import { TD_SECTIONS, copyWouldReplace, missingLabel, missingSection, missingTarget, parseMissingKey } from './tdModel'
 import { useTd } from './useTd'
 
 // ТД партии «Авто-транзита» — /auto-transit/:id/parties/:partyId/td (очередь 2а, спека 2026-11-17). Разделы — те же,
@@ -96,16 +98,34 @@ function labelOf(m: DeclarationMissing): string {
 const containersOpen = ref(false)
 watch(() => draft.containers.length, (n) => { if (n) containersOpen.value = true }, { immediate: true })
 
+/**
+ * Карточка товара с номером index (с 0, как в ключе сервера): свёрнутую разворачиваем её же кнопкой (SectionGoods держит
+ * развёрнутость у себя, файлы ЖД-транзита не меняем). Поля ищутся внутри карточки, а не по номеру среди полей раздела:
+ * у свёрнутых карточек полей в DOM нет.
+ */
+async function goodsCard(section: HTMLElement, index: number): Promise<HTMLElement | null> {
+  const card = section.querySelectorAll<HTMLElement>('[data-goods-card]')[index]
+  if (!card) return null
+  const toggle = card.querySelector<HTMLElement>('[data-goods-toggle]')
+  if (toggle?.getAttribute('aria-expanded') === 'false') {
+    toggle.click()
+    await nextTick()
+  }
+  return card
+}
+
 const goToMissing = async (m: DeclarationMissing) => {
   const section = missingSection(m)
   if (section === 'containers') containersOpen.value = true
   await nextTick()
   const el = document.getElementById(sectionDomId(section))
   if (!el) return
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const { field, index } = missingTarget(m)
+  const key = parseMissingKey(m.key)
+  const card = section === 'goods' && key.head === 'goods' && key.index != null ? await goodsCard(el, key.index) : null
+  ;(card ?? el).scrollIntoView({ behavior: 'smooth', block: card ? 'center' : 'start' })
   if (!field) return
-  const target = el.querySelectorAll<HTMLElement>(`[data-f="${field}"]`)[index]
+  const target = card ? card.querySelector<HTMLElement>(`[data-f="${field}"]`) : el.querySelectorAll<HTMLElement>(`[data-f="${field}"]`)[index]
   const focusable = target?.matches('input,button,textarea,[tabindex]')
     ? target
     : target?.querySelector<HTMLElement>('input,button,textarea,[tabindex]:not([tabindex="-1"])')
@@ -130,8 +150,67 @@ const onBeforeUnload = (e: BeforeUnloadEvent) => {
   e.preventDefault()
   e.returnValue = ''
 }
-onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
-onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+// Ctrl/⌘+S — «Сохранить» (подсказку показывает общая плашка RecordSaveBar), как в записи транзита: не под открытым окном.
+const onKey = (e: KeyboardEvent) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+  if (e.code !== 'KeyS' && e.key.toLowerCase() !== 's') return
+  if (!response.value || readOnly.value) return
+  const openDialog = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
+  if (copyOpen.value || confirmState.open || document.querySelector(openDialog)) return
+  e.preventDefault()
+  if (dirty.value || isDraft.value) void onSave()
+}
+onMounted(() => {
+  window.addEventListener('beforeunload', onBeforeUnload)
+  window.addEventListener('keydown', onKey)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  window.removeEventListener('keydown', onKey)
+})
+
+// ---- Копия с прошлой ТД (Task 3) ----
+// Список — прошлые ТД того же получателя (сервер); кнопка видна, если он не пуст и форма не только для чтения.
+const copySources = ref<DeclarationCopySource[]>([])
+const copyOpen = ref(false)
+let copySeq = 0
+const loadCopySources = async () => {
+  const my = ++copySeq
+  copySources.value = []
+  if (!response.value || readOnly.value) return
+  try {
+    const list = await listCopySources(truckId.value, partyId.value)
+    if (my === copySeq) copySources.value = Array.isArray(list) ? list : []
+  } catch {
+    // Подсказка, а не основное действие: без списка просто нет кнопки.
+  }
+}
+watch(() => [response.value?.party.id ?? null, readOnly.value] as const, ([id], prev) => {
+  if (!prev || id !== prev[0] || readOnly.value !== prev[1]) void loadCopySources()
+})
+const canCopy = computed(() => !readOnly.value && copySources.value.length > 0)
+const statusOf = (e: unknown) => (e as { response?: { status?: number } })?.response?.status
+const runCopy = async (sourcePartyId: string, withGoods: boolean): Promise<CopyResult> => {
+  let data
+  try {
+    data = (await getCopySource(truckId.value, partyId.value, sourcePartyId)).data
+  } catch (e) {
+    return statusOf(e) === 404 ? 'notFound' : 'error'
+  }
+  if (readOnly.value) return 'cancelled'
+  if (copyWouldReplace(draft, withGoods)) {
+    const ok = await confirm({
+      title: t(`${T}.copy.replaceTitle`),
+      content: t(`${T}.copy.replaceText`),
+      okText: t(`${T}.copy.replaceOk`),
+      cancelText: t(`${T}.copy.cancel`),
+    })
+    if (!ok) return 'cancelled'
+  }
+  td.applyCopy(data, withGoods)
+  message.success(t(`${T}.copy.done`))
+  return 'ok'
+}
 
 const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13px] font-medium text-ink-2 no-underline outline-hidden hover:text-ink focus-visible:shadow-focus max-sm:min-h-11'
 </script>
@@ -179,6 +258,13 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
               </span>
             </p>
           </div>
+          <ZButton
+            v-if="canCopy"
+            :disabled="busy"
+            class="max-sm:h-11 max-sm:w-full"
+            data-td-copy
+            @click="copyOpen = true"
+          >{{ t(`${T}.copy.button`) }}</ZButton>
           <ZButton
             v-if="!readOnly"
             variant="primary"
@@ -262,6 +348,8 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
           </div>
         </div>
       </div>
+
+      <CopyTdModal v-model:open="copyOpen" :sources="copySources" :run="runCopy" />
 
       <RecordSaveBar
         v-if="showSaveBar"

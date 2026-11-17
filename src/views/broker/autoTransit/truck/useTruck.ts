@@ -19,7 +19,7 @@ export const POLL_MS = 60_000
 
 export type ActionResult =
   | { ok: true; card: TruckCard }
-  | { ok: false; status?: number; code?: string; fieldErrors: Record<string, string> }
+  | { ok: false; status?: number; code?: string; fieldErrors: Record<string, string>; existingTruckId?: string }
 
 export interface UploadProgress {
   /** Номер текущего файла (с 1) и всего в пачке. */
@@ -176,7 +176,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
    * truckId — машина, для которой действие создано (кнопка в тосте): после ухода с карточки или перехода на другую
    * машину запрос не отправляется. Без него — текущая машина.
    */
-  const run = async (fn: (truckId: string) => Promise<TruckCard>, truckId?: string): Promise<ActionResult> => {
+  /** quiet409 — коды 409, о которых экран пишет сам (без общего тоста; карточка всё равно перечитывается). */
+  const run = async (fn: (truckId: string) => Promise<TruckCard>, truckId?: string, quiet409: string[] = []): Promise<ActionResult> => {
     const myId = truckId ?? id()
     if (!alive || !myId || myId !== id()) return { ok: false, fieldErrors: {} }
     pending.value++
@@ -188,9 +189,10 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
       const status = statusOf(e)
       if (status === 409) {
         const code = String(dataOf(e)?.code ?? '')
-        message.error(t(errorKey(code)))
+        if (!quiet409.includes(code)) message.error(t(errorKey(code)))
         if (alive && myId === id()) void reload()
-        return { ok: false, status, code, fieldErrors: {} }
+        const existing = dataOf(e)?.existingTruckId
+        return { ok: false, status, code, fieldErrors: {}, ...(typeof existing === 'string' && existing ? { existingTruckId: existing } : {}) }
       }
       if (status === 400) {
         const fieldErrors = fieldErrorsOf(e)
@@ -213,6 +215,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   const setProblem = (note: string) => run((i) => api.setProblem(i, note))
   const clearProblem = () => run((i) => api.clearProblem(i))
   const archive = () => run((i) => api.archiveTruck(i))
+  // 409 duplicate_plate: пока машина лежала в архиве, завели новую с тем же номером — пишет экран (со ссылкой на неё).
+  const unarchive = () => run((i) => api.unarchiveTruck(i), undefined, ['duplicate_plate'])
   const updateTruck = (patch: TruckFields) => run((i) => api.updateTruck(i, patch))
   const addParty = (body: PartyFields = {}) => run((i) => api.addParty(i, body))
   const updateParty = (partyId: string, patch: PartyFields) => run((i) => api.updateParty(i, partyId, patch))
@@ -287,7 +291,7 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
 
   return {
     card, loading, notFound, loadError, reloadError, busy, uploading,
-    reload, mark, undo, submit, unsubmit, setTd, setProblem, clearProblem, archive, updateTruck,
+    reload, mark, undo, submit, unsubmit, setTd, setProblem, clearProblem, archive, unarchive, updateTruck,
     addParty, updateParty, deleteParty, patchFile, deleteFile, upload,
     queue, retryUpload, retryAllUploads, removeUpload,
   }

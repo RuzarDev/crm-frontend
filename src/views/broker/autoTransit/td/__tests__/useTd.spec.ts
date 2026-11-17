@@ -93,7 +93,7 @@ describe('useTd', () => {
     api.saveDeclaration.mockRejectedValueOnce(httpError(409, { code: 'archived' }))
     await td.save()
     expect(td.saveError.value).toBe('archived')
-    api.saveDeclaration.mockRejectedValueOnce(httpError(400, { errors: { data: ['too big'] } }))
+    api.saveDeclaration.mockRejectedValueOnce(httpError(400, { error: 'ТД больше 2 МБ: сократите описания или разделите партию.', errors: { data: ['ТД больше 2 МБ: сократите описания или разделите партию.'] } }))
     await td.save()
     expect(td.saveError.value).toBe('tooLarge')
     api.saveDeclaration.mockRejectedValueOnce(httpError(403))
@@ -132,5 +132,77 @@ describe('useTd', () => {
     party.value = 'p2'
     await flushPromises()
     expect(api.getDeclaration).toHaveBeenLastCalledWith('t1', 'p2')
+  })
+})
+
+describe('useTd: сверка с сервером 7c905cb', () => {
+  it('PUT шлёт всю форму целиком (все разделы, даже пустые) и незнакомые поля data из ответа', async () => {
+    const data = { ...fullData({ containers: [] }), driver: { name: 'Ван Лэй' } }
+    api.getDeclaration.mockResolvedValue(response({ data: data as never }))
+    const td = await start()
+    api.saveDeclaration.mockResolvedValue(response())
+    await td.save()
+    const body = api.saveDeclaration.mock.calls[0][2]
+    expect(Object.keys(body.data).sort()).toEqual([
+      'cargoOperations', 'carriers', 'containers', 'doc44', 'driver', 'goods', 'guarantees', 'identificationMeans', 'organizations',
+      'packages', 'packagingType', 'precedingDocs', 'sealNumber', 'transit', 'transportMeans',
+    ])
+    expect(body.data.driver).toEqual({ name: 'Ван Лэй' })
+    expect(body.data.containers).toEqual([])
+  })
+
+  it('400 сервера: goods → tooLarge, «больше 2 МБ» → tooLarge, нечитаемые данные → invalid; 403 → forbidden', async () => {
+    api.getDeclaration.mockResolvedValue(response())
+    const td = await start()
+    const bad = (errors: Record<string, string[]>) => httpError(400, { error: Object.values(errors)[0]![0], errors })
+    api.saveDeclaration.mockRejectedValueOnce(bad({ goods: ['Не больше 999 товаров в одной ТД.'] }))
+    await td.save()
+    expect(td.saveError.value).toBe('tooLarge')
+    api.saveDeclaration.mockRejectedValueOnce(bad({ data: ['ТД больше 2 МБ: сократите описания или разделите партию.'] }))
+    await td.save()
+    expect(td.saveError.value).toBe('tooLarge')
+    api.saveDeclaration.mockRejectedValueOnce(bad({ data: ['Данные ТД не читаются: проверьте формат полей.'] }))
+    await td.save()
+    expect(td.saveError.value).toBe('invalid')
+    api.saveDeclaration.mockRejectedValueOnce(httpError(403, { error: 'Недостаточно прав для этого действия' }))
+    await td.save()
+    expect(td.saveError.value).toBe('forbidden')
+    api.saveDeclaration.mockRejectedValueOnce(httpError(409, { code: 'submitted', error: '…' }))
+    await td.save()
+    expect(td.saveError.value).toBe('submitted')
+  })
+
+  it('applyCopy: черновик меняется на месте, PUT не зовётся, итоги «Основного» не пересчитываются', async () => {
+    api.getDeclaration.mockResolvedValue(response())
+    const td = await start()
+    const gross = td.draft.transit.grossWeightKg
+    const src = fullData({ goods: [{ ...fullData().goods[0]!, grossWeightKg: 1 }] })
+    src.organizations = [{ role: 'Получатель', subjectType: null, bin: '1', name: 'Из прошлой', shortName: null, address: null, phone: null, email: null }]
+    td.applyCopy(src, true)
+    await nextTick()
+    await nextTick()
+    expect(td.draft.organizations.map((o) => o.name)).toEqual(['Из прошлой'])
+    expect(td.draft.goods).toHaveLength(1)
+    expect(td.draft.transit.grossWeightKg).toBe(gross)
+    expect(td.dirty.value).toBe(true)
+    expect(api.saveDeclaration).not.toHaveBeenCalled()
+  })
+
+  it('черновик с version 0 (DeclarationRevision) сохраняется с version: 0, а не теряет его', async () => {
+    api.getDeclaration.mockResolvedValue(response({ isDraft: true, version: 0 }))
+    const td = await start()
+    api.saveDeclaration.mockResolvedValue(response({ version: 1 }))
+    expect(await td.save()).toBe(true)
+    expect(api.saveDeclaration.mock.calls[0][2].version).toBe(0)
+    await flushPromises()
+    expect(td.version.value).toBe(1)
+  })
+
+  it('applyCopy при readOnly ничего не меняет', async () => {
+    api.getDeclaration.mockResolvedValue(response({ readOnly: true }))
+    const td = await start()
+    const before = JSON.stringify(td.draft)
+    td.applyCopy(fullData({ organizations: [] }), true)
+    expect(JSON.stringify(td.draft)).toBe(before)
   })
 })

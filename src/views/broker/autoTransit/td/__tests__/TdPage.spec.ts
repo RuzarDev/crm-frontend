@@ -5,9 +5,9 @@ import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { RouterView, createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { mountWithI18n } from '@/test/mountWithI18n'
 import type { DeclarationResponse } from '@/api/autoTransit'
-import { httpError, response } from './tdFixture'
+import { fullData, httpError, manyGoods, response } from './tdFixture'
 
-const api = vi.hoisted(() => ({ getDeclaration: vi.fn(), saveDeclaration: vi.fn() }))
+const api = vi.hoisted(() => ({ getDeclaration: vi.fn(), saveDeclaration: vi.fn(), listCopySources: vi.fn(), getCopySource: vi.fn() }))
 vi.mock('@/api/autoTransit', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api/autoTransit')>()), ...api }))
 const tnved = vi.hoisted(() => ({ node: vi.fn(), rates: vi.fn() }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
@@ -49,6 +49,7 @@ beforeEach(() => {
   auth.role = 'manager'
   auth.permissions = ['autotransit.read', 'autotransit.declare']
   primeRefs()
+  api.listCopySources.mockResolvedValue([])
   tnved.node.mockResolvedValue({ data: { is10: true, name: 'Ноутбуки' } })
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
   Element.prototype.scrollIntoView = vi.fn()
@@ -110,8 +111,12 @@ describe('TdPage', () => {
     expect(items.map((i) => text(i.text()))).toEqual(['Получатель (организация)', 'Товар 2: код ТН ВЭД'])
     const spy = Element.prototype.scrollIntoView as unknown as ReturnType<typeof vi.fn>
     await items[1].trigger('click')
+    await settle()
     expect(spy).toHaveBeenCalled()
-    expect((spy.mock.contexts.at(-1) as HTMLElement).id).toBe('sec-goods')
+    // Пункт товара ведёт к самой карточке товара 2 внутри раздела «Товары».
+    const target = spy.mock.contexts.at(-1) as HTMLElement
+    expect(target.closest('#sec-goods')).not.toBeNull()
+    expect(target).toBe(w.findAll('[data-goods-card]')[1]!.element)
   })
 
   it('только для чтения: разделы получают readonly, кнопки сохранения нет, причина видна', async () => {
@@ -173,5 +178,122 @@ describe('TdPage', () => {
     w = mountWithI18n(App, { attachTo: document.body, global: { plugins: [pinia, router], stubs: { ZSelect: SelectStub, ZCombobox: ComboStub } } })
     await settle()
     expect(has('[data-td-not-found]')).toBe(true)
+  })
+})
+
+describe('TdPage: копия с прошлой ТД (Task 3)', () => {
+  const SRC = [
+    { partyId: 'old1', truckId: 't0', truckPlate: '777AAA02', tdNumber: '50509/171126/0001', updatedAtUtc: '2026-11-16T10:00:00Z', goodsCount: 3 },
+    { partyId: 'old2', truckId: 't9', truckPlate: '888BBB02', tdNumber: '', updatedAtUtc: null, goodsCount: 0 },
+  ]
+  const source = () => fullData({
+    organizations: [{ role: 'Получатель', subjectType: 'ЮЛ', bin: '111', name: 'Из прошлой ТД', shortName: null, address: null, phone: null, email: null }],
+    goods: manyGoods(3),
+  })
+  const orgNames = () => Array.from(document.body.querySelectorAll<HTMLElement>('[data-record-section="organizations"] [data-f="name"]'))
+    .map((el) => ((el.matches('input') ? el : el.querySelector('input')) as HTMLInputElement).value)
+  const openModal = async () => {
+    await w.get('[data-td-copy]').trigger('click')
+    await settle()
+  }
+  const okBtn = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('[data-td-copy-modal] button')).find((b) => b.textContent?.trim() === 'Копировать')!
+
+  it('кнопки нет при пустом списке источников и при readOnly; есть — когда список не пуст', async () => {
+    await open(response())
+    expect(api.listCopySources).toHaveBeenCalledWith('t1', 'p1')
+    expect(has('[data-td-copy]')).toBe(false)
+    w.unmount()
+    document.body.innerHTML = ''
+    api.listCopySources.mockResolvedValue(SRC)
+    await open(response({ readOnly: true }))
+    expect(has('[data-td-copy]')).toBe(false)
+    w.unmount()
+    document.body.innerHTML = ''
+    await open(response())
+    expect(text(w.get('[data-td-copy]').text())).toBe('Копировать с прошлой ТД')
+  })
+
+  it('окно: список прошлых ТД, первая выбрана; без галочки товары не копируются; замену подтверждают; PUT не зовётся', async () => {
+    api.listCopySources.mockResolvedValue(SRC)
+    await open(response())
+    await openModal()
+    const rows = Array.from(document.body.querySelectorAll<HTMLElement>('[data-td-copy-source]'))
+    expect(rows.map((r) => Array.from(r.querySelectorAll('span > span')).map((x) => x.textContent?.trim()).join(' '))).toEqual([
+      'Машина 777AAA02 ТД № 50509/171126/0001 · сохранена 16.11.2026 · товаров: 3',
+      'Машина 888BBB02 номер ТД не внесён · товаров: 0',
+    ])
+    expect((rows[0]!.querySelector('input') as HTMLInputElement).checked).toBe(true)
+    api.getCopySource.mockResolvedValue({ data: source() })
+    const goodsBefore = w.findAll('[data-goods-card]').length
+    okBtn().click()
+    await settle()
+    expect(api.getCopySource).toHaveBeenCalledWith('t1', 'p1', 'old1')
+    // В текущей ТД уже есть организации — сначала вопрос.
+    expect(confirmState.open).toBe(true)
+    confirmState.resolve(true)
+    await settle()
+    expect(w.findAll('[data-goods-card]').length).toBe(goodsBefore)
+    expect(orgNames()).toEqual(['Из прошлой ТД'])
+    expect(toast.success).toHaveBeenCalledWith('Данные прошлой ТД подставлены. Проверьте и нажмите «Сохранить».')
+    expect(api.saveDeclaration).not.toHaveBeenCalled()
+    expect(has('[data-record-savebar]')).toBe(true)
+  })
+
+  it('с галочкой «Скопировать и товары» — товары из источника; «Отмена» в вопросе ничего не меняет', async () => {
+    api.listCopySources.mockResolvedValue(SRC)
+    await open(response())
+    await openModal()
+    api.getCopySource.mockResolvedValue({ data: source() })
+    okBtn().click()
+    await settle()
+    confirmState.resolve(false)
+    await settle()
+    expect(orgNames()).not.toContain('Из прошлой ТД')
+    ;(document.body.querySelector('[data-td-copy-goods]') as HTMLElement).click()
+    await settle()
+    okBtn().click()
+    await settle()
+    confirmState.resolve(true)
+    await settle()
+    expect(w.findAll('[data-goods-card]')).toHaveLength(3)
+  })
+
+  it('источник больше недоступен (404) — ошибка в окне, черновик не тронут', async () => {
+    api.listCopySources.mockResolvedValue(SRC)
+    await open(response())
+    await openModal()
+    api.getCopySource.mockRejectedValue(httpError(404))
+    okBtn().click()
+    await settle()
+    expect(text(document.body.querySelector('[data-td-copy-error]')!.textContent ?? '')).toContain('больше недоступна')
+    expect(confirmState.open).toBe(false)
+  })
+})
+
+describe('TdPage: мелочи из отчёта Task 2', () => {
+  it('переход к товару из «Не заполнено» разворачивает его свёрнутую карточку и ставит фокус в поле', async () => {
+    await open(response({ missing: [{ key: 'goods[1].description', section: 'goods' }] }))
+    const cards = () => w.findAll('[data-goods-card]')
+    expect(cards()[1]!.find('[data-goods-body]').exists()).toBe(false)
+    await w.get('[data-td-missing-item]').trigger('click')
+    await settle()
+    expect(cards()[1]!.find('[data-goods-body]').exists()).toBe(true)
+    const field = cards()[1]!.get('[data-f="description"]').element
+    const input = field.matches('input') ? field : field.querySelector('input')
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('Ctrl/⌘+S сохраняет при правках; без правок и при readOnly — нет', async () => {
+    await open(response())
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', ctrlKey: true }))
+    await settle()
+    expect(api.saveDeclaration).not.toHaveBeenCalled()
+    await typeInto('[data-f="transportDocNumber"]', 'CMR-9')
+    api.saveDeclaration.mockResolvedValue(response())
+    const e = new KeyboardEvent('keydown', { key: 's', code: 'KeyS', metaKey: true, cancelable: true })
+    window.dispatchEvent(e)
+    await settle()
+    expect(e.defaultPrevented).toBe(true)
+    expect(api.saveDeclaration).toHaveBeenCalledTimes(1)
   })
 })

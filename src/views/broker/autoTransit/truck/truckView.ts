@@ -26,6 +26,8 @@ export interface TruckRights {
   problem: boolean
   clearProblem: boolean
   archive: boolean
+  /** «Вернуть из архива» (очередь 2а) — manage. */
+  unarchive: boolean
 }
 
 export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>): TruckRights {
@@ -36,8 +38,9 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
   const released = s === 'released'
   const archived = s === 'archived'
   return {
-    editTruck: (border || declare) && open,
-    editParty: (border || declare) && open,
+    // Выпущенную машину и её партии исправляет только manage (сервер: иначе 409 released), в работе — border или declare.
+    editTruck: ((border || declare) && open) || (released && manage),
+    editParty: ((border || declare) && open) || (released && manage),
     addParty: (border || declare) && open,
     deleteParty: (declare || manage) && open,
     submit: declare && inWork,
@@ -52,6 +55,7 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
     problem: (border || declare || manage) && inWork,
     clearProblem: (border || declare || manage) && s === 'problem',
     archive: manage && !archived,
+    unarchive: manage && archived,
   }
 }
 
@@ -175,11 +179,20 @@ export const STAGE_BLOCKERS: Readonly<Record<number, readonly string[]>> = {
   7: ['no_warehouse_receipt'],
 }
 
-/** «Что мешает» сейчас: блокеры только текущего этапа (сервер присылает полный список всех этапов). */
+/**
+ * Подсказки по ТД партии (очередь 2а): этапы не блокируют и в blockerCode строки не идут, сервер шлёт их только для
+ * неподанных партий — поэтому показываются на любом этапе машины в работе, после подсказок самого этапа.
+ */
+export const TD_HINT_BLOCKERS: readonly string[] = ['declaration_missing', 'declaration_incomplete']
+
+/** «Что мешает» сейчас: блокеры текущего этапа (сервер присылает полный список всех этапов) и подсказки по ТД. */
 export function currentBlockers(card: Pick<TruckCard, 'blockers' | 'currentStage' | 'status'>): Blocker[] {
   if (card.status === 'released' || card.status === 'archived' || card.currentStage == null) return []
   const own = STAGE_BLOCKERS[card.currentStage] ?? []
-  return card.blockers.filter((b) => own.includes(b.code))
+  return [
+    ...card.blockers.filter((b) => own.includes(b.code)),
+    ...card.blockers.filter((b) => TD_HINT_BLOCKERS.includes(b.code)),
+  ]
 }
 
 /** Недостающий файл партии (пунктирный чип) → что загружать: вид и «с печатью». */
@@ -197,8 +210,9 @@ const cap = (s: string) => s.charAt(0).toLocaleUpperCase() + s.slice(1)
 
 /** Текст «что мешает» по коду, с номером партии, если блокер — её. */
 export function blockerText(b: Blocker, card: Pick<TruckCard, 'parties'>, t: Translate): string {
-  const text = t(`${K}.blocker.hint.${b.code}`)
-  const fallback = t(`${K}.blocker.${b.code}`)
+  const params = { count: b.count ?? 0 }
+  const text = t(`${K}.blocker.hint.${b.code}`, params)
+  const fallback = t(`${K}.blocker.${b.code}`, params)
   const body = text === `${K}.blocker.hint.${b.code}` ? fallback : text
   const p = b.partyId ? card.parties.find((x) => x.id === b.partyId) : undefined
   return p ? t(`${K}.blocker.party`, { n: p.number, text: body }) : cap(body)

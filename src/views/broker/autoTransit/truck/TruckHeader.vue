@@ -45,6 +45,7 @@ const items = computed<ZDropdownItem[]>(() => {
   if (r.problem) out.push({ key: 'problem', label: t(`${T}.problem`), divider: out.length > 0 })
   if (r.clearProblem) out.push({ key: 'clearProblem', label: t(`${T}.clearProblem`), divider: out.length > 0 })
   if (r.archive) out.push({ key: 'archive', label: t(`${T}.archive`), danger: true, divider: out.length > 0 })
+  if (r.unarchive) out.push({ key: 'unarchive', label: t(`${T}.unarchive`) })
   return out
 })
 </script>
