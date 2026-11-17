@@ -8,20 +8,23 @@ import { clipLabel, dtAutoTitle, dtLabelOf, dtTitleOf, type DtTitleSource } from
 // Список ДТ на шаге 3 карточки заявки (редизайн, волна 4а).
 
 /**
+ * Черновик ДТ до прохода границы (Несибели 17.11.2026, draft): на шагах 1–2 (статусы 0 и 1) декларант заранее
+ * заполняет ДТ по товарам; подача — только на шаге 3, сервер статус при правке ДТ не проверяет (CanEditCaseData).
+ *
  * Действия над списком ДТ («Добавить ДТ», «Из документов», «Импорт из КП», пакетная выгрузка):
  * только пока шаг 3 текущий — декларирование (статус 2) или ДТ подана (статус 3).
  * Удаление ДТ — отдельное правило (casePermissions.canDeleteCaseDt): с выпуска — только администратор.
  */
-export const dtListActive = (status: number, mode: CaseStepMode): boolean =>
-  mode === 'current' && (status === 2 || status === 3)
+export const dtListActive = (status: number, mode: CaseStepMode, draft = false): boolean =>
+  draft ? status === 0 || status === 1 : mode === 'current' && (status === 2 || status === 3)
 
 /**
  * «Заполнить» и «XML для КЕДЕН» в строке ДТ: на текущем шаге 3 — всегда (без права — выключены с подсказкой);
  * после него — тем, кто может править ДТ (perms.canEditDt: админ, РОП, назначенный декларант — решение владельца
  * 09.10: правка после выпуска разрешена, как на сервере). Остальным — «Открыть».
  */
-export const dtRowActions = (status: number, mode: CaseStepMode, canEdit: boolean): boolean =>
-  dtListActive(status, mode) || (canEdit && status >= 2)
+export const dtRowActions = (status: number, mode: CaseStepMode, canEdit: boolean, draft = false): boolean =>
+  dtListActive(status, mode, draft) || (canEdit && status >= 2)
 
 type T = (k: string, p?: Record<string, unknown>) => string
 

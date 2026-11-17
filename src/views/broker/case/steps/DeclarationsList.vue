@@ -54,16 +54,16 @@ import QuoteImportModal from './QuoteImportModal.vue'
 // Названия ДТ (23.10.2026): «ДТ 1 · Кушетка с винтовой регулировкой… · ещё 1» — короткий идентификатор ссылкой, рядом
 // своё название (обычным цветом) или автоназвание (приглушённым); карандаш — переименовать на месте (CanManageDeclarations,
 // свой маршрут без замка ДТ — открытый редактор не затирает). Поиск — и по названию.
-const props = defineProps<CaseStepProps>()
+const props = defineProps<CaseStepProps & { draft?: boolean }>()
 const { t } = useI18n()
 const router = useRouter()
 const { confirm } = useConfirm()
 
 const kase = computed(() => props.ctx.kase)
 const all = computed(() => kase.value.declarations)
-const editable = computed(() => dtListActive(kase.value.status, props.mode))
+const editable = computed(() => dtListActive(kase.value.status, props.mode, props.draft))
 const canEditDt = computed(() => props.ctx.perms.canEditDt)
-const rowActions = computed(() => dtRowActions(kase.value.status, props.mode, canEditDt.value))
+const rowActions = computed(() => dtRowActions(kase.value.status, props.mode, canEditDt.value, props.draft))
 const canDeclare = computed(() => props.ctx.perms.can('declarant'))
 const declHint = computed(() => (canDeclare.value ? '' : hintText({ kind: 'role', role: 'declarant' }, t)))
 const fillHint = computed(() => hintText(props.ctx.perms.dtEditHint, t))

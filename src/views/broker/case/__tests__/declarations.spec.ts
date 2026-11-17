@@ -111,3 +111,14 @@ describe('previewToUpsert — товары и стороны «Из докуме
     expect(legacy.goodsItems![0].characteristics![0]).toMatchObject({ productModelName: 'M-1' })
   })
 })
+
+describe('черновик ДТ до границы (Несибели 17.11.2026)', () => {
+  it('на шагах 1–2 список ДТ активен только в режиме черновика', () => {
+    expect(dtListActive(0, 'current', true)).toBe(true)
+    expect(dtListActive(1, 'current', true)).toBe(true)
+    expect(dtListActive(1, 'current')).toBe(false)
+    expect(dtListActive(2, 'current', true)).toBe(false)
+    expect(dtListActive(9, 'current', true)).toBe(false)
+    expect(dtRowActions(1, 'current', false, true)).toBe(true)
+  })
+})

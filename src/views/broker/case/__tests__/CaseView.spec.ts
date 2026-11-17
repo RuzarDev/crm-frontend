@@ -287,6 +287,18 @@ describe('CaseView: шапка и шаги', () => {
     expect(rows[0]!.text()).toContain('Ерлан Б.')
   })
 
+  it('черновик ДТ до границы: на шаге 2 у декларанта есть, у КПП и на шаге 3 — нет (17.11.2026)', async () => {
+    await mountCard(USERS.declarant, { status: 1 })
+    expect(w.find('[data-case-draft-dt]').exists()).toBe(true)
+    expect(w.find('[data-case-draft-dt] [data-dt-list]').exists()).toBe(true)
+    w.unmount()
+    await mountCard(USERS.kpp, { status: 1 })
+    expect(w.find('[data-case-draft-dt]').exists()).toBe(false)
+    w.unmount()
+    await mountCard(USERS.declarant, { status: 2 })
+    expect(w.find('[data-case-draft-dt]').exists()).toBe(false)
+  })
+
   it('отменённая: все шаги будущие, тег «Отменена», причина, без панели шага', async () => {
     await mountCard(USERS.admin, { status: 9, cancelReason: 'Клиент передумал' })
     expect(w.findAll('[data-case-stepper] li[data-step]').every((li) => li.attributes('data-state') === 'future')).toBe(true)

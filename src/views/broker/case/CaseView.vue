@@ -19,6 +19,7 @@ import CaseSide from './CaseSide.vue'
 import CaseStepper from './CaseStepper.vue'
 import StepBorder from './steps/StepBorder.vue'
 import StepDeclaring from './steps/StepDeclaring.vue'
+import DraftDeclarations from './steps/DraftDeclarations.vue'
 import StepDraft from './steps/StepDraft.vue'
 import StepAqniet from './steps/StepAqniet.vue'
 import StepSvh from './steps/StepSvh.vue'
@@ -122,6 +123,7 @@ const current = computed(() => {
   const ctx = step ? ctxFor(step) : null
   return step && ctx ? { step, ctx } : null
 })
+const draftDtVisible = computed(() => !!kase.value && (kase.value.status === 0 || kase.value.status === 1) && !!perms.value?.canManageDeclarations)
 const passed = computed(() => steps.value.filter((s) => s.state === 'done').map((step) => ({ step, ctx: ctxFor(step)! })))
 
 // Пройденные шаги свёрнуты; раскрытие — на экземпляр карточки (смена заявки сбрасывает).
@@ -206,6 +208,9 @@ const panel = 'rounded-panel border border-line bg-surface'
           <p v-else-if="isCancelled(kase.status)" :class="cn(panel, 'm-0 px-[18px] py-4 text-sm text-ink-3')" data-case-cancelled-note>
             {{ t('broker.case.step.cancelledNote') }}
           </p>
+
+          <!-- Черновик ДТ до прохода границы (17.11.2026): шаги 1–2, тем, кто работает с ДТ -->
+          <DraftDeclarations v-if="current && draftDtVisible" :ctx="current.ctx" mode="current" />
 
           <PreBorderPanel
             v-if="preBorderVisible"
