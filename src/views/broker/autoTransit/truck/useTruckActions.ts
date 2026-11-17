@@ -1,5 +1,6 @@
 import { computed, getCurrentInstance, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { downloadBlob, fileUrl, zipUrl, type FileKind, type FilePatch, type Party, type TruckCard, type TruckFile } from '@/api/autoTransit'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { saveBlob } from '@/ui/download'
@@ -15,6 +16,7 @@ export const UNDO_TOAST_SEC = 6
 export function useTruckActions(s: TruckState, id: () => string) {
   const { t } = useI18n()
   const { confirm } = useConfirm()
+  const router = getCurrentInstance() ? useRouter() : null
   const T = 'broker.autoTransit.truck'
 
   // ---- Окна (пока открыто любое — карточка не перечитывается) ----
@@ -84,6 +86,17 @@ export function useTruckActions(s: TruckState, id: () => string) {
     else if (key === 'problem') problemOpen.value = true
     else if (key === 'undo') await undo()
     else if (key === 'clearProblem') await clearProblem()
+    else if (key === 'unarchive') {
+      const res = await s.unarchive()
+      if (res.ok) message.success(t(res.card.status === 'released' ? `${T}.unarchivedReleased` : `${T}.unarchivedInWork`))
+      else if (res.code === 'duplicate_plate') {
+        const other = res.existingTruckId
+        message.error({
+          content: t(`${T}.unarchiveDuplicate`),
+          ...(other && router ? { action: { label: t(`${T}.openExisting`), onClick: () => { void router.push(`/auto-transit/${encodeURIComponent(other)}`) } } } : {}),
+        })
+      }
+    }
     else if (key === 'archive') {
       const ok = await confirm({ title: t(`${T}.archiveConfirm.title`), content: t(`${T}.archiveConfirm.text`), okText: t(`${T}.archiveConfirm.ok`), danger: true })
       if (ok && (await s.archive()).ok) message.success(t(`${T}.archivedToast`))

@@ -126,6 +126,13 @@ const router = createRouter({
           meta: { requiresPermission: 'autotransit.read' },
         },
         {
+          // ТД партии (очередь 2а, 17.11.2026): чтение — autotransit.read, запись решает сервер (readOnly).
+          path: '/auto-transit/:id/parties/:partyId/td',
+          name: 'auto-transit-td',
+          component: () => import('@/views/broker/autoTransit/td/TdPage.vue'),
+          meta: { requiresPermission: 'autotransit.read' },
+        },
+        {
           path: '/requests-registry',
           name: 'requests-registry',
           component: () => import('@/views/broker/requests/BrokerRegistryView.vue'),

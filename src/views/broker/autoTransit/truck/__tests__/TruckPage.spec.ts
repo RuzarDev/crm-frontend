@@ -9,7 +9,7 @@ import { card, event, file, httpError, party } from './truckFixtures'
 
 const api = vi.hoisted(() => ({
   getTruck: vi.fn(), markStage: vi.fn(), undoStage: vi.fn(), submitParty: vi.fn(), unsubmitParty: vi.fn(), setTd: vi.fn(),
-  clearProblem: vi.fn(), setProblem: vi.fn(), archiveTruck: vi.fn(), updateParty: vi.fn(), addParty: vi.fn(), deleteParty: vi.fn(),
+  clearProblem: vi.fn(), setProblem: vi.fn(), archiveTruck: vi.fn(), unarchiveTruck: vi.fn(), updateParty: vi.fn(), addParty: vi.fn(), deleteParty: vi.fn(),
   uploadFile: vi.fn(), patchFile: vi.fn(), deleteFile: vi.fn(), updateTruck: vi.fn(), downloadBlob: vi.fn(),
   listLinks: vi.fn(), createLink: vi.fn(), revokeLink: vi.fn(),
 }))
@@ -245,8 +245,8 @@ describe('TruckPage: статусы', () => {
     expect(w.findAll('[data-rail-stage]').every((c) => c.attributes('data-state') === 'done')).toBe(true)
   })
 
-  it('архив — ничего не меняется: нет загрузки, меню, ссылок', async () => {
-    await mountWith(card({ status: 'archived', can: { border: true, declare: true, manage: true } }), ['autotransit.read', 'autotransit.manage'])
+  it('архив без manage — ничего не меняется: нет загрузки, меню, ссылок', async () => {
+    await mountWith(card({ status: 'archived', can: { border: true, declare: true, manage: false } }), ['autotransit.read', 'autotransit.declare'])
     expect(w.find('[data-upload-files]').exists()).toBe(false)
     expect(w.find('[data-truck-more]').exists()).toBe(false)
     expect(w.find('[data-truck-links]').exists()).toBe(false)
@@ -851,5 +851,67 @@ describe('TruckPage: уход во время загрузки', () => {
     const remove = vi.spyOn(window, 'removeEventListener')
     w.unmount()
     expect(remove).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+  })
+})
+
+describe('TruckPage: возврат из архива и правка после выпуска (очередь 2а)', () => {
+  const MANAGE = { border: true, declare: true, manage: true }
+  const openMenu = async () => {
+    await w.find('[data-truck-more]').trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]').length).toBeGreaterThan(0))
+    return $$('[role="menuitem"]')
+  }
+
+  it('архив + manage: в меню «⋯» только «Вернуть из архива»; клик возвращает и говорит, в какой статус', async () => {
+    await mountWith(card({ status: 'archived', currentStage: 6, can: MANAGE }), ['autotransit.read', 'autotransit.manage'])
+    expect(text($('[data-truck-readonly]')!.textContent ?? '')).toContain('Вернуть из архива')
+    expect(w.find('[data-party-edit]').exists()).toBe(false)
+    const items = await openMenu()
+    expect(items.map((x) => x.textContent?.trim())).toEqual(['Вернуть из архива'])
+    api.unarchiveTruck.mockResolvedValue(card({ status: 'inWork', currentStage: 6, can: MANAGE }))
+    items[0]!.click()
+    await flushPromises()
+    expect(api.unarchiveTruck).toHaveBeenCalledWith('t1')
+    expect(msg.success).toHaveBeenCalledWith('Машина возвращена из архива: в работе')
+    expect(w.find('[data-truck-readonly]').exists()).toBe(false)
+  })
+
+  it('возврат из архива — 409 duplicate_plate: своё сообщение со ссылкой на ту машину, без общего тоста', async () => {
+    await mountWith(card({ status: 'archived', currentStage: 6, can: MANAGE }), ['autotransit.read', 'autotransit.manage'])
+    const items = await openMenu()
+    api.unarchiveTruck.mockRejectedValue(httpError(409, { code: 'duplicate_plate', error: 'Машина с этим номером уже в работе.', existingTruckId: 't2' }))
+    items[0]!.click()
+    await flushPromises()
+    expect(msg.error).toHaveBeenCalledTimes(1)
+    const arg = msg.error.mock.calls[0]![0]
+    expect(arg.content).toBe('Не вернуть из архива: машина с этим номером уже в работе. Сначала выпустите или уберите в архив её.')
+    expect(arg.action.label).toBe('Открыть ту машину')
+    arg.action.onClick()
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/auto-transit/t2')
+  })
+
+  it('выпущена + manage: «Изменить» у партии и пункт правки машины есть, подпись о журнале', async () => {
+    await mountWith(card({ status: 'released', currentStage: null, can: MANAGE }), ['autotransit.read', 'autotransit.manage'])
+    expect(w.find('[data-party-edit]').exists()).toBe(true)
+    expect(w.find('[data-truck-add-party]').exists()).toBe(false)
+    expect(text($('[data-truck-readonly]')!.textContent ?? '')).toContain('попадёт в журнал')
+    expect((await openMenu()).map((x) => x.textContent?.trim())).toContain('Изменить данные машины')
+  })
+
+  it('выпущена без manage: «Изменить» нет ни у партии, ни у машины', async () => {
+    await mountWith(card({ status: 'released', currentStage: null, can: { border: true, declare: true, manage: false } }), ['autotransit.read', 'autotransit.declare'])
+    expect(w.find('[data-party-edit]').exists()).toBe(false)
+    if (w.find('[data-truck-more]').exists()) expect((await openMenu()).map((x) => x.textContent?.trim())).not.toContain('Изменить данные машины')
+  })
+
+  it('«Что мешает» показывает подсказки по ТД переведённым текстом, не ключом', async () => {
+    await mountWith(card({ currentStage: 3, parties: [party('p1', 1), party('p2', 2)], blockers: [
+      { code: 'declaration_missing', partyId: 'p1' }, { code: 'declaration_incomplete', partyId: 'p2', count: 4 },
+    ] }))
+    expect($$('[data-blocker]').map((x) => text(x.textContent ?? ''))).toEqual([
+      'Партия 1: ТД не заполнена — откройте «Заполнить ТД».',
+      'Партия 2: в ТД не заполнено: 4.',
+    ])
   })
 })
