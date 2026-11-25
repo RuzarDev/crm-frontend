@@ -480,6 +480,18 @@ export interface AutoTransitSettings {
   /** Дата без времени, YYYY-MM-DD. */
   aeoCertificateDate: string | null
   doc44Template: Doc44TemplateItem[]
+  /** Этап 3б: загруженный шаблон договора экспедиции (null — нет). Только чтение, PUT его не меняет. */
+  contractTemplate?: ContractTemplateInfo | null
+  /** Ключи подстановки шаблона договора ({{ключ}}), в порядке показа. Только чтение. */
+  contractKeys?: string[]
+}
+
+export interface ContractTemplateInfo {
+  fileName: string
+  sizeBytes: number
+  uploadedAtUtc: string
+  /** Только в ответе на загрузку: ключи шаблона, которых платформа не знает. */
+  unknownKeys?: string[] | null
 }
 
 /** Чтение — autotransit.read. Страница сама пишет сбой загрузки — без тоста. */
@@ -489,6 +501,23 @@ export const getSettings = async (): Promise<AutoTransitSettings> =>
 /** Запись — autotransit.manage; 400 { errors } страница пишет под полями. */
 export const saveSettings = async (body: AutoTransitSettings): Promise<AutoTransitSettings> =>
   (await apiClient.put<AutoTransitSettings>('/auto-transit/settings', body, { silentStatuses: [400] })).data
+
+const templateUrl = '/auto-transit/settings/contract-template'
+
+/** Загрузить шаблон договора экспедиции (.docx до 2 МБ, autotransit.manage). 400 { errors: { file } } страница пишет сама. */
+export const uploadContractTemplate = async (file: File): Promise<ContractTemplateInfo> => {
+  const form = new FormData()
+  form.append('file', file)
+  return (await apiClient.post<ContractTemplateInfo>(templateUrl, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    silentStatuses: [400, 409],
+  })).data
+}
+
+export const deleteContractTemplate = async (): Promise<void> => { await apiClient.delete(templateUrl) }
+
+/** Скачать загруженный шаблон (autotransit.read). */
+export const downloadContractTemplate = () => downloadBlob(templateUrl, 'template.docx')
 
 // ───────── файлы ─────────
 
@@ -546,11 +575,12 @@ export const downloadBlob = async (
 // ───────── опись и акт осмотра из ПИ (этап 3) ─────────
 
 /** Документы из сохранённой ПИ партии: опись документов ТД и заготовка акта таможенного осмотра. */
-export type PartyDocKind = 'inventory' | 'inspection-act'
+export type PartyDocKind = 'inventory' | 'inspection-act' | 'contract'
 export const partyDocUrl = (id: string, partyId: string, kind: PartyDocKind): string => `${party(id, partyId)}/declaration/${kind}.docx`
 
 /**
- * Скачать .docx из ПИ (право autotransit.read). 409 { code: 'declaration_not_saved' } — ПИ ни разу не сохраняли: тост пишет
+ * Скачать .docx из ПИ (право autotransit.read). 409 { code: 'declaration_not_saved' } — ПИ ни разу не сохраняли,
+ * { code: 'contract_template_missing' } — нет шаблона договора экспедиции (этап 3б): тост пишет
  * страница сама (код читается из ответа-Blob через blobErrorCode); прочие ошибки — общий тост перехватчика.
  */
 export const downloadPartyDoc = (id: string, partyId: string, kind: PartyDocKind, fallbackName: string) =>

@@ -44,6 +44,7 @@ import { useTd } from './useTd'
 // плашка расхождения итогов товаров и партии (totalsCheck, без округления).
 // Этап 3 (спека 2026-11-25-auto-transit-docs): меню «Документы» — опись документов ТД и заготовка акта осмотра (.docx)
 // из сохранённой ПИ; при черновике или несохранённых правках пункты выключены с подсказкой «Сначала сохраните ПИ».
+// Этап 3б: третий пункт — договор экспедиции из шаблона фирмы; шаблона нет — 409 contract_template_missing, тост с подсказкой.
 const { t, te, locale } = useI18n()
 const route = useRoute()
 const { confirm } = useConfirm()
@@ -247,6 +248,8 @@ const docsBlocked = computed(() => isDraft.value || dirty.value)
 const DOC_KINDS: { kind: PartyDocKind; label: string }[] = [
   { kind: 'inventory', label: 'inventory' },
   { kind: 'inspection-act', label: 'act' },
+  // Этап 3б: договор экспедиции из шаблона фирмы (Настройки → Авто-транзит).
+  { kind: 'contract', label: 'contract' },
 ]
 const docItems = computed<ZDropdownItem[]>(() => DOC_KINDS.map((d) => ({
   key: d.kind,
@@ -270,7 +273,8 @@ const onDoc = async (key: string) => {
     // 409 перехватчик не показывает (silentStatuses): код — из ответа-Blob. Прочие ошибки — общий тост.
     if (statusOf(e) === 409) {
       const code = await blobErrorCode(e)
-      message.error(t(`${T}.docs.${code === 'declaration_not_saved' ? 'notSaved' : 'failed'}`))
+      const key = code === 'declaration_not_saved' ? 'notSaved' : code === 'contract_template_missing' ? 'templateMissing' : 'failed'
+      message.error(t(`${T}.docs.${key}`))
     }
   } finally {
     docBusy.value = false
