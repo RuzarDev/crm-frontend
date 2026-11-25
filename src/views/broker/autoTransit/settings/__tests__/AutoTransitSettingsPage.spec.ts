@@ -5,8 +5,11 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { AutoTransitSettings } from '@/api/autoTransit'
 import { useAuthStore } from '@/stores/auth'
 import { ComboStub, SelectStub } from '@/views/broker/transit/record/sections/__tests__/harness'
+import { confirmState } from '@/ui/confirm'
 
-const api = vi.hoisted(() => ({ getSettings: vi.fn(), saveSettings: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getSettings: vi.fn(), saveSettings: vi.fn(), uploadContractTemplate: vi.fn(), deleteContractTemplate: vi.fn(), downloadContractTemplate: vi.fn(),
+}))
 vi.mock('@/api/autoTransit', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api/autoTransit')>()), ...api }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 vi.mock('@/ui/message', () => ({ message: msg }))
@@ -147,5 +150,74 @@ describe('AutoTransitSettingsPage', () => {
     await flushPromises()
     expect(msg.error).toHaveBeenCalledWith('Настройки только что сохранил другой пользователь. Обновите страницу и повторите.')
   })
-})
 
+  // ---- Этап 3б: шаблон договора экспедиции ----
+  const KEYS = ['номер_договора', 'заказчик', 'госномер']
+  const withTemplate = (t: AutoTransitSettings['contractTemplate']) => api.getSettings.mockResolvedValue({ ...DEFAULTS(), contractTemplate: t, contractKeys: KEYS })
+  const pickFile = async (file: File) => {
+    const input = w.get('[data-contract-input]')
+    Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+  }
+
+  it('договор: без шаблона — подсказка, список ключей в двойных скобках с пояснением', async () => {
+    withTemplate(null)
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    expect(w.find('[data-contract-none]').exists()).toBe(true)
+    expect(w.find('[data-contract-delete]').exists()).toBe(false)
+    const keys = w.findAll('[data-contract-key]').map((k) => k.text())
+    expect(keys).toHaveLength(3)
+    expect(keys[0]).toContain('{{номер_договора}}')
+    expect(keys[0]).toContain('номер ПИ')
+    expect(keys[2]).toContain('тягач-прицеп')
+    expect(w.get('[data-contract-upload]').text()).toBe('Загрузить шаблон')
+  })
+
+  it('договор: загрузка .docx — сведения о файле и незнакомые ключи; не .docx — ошибка без запроса', async () => {
+    withTemplate(null)
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    await pickFile(new File(['x'], 'договор.pdf'))
+    expect(api.uploadContractTemplate).not.toHaveBeenCalled()
+    expect(w.get('[data-contract-error]').text()).toBe('Нужен файл Word .docx до 2 МБ.')
+
+    api.uploadContractTemplate.mockResolvedValue({ fileName: 'Шаблон.docx', sizeBytes: 40960, uploadedAtUtc: '2026-11-25T10:00:00Z', unknownKeys: ['адрес'] })
+    await pickFile(new File(['x'], 'Шаблон.docx'))
+    expect(api.uploadContractTemplate).toHaveBeenCalledTimes(1)
+    expect(w.get('[data-contract-file]').text()).toContain('Шаблон.docx')
+    expect(w.get('[data-contract-file]').text()).toContain('25.11.2026')
+    expect(w.get('[data-contract-unknown]').text()).toContain('{{адрес}}')
+    expect(w.find('[data-contract-error]').exists()).toBe(false)
+    expect(msg.success).toHaveBeenCalledWith('Шаблон загружен')
+  })
+
+  it('договор: 400 сервера — текст под блоком', async () => {
+    withTemplate(null)
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    api.uploadContractTemplate.mockRejectedValue(Object.assign(new Error('400'), { response: { status: 400, data: { errors: { file: 'Файл повреждён' } } } }))
+    await pickFile(new File(['x'], 'a.docx'))
+    expect(w.get('[data-contract-error]').text()).toBe('Файл повреждён')
+  })
+
+  it('договор: удаление — после подтверждения', async () => {
+    withTemplate({ fileName: 'Шаблон.docx', sizeBytes: 1000, uploadedAtUtc: '2026-11-25T10:00:00Z' })
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    expect(w.get('[data-contract-upload]').text()).toBe('Заменить шаблон')
+    api.deleteContractTemplate.mockResolvedValue(undefined)
+    await w.get('[data-contract-delete]').trigger('click')
+    await flushPromises()
+    expect(confirmState.open).toBe(true)
+    confirmState.resolve(true)
+    await flushPromises()
+    expect(api.deleteContractTemplate).toHaveBeenCalledTimes(1)
+    expect(w.find('[data-contract-none]').exists()).toBe(true)
+  })
+
+  it('договор: только чтение — без загрузки и удаления, скачать можно', async () => {
+    withTemplate({ fileName: 'Шаблон.docx', sizeBytes: 1000, uploadedAtUtc: '2026-11-25T10:00:00Z' })
+    await mountAs(['autotransit.read'])
+    expect(w.find('[data-contract-upload]').exists()).toBe(false)
+    expect(w.find('[data-contract-delete]').exists()).toBe(false)
+    expect(w.find('[data-contract-download]').exists()).toBe(true)
+  })
+})

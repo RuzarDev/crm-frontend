@@ -9,7 +9,12 @@ import ZField from '@/components/z/ZField.vue'
 import ZInput from '@/components/z/ZInput.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import { getSettings, saveSettings, type AutoTransitSettings, type Doc44FileKind } from '@/api/autoTransit'
+import {
+  deleteContractTemplate, downloadContractTemplate, getSettings, saveSettings, uploadContractTemplate,
+  type AutoTransitSettings, type ContractTemplateInfo, type Doc44FileKind,
+} from '@/api/autoTransit'
+import { saveBlob } from '@/ui/download'
+import { useConfirm } from '@/ui/confirm'
 import { useAuthStore } from '@/stores/auth'
 import { message } from '@/ui/message'
 import type { ZOption } from '@/ui/options'
@@ -20,7 +25,8 @@ import { useLocalOptions } from '@/views/broker/transit/record/sections/localOpt
 // обеспечение по умолчанию (вид, основание 103, свидетельство УЭО) и шаблон документов гр. 44 (код, название, из файла
 // какого вида брать номер и дату). Читать — autotransit.read, менять — autotransit.manage (как сервер). Данные фирмы
 // в коде не зашиваются: умолчания отдаёт сервер, страница сохраняет настройку целиком.
-const { t, te } = useI18n()
+const { t, te, locale } = useI18n()
+const { confirm } = useConfirm()
 const auth = useAuthStore()
 const S = 'broker.autoTransit.settings'
 const canEdit = computed(() => auth.hasPermission('autotransit.manage'))
@@ -31,6 +37,10 @@ const saved = ref<string>('')
 const saving = ref(false)
 const errors = ref<Record<string, string>>({})
 
+// Этап 3б: шаблон договора экспедиции живёт отдельно от формы — загрузка и удаление сразу, без «Сохранить».
+const contract = ref<ContractTemplateInfo | null>(null)
+const contractKeys = ref<string[]>([])
+
 const normalize = (s: AutoTransitSettings): AutoTransitSettings => ({
   guaranteeTypeCode: s.guaranteeTypeCode ?? null,
   guaranteeBasisCode: s.guaranteeBasisCode ?? null,
@@ -39,6 +49,8 @@ const normalize = (s: AutoTransitSettings): AutoTransitSettings => ({
   doc44Template: (Array.isArray(s.doc44Template) ? s.doc44Template : []).map((d) => ({ code: d.code ?? '', name: d.name ?? '', fileKind: d.fileKind ?? null })),
 })
 const apply = (s: AutoTransitSettings) => {
+  if (s.contractTemplate !== undefined) contract.value = s.contractTemplate ?? null
+  if (Array.isArray(s.contractKeys)) contractKeys.value = s.contractKeys
   draft.value = normalize(s)
   saved.value = JSON.stringify(draft.value)
   errors.value = {}
@@ -119,6 +131,78 @@ const save = async () => {
 }
 const reset = () => { if (saved.value) apply(JSON.parse(saved.value) as AutoTransitSettings) }
 
+// ---- шаблон договора экспедиции ----
+const MAX_TEMPLATE = 2 * 1024 * 1024
+const fileInput = ref<HTMLInputElement | null>(null)
+const contractBusy = ref(false)
+const contractError = ref('')
+const unknownKeys = ref<string[]>([])
+/** «{{ключ}}» — собирается в коде: двойные скобки в шаблоне Vue — это интерполяция. */
+const token = (k: string) => `${'{'.repeat(2)}${k}${'}'.repeat(2)}`
+const keyHint = (k: string) => (te(`${S}.contractKeys.${k}`) ? t(`${S}.contractKeys.${k}`) : '')
+const sizeText = (n: number) => {
+  const mb = n >= 1024 * 1024
+  return new Intl.NumberFormat(locale.value, { style: 'unit', unit: mb ? 'megabyte' : 'kilobyte', maximumFractionDigits: 1 })
+    .format(mb ? n / 1024 / 1024 : Math.max(1, Math.round(n / 1024)))
+}
+const dateText = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+}
+const contractLine = computed(() => contract.value
+  ? t(`${S}.contractFile`, { name: contract.value.fileName, size: sizeText(contract.value.sizeBytes), date: dateText(contract.value.uploadedAtUtc) })
+  : '')
+
+const pickTemplate = () => { if (canEdit.value && !contractBusy.value) fileInput.value?.click() }
+const onTemplate = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  contractError.value = ''
+  unknownKeys.value = []
+  if (!/\.docx$/i.test(file.name) || file.size > MAX_TEMPLATE) {
+    contractError.value = t(`${S}.contractOnlyDocx`)
+    return
+  }
+  contractBusy.value = true
+  try {
+    const info = await uploadContractTemplate(file)
+    contract.value = { fileName: info.fileName, sizeBytes: info.sizeBytes, uploadedAtUtc: info.uploadedAtUtc }
+    unknownKeys.value = info.unknownKeys ?? []
+    message.success(t(`${S}.contractUploaded`))
+  } catch (err) {
+    const fe = fieldErrorsOf(err)
+    contractError.value = fe.file ?? t(`${S}.contractUploadError`)
+  } finally {
+    contractBusy.value = false
+  }
+}
+const removeTemplate = async () => {
+  if (!canEdit.value || contractBusy.value) return
+  const ok = await confirm({ title: t(`${S}.contractDelete`), content: t(`${S}.contractDeleteConfirm`), okText: t(`${S}.contractDelete`), danger: true })
+  if (!ok) return
+  contractBusy.value = true
+  try {
+    await deleteContractTemplate()
+    contract.value = null
+    unknownKeys.value = []
+    message.success(t(`${S}.contractDeleted`))
+  } catch {
+    // общий тост — перехватчик
+  } finally {
+    contractBusy.value = false
+  }
+}
+const downloadTemplate = async () => {
+  try {
+    const { blob, fileName } = await downloadContractTemplate()
+    saveBlob(blob, contract.value?.fileName || fileName)
+  } catch {
+    // общий тост — перехватчик
+  }
+}
+
 const groupTitle = 'm-0 text-[15px] leading-6 font-semibold text-ink'
 const deleteBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11'
 </script>
@@ -198,5 +282,49 @@ const deleteBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justi
         <ZButton html-type="submit" variant="primary" :loading="saving" :disabled="!dirty" class="max-sm:h-11 max-sm:flex-1" data-settings-save>{{ t(`${S}.save`) }}</ZButton>
       </div>
     </form>
+
+    <section
+      v-if="state === 'ready' && draft"
+      class="flex max-w-[48rem] min-w-0 flex-col gap-3 rounded-panel border border-line bg-surface p-5 max-sm:p-4"
+      aria-labelledby="ats-contract"
+      data-contract-template
+    >
+      <h2 id="ats-contract" :class="groupTitle">{{ t(`${S}.groupContract`) }}</h2>
+      <p class="m-0 text-xs text-muted">{{ t(`${S}.contractHint`) }}</p>
+      <p v-if="contract" class="m-0 text-sm text-ink-2 [overflow-wrap:anywhere]" data-contract-file>{{ contractLine }}</p>
+      <p v-else class="m-0 text-sm text-ink-3" data-contract-none>{{ t(`${S}.contractNone`) }}</p>
+      <p v-if="contractError" class="m-0 text-sm text-tone-danger-fg" role="alert" data-contract-error>{{ contractError }}</p>
+      <p v-if="unknownKeys.length" class="m-0 text-sm text-tone-wait-fg" role="status" data-contract-unknown>
+        {{ t(`${S}.contractUnknownKeys`, { keys: unknownKeys.map(token).join(', ') }) }}
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          class="hidden"
+          data-contract-input
+          @change="onTemplate"
+        >
+        <ZButton v-if="canEdit" size="sm" :loading="contractBusy" class="max-sm:h-11 max-sm:flex-1" data-contract-upload @click="pickTemplate">
+          {{ t(contract ? `${S}.contractReplace` : `${S}.contractUpload`) }}
+        </ZButton>
+        <ZButton v-if="contract" size="sm" variant="ghost" class="max-sm:h-11 max-sm:flex-1" data-contract-download @click="downloadTemplate">
+          {{ t(`${S}.contractDownload`) }}
+        </ZButton>
+        <ZButton v-if="canEdit && contract" size="sm" variant="ghost" :disabled="contractBusy" class="max-sm:h-11 max-sm:flex-1" data-contract-delete @click="removeTemplate">
+          {{ t(`${S}.contractDelete`) }}
+        </ZButton>
+      </div>
+      <div v-if="contractKeys.length" class="flex min-w-0 flex-col gap-1.5 border-t border-line pt-3">
+        <h3 class="m-0 text-sm font-semibold text-ink">{{ t(`${S}.contractKeysTitle`) }}</h3>
+        <ul role="list" class="m-0 flex list-none flex-col gap-1 p-0">
+          <li v-for="k in contractKeys" :key="k" class="flex min-w-0 flex-wrap gap-x-2 text-sm" data-contract-key>
+            <code class="font-mono text-[13px] text-ink select-all">{{ token(k) }}</code>
+            <span class="min-w-0 text-ink-3 [overflow-wrap:anywhere]">{{ keyHint(k) }}</span>
+          </li>
+        </ul>
+      </div>
+    </section>
   </div>
 </template>

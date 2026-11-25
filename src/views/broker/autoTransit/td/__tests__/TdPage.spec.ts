@@ -418,7 +418,7 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
   // ---- Этап 3: опись и акт осмотра ----
   const openDocs = async () => {
     await w.get('[data-td-docs]').trigger('keydown', { key: 'Enter' })
-    await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(2))
+    await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(3))
     return [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')]
   }
 
@@ -426,7 +426,7 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     await open(response())
     api.downloadPartyDoc.mockResolvedValue({ blob: new Blob(['x']), fileName: 'Опись 123ASD12 INV-1.docx' })
     const items = await openDocs()
-    expect(items.map((i) => text(i.textContent ?? ''))).toEqual(['Опись документов (.docx)', 'Акт осмотра — заготовка (.docx)'])
+    expect(items.map((i) => text(i.textContent ?? ''))).toEqual(['Опись документов (.docx)', 'Акт осмотра (.docx)', 'Договор экспедиции (.docx)'])
     items[0]!.click()
     await vi.waitFor(() => expect(dl.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Опись 123ASD12 INV-1.docx'))
     expect(api.downloadPartyDoc).toHaveBeenCalledWith('t1', 'p1', 'inventory', 'inventory.docx')
@@ -462,5 +462,17 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     ;(await openDocs())[0]!.click()
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('ПИ ещё не сохранена. Сохраните ПИ и скачайте документ снова.'))
     expect(dl.saveBlob).not.toHaveBeenCalled()
+  })
+
+  it('«Документы»: договор экспедиции; нет шаблона — 409 contract_template_missing с подсказкой', async () => {
+    await open(response())
+    api.downloadPartyDoc.mockResolvedValue({ blob: new Blob(['z']), fileName: 'Договор экспедиции 123ASD12.docx' })
+    ;(await openDocs())[2]!.click()
+    await vi.waitFor(() => expect(dl.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Договор экспедиции 123ASD12.docx'))
+    expect(api.downloadPartyDoc).toHaveBeenLastCalledWith('t1', 'p1', 'contract', 'contract.docx')
+
+    api.downloadPartyDoc.mockRejectedValue(httpError(409, new Blob([JSON.stringify({ code: 'contract_template_missing', error: 'x' })])))
+    ;(await openDocs())[2]!.click()
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('Шаблон договора экспедиции не загружен. Загрузите .docx в «Настройки → Авто-транзит».'))
   })
 })
