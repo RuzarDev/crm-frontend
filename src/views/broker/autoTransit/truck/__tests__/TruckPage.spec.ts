@@ -337,7 +337,7 @@ describe('TruckPage: ссылки получателям', () => {
     expect(decodeURIComponent(mail.getAttribute('href')!)).toContain(`/t/tok123`)
   })
 
-  it('нет ссылки — «Создать ссылку»; у пограничника без прав ссылок кнопки нет', async () => {
+  it('нет ссылки — «Создать ссылку»; без прав ссылок кнопки нет (КПП с border видит ссылку на машину — очередь 3)', async () => {
     api.listLinks.mockResolvedValue([])
     await mountWith(card({ can: { border: false, declare: true, manage: false } }), ['autotransit.read', 'autotransit.declare'])
     await w.find('[data-truck-links]').trigger('click')
@@ -345,7 +345,7 @@ describe('TruckPage: ссылки получателям', () => {
     expect($('[data-link-state]')!.textContent).toBe('Ссылки нет')
     expect($('[data-link-create]')).not.toBeNull()
     w.unmount()
-    await mountWith(card())
+    await mountWith(card({ can: { border: false, declare: false, manage: false } }))
     expect(w.find('[data-truck-links]').exists()).toBe(false)
   })
 })

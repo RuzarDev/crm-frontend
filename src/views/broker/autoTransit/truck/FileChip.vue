@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { PhDotsThreeVertical, PhEye, PhFileText, PhSealCheck } from '@phosphor-icons/vue'
+import { PhArrowUUpLeft, PhDotsThreeVertical, PhEye, PhFileText, PhLink, PhSealCheck } from '@phosphor-icons/vue'
 import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import type { FileKind, FilePatch, Party, TruckFile } from '@/api/autoTransit'
 import { recipientSees, truckLevelHidden } from './truckView'
@@ -13,15 +13,23 @@ const props = defineProps<{
   parties: Party[]
   canPatch: boolean
   canDelete: boolean
+  /** «Вернуть с причиной» (очередь 3) — у файла, присланного по ссылке; граница или декларант. */
+  canReturn?: boolean
   busy?: boolean
 }>()
-const emit = defineEmits<{ download: [file: TruckFile]; patch: [file: TruckFile, patch: FilePatch]; remove: [file: TruckFile] }>()
+const emit = defineEmits<{
+  download: [file: TruckFile]; patch: [file: TruckFile, patch: FilePatch]; remove: [file: TruckFile]; return: [file: TruckFile]
+}>()
 const { t } = useI18n()
 
 const KINDS: FileKind[] = ['invoice', 'packingList', 'cmr', 'driverPassport', 'vehiclePassport', 'td', 'warehouseReceipt', 'other']
 const kindLabel = (k: FileKind) => t(`broker.autoTransit.file.kind.${k}`)
 const stampable = computed(() => props.file.kind === 'invoice' || props.file.kind === 'packingList')
-const hasMenu = computed(() => props.canPatch || props.canDelete)
+// Очередь 3: файл прислан по ссылке загрузки — метка; возвращённый — метка с причиной в подсказке.
+const viaLink = computed(() => props.file.uploadedVia === 'link')
+const returnable = computed(() => !!props.canReturn && viaLink.value)
+const returnedTitle = computed(() => t('broker.autoTransit.file.returnedTitle', { reason: props.file.returnReason?.trim() || '—' }))
+const hasMenu = computed(() => props.canPatch || props.canDelete || returnable.value)
 // Глаз и галочка — как на деле (решение 32): файл партии виден по признаку, общий документ машины — только CMR,
 // и тогда всем получателям машины. Общий не-CMR получатели не видят: пункт выключен с подсказкой «перенесите в партию».
 const sees = computed(() => recipientSees(props.file))
@@ -42,6 +50,9 @@ const items = computed<ZDropdownItem[]>(() => {
       ? { key: 'visible', label: t('broker.autoTransit.file.visible'), disabled: true, hint: t('broker.autoTransit.file.truckLevelHidden'), divider: !stampable.value }
       : { key: 'visible', label: visibleText.value, checked: sees.value, divider: !stampable.value })
   }
+  if (returnable.value) {
+    out.push({ key: 'return', label: t(props.file.returned ? 'broker.autoTransit.file.returnEdit' : 'broker.autoTransit.file.return'), divider: out.length > 0 })
+  }
   if (props.canDelete) out.push({ key: 'delete', label: t('broker.autoTransit.file.delete'), danger: true, divider: out.length > 0 })
   return out
 })
@@ -50,6 +61,7 @@ const onSelect = (key: string) => {
   if (props.busy) return
   const f = props.file
   if (key === 'delete') return emit('remove', f)
+  if (key === 'return') return emit('return', f)
   if (key === 'stamped') return emit('patch', f, { stamped: !f.stamped })
   if (key === 'visible') {
     if (lockedHidden.value) return
@@ -81,10 +93,19 @@ const onSelect = (key: string) => {
       @click="emit('download', file)"
     >
       <PhFileText :size="14" aria-hidden="true" class="shrink-0 text-muted" />
-      <span class="min-w-0 truncate">{{ file.fileName }}</span>
+      <span class="min-w-0 truncate" :class="file.returned ? 'text-muted line-through' : ''">{{ file.fileName }}</span>
       <span class="shrink-0 text-muted" data-file-kind>· {{ kindLabel(file.kind) }}</span>
       <PhSealCheck v-if="file.stamped" :size="14" class="shrink-0 text-tone-done-fg" :aria-label="t('broker.autoTransit.file.stamped')" data-file-stamped />
     </button>
+    <span v-if="viaLink" class="inline-flex shrink-0 items-center pr-2 text-muted" :title="t('broker.autoTransit.file.viaLink')" data-file-via-link>
+      <PhLink :size="14" aria-hidden="true" />
+      <span class="sr-only">{{ t('broker.autoTransit.file.viaLink') }}</span>
+    </span>
+    <span v-if="file.returned" class="inline-flex shrink-0 items-center gap-1 pr-2 text-tone-danger-fg" :title="returnedTitle" data-file-returned>
+      <PhArrowUUpLeft :size="14" aria-hidden="true" />
+      <span class="text-xs font-semibold max-sm:sr-only">{{ t('broker.autoTransit.file.returnedShort') }}</span>
+      <span class="sr-only">{{ returnedTitle }}</span>
+    </span>
     <span v-if="sees" class="inline-flex shrink-0 items-center pr-2 text-zircon-ink" :title="visibleText" data-file-visible>
       <PhEye :size="14" aria-hidden="true" />
       <span class="sr-only">{{ visibleText }}</span>

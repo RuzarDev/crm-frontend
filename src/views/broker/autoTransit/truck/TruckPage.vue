@@ -20,6 +20,7 @@ import PrimaryBar from './PrimaryBar.vue'
 import ProblemModal from './ProblemModal.vue'
 import StageRail from './StageRail.vue'
 import PiModal from './PiModal.vue'
+import ReturnFileModal from './ReturnFileModal.vue'
 import TdModal from './TdModal.vue'
 import TruckEditModal from './TruckEditModal.vue'
 import TruckFiles from './TruckFiles.vue'
@@ -171,6 +172,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnloa
                 @download="a.download"
                 @patch-file="a.patchFile"
                 @remove-file="a.removeFile"
+                @return-file="a.openReturn"
                 @upload="a.uploadToParty"
               />
             </div>
@@ -193,6 +195,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnloa
               @download="a.download"
               @patch="a.patchFile"
               @remove="a.removeFile"
+              @return="a.openReturn"
               @retry="s.retryUpload"
               @retry-all="s.retryAllUploads"
               @drop-upload="s.removeUpload"
@@ -209,8 +212,18 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnloa
       <ProblemModal v-model:open="a.problemOpen.value" :save="s.setProblem" />
       <PartyModal v-model:open="a.partyOpen.value" :party="a.partyEditing.value" :save="saveParty" />
       <PiModal v-model:open="a.piOpen.value" :party="a.piParty.value" :save="a.savePi" />
+      <ReturnFileModal v-model:open="a.returnOpen.value" :file="a.returnTarget.value" :save="a.saveReturn" />
       <TdModal v-model:open="a.tdOpen.value" :party="a.tdParty.value" :save="(body) => s.setTd(a.tdParty.value!.id, body)" />
-      <LinksModal v-if="rights.links" v-model:open="a.linksOpen.value" :truck-id="card.id" :plate="card.plate" :parties="card.parties" />
+      <LinksModal
+        v-if="rights.anyLinks"
+        v-model:open="a.linksOpen.value"
+        :truck-id="card.id"
+        :plate="card.plate"
+        :parties="card.parties"
+        :can-view="rights.links"
+        :can-cargo="rights.uploadCargoLink"
+        :can-vehicle="rights.uploadVehicleLink"
+      />
     </div>
   </div>
 </template>

@@ -41,6 +41,7 @@ const emit = defineEmits<{
   download: [file: TruckFile]
   patchFile: [file: TruckFile, patch: FilePatch]
   removeFile: [file: TruckFile]
+  returnFile: [file: TruckFile]
   upload: [party: Party, files: File[], kind: FileKind, stamped: boolean]
 }>()
 const { t, locale } = useI18n()
@@ -171,10 +172,12 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
           :parties="parties"
           :can-patch="rights.patchFile"
           :can-delete="rights.deleteFile"
+          :can-return="rights.returnFile"
           :busy="busy"
           @download="emit('download', $event)"
           @patch="(file, patch) => emit('patchFile', file, patch)"
           @remove="emit('removeFile', $event)"
+          @return="emit('returnFile', $event)"
         />
       </li>
       <li v-for="code in missing" :key="code" class="min-w-0 max-w-full">

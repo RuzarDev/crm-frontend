@@ -29,7 +29,10 @@ export function useTruckActions(s: TruckState, id: () => string) {
   const tdParty = ref<Party | null>(null)
   const piOpen = ref(false)
   const piParty = ref<Party | null>(null)
-  const anyOpen = () => editOpen.value || problemOpen.value || linksOpen.value || partyOpen.value || tdOpen.value || piOpen.value || confirmState.open
+  const returnOpen = ref(false)
+  const returnTarget = ref<TruckFile | null>(null)
+  const anyOpen = () => editOpen.value || problemOpen.value || linksOpen.value || partyOpen.value || tdOpen.value || piOpen.value
+    || returnOpen.value || confirmState.open
 
   const primaryRunning = ref(false)
   const primary = computed(() => (s.card.value ? primaryAction(s.card.value, t) : null))
@@ -270,6 +273,18 @@ export function useTruckActions(s: TruckState, id: () => string) {
     })
     if (ok) await s.deleteFile(f.id)
   }
+  // «Вернуть с причиной» (очередь 3): окно с причиной; ответ сервера — файл, карточка обновляется на месте.
+  const openReturn = (f: TruckFile) => {
+    returnTarget.value = f
+    returnOpen.value = true
+  }
+  const saveReturn = async (reason: string) => {
+    const f = returnTarget.value
+    if (!f) return { ok: false, fieldErrors: {} }
+    const res = await s.returnFile(f.id, reason)
+    if (res.ok) message.success(t(`${F}.returnedToast`))
+    return res
+  }
   const upload = (files: File[]) => s.upload(files, {})
   /** Загрузка прямо в партию (пунктирный чип «нет …» или «+ файл» в карточке партии) — через ту же очередь. */
   const uploadToParty = (p: Party, files: File[], kind: FileKind, stamped = false) =>
@@ -282,5 +297,6 @@ export function useTruckActions(s: TruckState, id: () => string) {
     primary, primaryRunning, onPrimary, onMenu, clearProblem,
     newParty, editParty, removeParty, submit, unsubmit, openTd,
     zipping, download, downloadZip, patchFile, removeFile, upload, uploadToParty, parties,
+    returnOpen, returnTarget, openReturn, saveReturn,
   }
 }

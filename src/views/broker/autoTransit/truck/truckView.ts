@@ -1,4 +1,4 @@
-import type { Blocker, FileKind, Party, RecipientLink, TruckCard, TruckEvent, TruckFile } from '@/api/autoTransit'
+import type { Blocker, FileKind, LinkPurpose, Party, RecipientLink, TruckCard, TruckEvent, TruckFile } from '@/api/autoTransit'
 import { STAGES, isObstacle, nextAction, stageKey } from '../autoTransit'
 
 // Чистая логика карточки машины (задача 9): права на каждое действие по card.can и статусу, ячейки этапов,
@@ -30,6 +30,14 @@ export interface TruckRights {
   unarchive: boolean
   /** «ПИ подана» и её отмена (очередь 3) — декларант, машина в работе. */
   pi: boolean
+  /** Ссылка клиенту на загрузку документов груза (очередь 3, uploadCargo) — декларант. links — ссылки просмотра. */
+  uploadCargoLink: boolean
+  /** Ссылка водителю / перевозчику на загрузку документов машины (uploadVehicle) — граница. */
+  uploadVehicleLink: boolean
+  /** Кнопка «Ссылки» в шапке: есть хотя бы одно из трёх. */
+  anyLinks: boolean
+  /** «Вернуть с причиной» у файла, присланного по ссылке — граница или декларант. */
+  returnFile: boolean
 }
 
 export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>): TruckRights {
@@ -59,6 +67,10 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
     archive: manage && !archived,
     unarchive: manage && archived,
     pi: declare && inWork,
+    uploadCargoLink: declare && !archived,
+    uploadVehicleLink: border && !archived,
+    anyLinks: (declare || manage || border) && !archived,
+    returnFile: (border || declare) && !archived,
   }
 }
 
@@ -257,9 +269,11 @@ export const truckLevelHidden = (f: Pick<TruckFile, 'partyId' | 'kind'>): boolea
 
 export type LinkState = 'none' | 'active' | 'revoked' | 'expired'
 
-/** Ссылка партии: действующая, иначе последняя по сроку. */
-export function partyLink(links: RecipientLink[], partyId: string, now: Date): { link: RecipientLink | null; state: LinkState } {
-  const own = links.filter((l) => l.partyId === partyId).sort((a, b) => b.expiresAtUtc.localeCompare(a.expiresAtUtc))
+const purposeOf = (l: RecipientLink): LinkPurpose => l.purpose ?? 'view'
+
+/** Действующая ссылка из списка, иначе последняя по сроку. */
+function pickLink(own: RecipientLink[], now: Date): { link: RecipientLink | null; state: LinkState } {
+  own = [...own].sort((a, b) => b.expiresAtUtc.localeCompare(a.expiresAtUtc))
   const active = own.find((l) => !l.revokedAtUtc && new Date(l.expiresAtUtc).getTime() > now.getTime())
   if (active) return { link: active, state: 'active' }
   const last = own[0]
@@ -267,7 +281,21 @@ export function partyLink(links: RecipientLink[], partyId: string, now: Date): {
   return { link: last, state: last.revokedAtUtc ? 'revoked' : 'expired' }
 }
 
-export const linkUrl = (origin: string, token: string): string => `${origin}/t/${encodeURIComponent(token)}`
+/** Ссылка партии этого назначения (по умолчанию — просмотр получателя; у старого сервера purpose нет — просмотр). */
+export function partyLink(
+  links: RecipientLink[], partyId: string, now: Date, purpose: 'view' | 'uploadCargo' = 'view',
+): { link: RecipientLink | null; state: LinkState } {
+  return pickLink(links.filter((l) => l.partyId === partyId && purposeOf(l) === purpose), now)
+}
+
+/** Ссылка на машину (uploadVehicle) для водителя или перевозчика. */
+export function truckLink(links: RecipientLink[], now: Date): { link: RecipientLink | null; state: LinkState } {
+  return pickLink(links.filter((l) => !l.partyId && purposeOf(l) === 'uploadVehicle'), now)
+}
+
+/** Адрес ссылки: просмотр получателя — /t/, загрузка документов — /u/. */
+export const linkUrl = (origin: string, token: string, purpose: LinkPurpose = 'view'): string =>
+  `${origin}/${purpose === 'view' ? 't' : 'u'}/${encodeURIComponent(token)}`
 
 // ---- Формы ----
 
