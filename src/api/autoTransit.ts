@@ -534,11 +534,46 @@ export const fileUrl = (id: string, fileId: string): string => `${base(id)}/file
 export const zipUrl = (id: string): string => `${base(id)}/files/all.zip`
 
 /** Скачать файл по пути fileUrl/zipUrl с входом; имя — из Content-Disposition, иначе fallbackName. */
-export const downloadBlob = async (url: string, fallbackName: string): Promise<{ blob: Blob; fileName: string }> => {
-  const res = await apiClient.get(url, { responseType: 'blob' })
+export const downloadBlob = async (
+  url: string, fallbackName: string, opts: { silentStatuses?: number[] } = {},
+): Promise<{ blob: Blob; fileName: string }> => {
+  const res = await apiClient.get(url, { responseType: 'blob', ...(opts.silentStatuses ? { silentStatuses: opts.silentStatuses } : {}) })
   const cd = String(res.headers?.['content-disposition'] ?? '')
   const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) ?? /filename="?([^";]+)"?/i.exec(cd)
   return { blob: res.data as Blob, fileName: m ? decodeURIComponent(m[1]!) : fallbackName }
+}
+
+// ───────── опись и акт осмотра из ПИ (этап 3) ─────────
+
+/** Документы из сохранённой ПИ партии: опись документов ТД и заготовка акта таможенного осмотра. */
+export type PartyDocKind = 'inventory' | 'inspection-act'
+export const partyDocUrl = (id: string, partyId: string, kind: PartyDocKind): string => `${party(id, partyId)}/declaration/${kind}.docx`
+
+/**
+ * Скачать .docx из ПИ (право autotransit.read). 409 { code: 'declaration_not_saved' } — ПИ ни разу не сохраняли: тост пишет
+ * страница сама (код читается из ответа-Blob через blobErrorCode); прочие ошибки — общий тост перехватчика.
+ */
+export const downloadPartyDoc = (id: string, partyId: string, kind: PartyDocKind, fallbackName: string) =>
+  downloadBlob(partyDocUrl(id, partyId, kind), fallbackName, { silentStatuses: [409] })
+
+/** Текст Blob: Blob.text() есть не везде (старый Safari, jsdom) — тогда FileReader. */
+const blobText = (b: Blob): Promise<string> => (typeof b.text === 'function' ? b.text() : new Promise((resolve, reject) => {
+  const r = new FileReader()
+  r.onload = () => resolve(String(r.result ?? ''))
+  r.onerror = () => reject(r.error)
+  r.readAsText(b)
+}))
+
+/** Машинный code из ответа об ошибке, пришедшего Blob-ом (responseType: 'blob'); не читается — null. */
+export const blobErrorCode = async (e: unknown): Promise<string | null> => {
+  const data = (e as { response?: { data?: unknown } })?.response?.data
+  try {
+    const text = data instanceof Blob ? await blobText(data) : typeof data === 'string' ? data : data == null ? '' : JSON.stringify(data)
+    const code = (JSON.parse(text) as { code?: unknown })?.code
+    return typeof code === 'string' ? code : null
+  } catch {
+    return null
+  }
 }
 
 // ───────── ссылки получателям ─────────

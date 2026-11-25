@@ -7,7 +7,9 @@ import { mountWithI18n } from '@/test/mountWithI18n'
 import type { DeclarationResponse } from '@/api/autoTransit'
 import { fullData, httpError, manyGoods, response } from './tdFixture'
 
-const api = vi.hoisted(() => ({ getDeclaration: vi.fn(), saveDeclaration: vi.fn(), listCopySources: vi.fn(), getCopySource: vi.fn() }))
+const api = vi.hoisted(() => ({ getDeclaration: vi.fn(), saveDeclaration: vi.fn(), listCopySources: vi.fn(), getCopySource: vi.fn(), downloadPartyDoc: vi.fn() }))
+const dl = vi.hoisted(() => ({ saveBlob: vi.fn() }))
+vi.mock('@/ui/download', () => dl)
 vi.mock('@/api/autoTransit', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/api/autoTransit')>()), ...api }))
 const tnved = vi.hoisted(() => ({ node: vi.fn(), rates: vi.fn() }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
@@ -411,5 +413,54 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     await w.get('[data-td-copy]').trigger('click')
     await settle()
     expect(text(document.body.querySelector('[data-td-copy-source]')!.textContent ?? '')).toContain('совпало: отправитель, пост назначения')
+  })
+
+  // ---- Этап 3: опись и акт осмотра ----
+  const openDocs = async () => {
+    await w.get('[data-td-docs]').trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(document.body.querySelectorAll('[role="menuitem"]')).toHaveLength(2))
+    return [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')]
+  }
+
+  it('«Документы»: опись и акт скачиваются из сохранённой ПИ', async () => {
+    await open(response())
+    api.downloadPartyDoc.mockResolvedValue({ blob: new Blob(['x']), fileName: 'Опись 123ASD12 INV-1.docx' })
+    const items = await openDocs()
+    expect(items.map((i) => text(i.textContent ?? ''))).toEqual(['Опись документов (.docx)', 'Акт осмотра — заготовка (.docx)'])
+    items[0]!.click()
+    await vi.waitFor(() => expect(dl.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Опись 123ASD12 INV-1.docx'))
+    expect(api.downloadPartyDoc).toHaveBeenCalledWith('t1', 'p1', 'inventory', 'inventory.docx')
+
+    api.downloadPartyDoc.mockResolvedValue({ blob: new Blob(['y']), fileName: 'Акт осмотра 123ASD12.docx' })
+    ;(await openDocs())[1]!.click()
+    await vi.waitFor(() => expect(api.downloadPartyDoc).toHaveBeenLastCalledWith('t1', 'p1', 'inspection-act', 'inspection-act.docx'))
+  })
+
+  it('«Документы»: черновик и несохранённые правки — пункты выключены с подсказкой «Сначала сохраните ПИ»', async () => {
+    await open(response({ isDraft: true }))
+    let items = await openDocs()
+    expect(items.every((i) => i.hasAttribute('data-disabled'))).toBe(true)
+    expect(text(items[0]!.textContent ?? '')).toContain('Сначала сохраните ПИ')
+    items[0]!.click()
+    await settle()
+    expect(api.downloadPartyDoc).not.toHaveBeenCalled()
+    w.unmount()
+    document.body.innerHTML = ''
+
+    await open(response())
+    items = await openDocs()
+    expect(items.some((i) => i.hasAttribute('data-disabled'))).toBe(false)
+    await w.get('[data-td-docs]').trigger('keydown', { key: 'Escape' })
+    await typeInto('[data-f="sealNumber"], [data-td-sections] input', 'ПРАВКА')
+    items = await openDocs()
+    expect(items.every((i) => i.hasAttribute('data-disabled'))).toBe(true)
+  })
+
+  it('«Документы»: 409 declaration_not_saved — понятный текст', async () => {
+    await open(response())
+    api.downloadPartyDoc.mockRejectedValue(httpError(409, new Blob([JSON.stringify({ code: 'declaration_not_saved', error: 'x' })])))
+    ;(await openDocs())[0]!.click()
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('ПИ ещё не сохранена. Сохраните ПИ и скачайте документ снова.'))
+    expect(dl.saveBlob).not.toHaveBeenCalled()
   })
 })
