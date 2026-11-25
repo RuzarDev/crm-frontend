@@ -1,4 +1,4 @@
-import type { Blocker, FileKind, Party, RecipientLink, TruckCard, TruckEvent, TruckFile } from '@/api/autoTransit'
+import type { Blocker, FileKind, LinkPurpose, Party, RecipientLink, TruckCard, TruckEvent, TruckFile } from '@/api/autoTransit'
 import { STAGES, isObstacle, nextAction, stageKey } from '../autoTransit'
 
 // Чистая логика карточки машины (задача 9): права на каждое действие по card.can и статусу, ячейки этапов,
@@ -28,6 +28,16 @@ export interface TruckRights {
   archive: boolean
   /** «Вернуть из архива» (очередь 2а) — manage. */
   unarchive: boolean
+  /** «ПИ подана» и её отмена (очередь 3) — декларант, машина в работе. */
+  pi: boolean
+  /** Ссылка клиенту на загрузку документов груза (очередь 3, uploadCargo) — декларант. links — ссылки просмотра. */
+  uploadCargoLink: boolean
+  /** Ссылка водителю / перевозчику на загрузку документов машины (uploadVehicle) — граница. */
+  uploadVehicleLink: boolean
+  /** Кнопка «Ссылки» в шапке: есть хотя бы одно из трёх. */
+  anyLinks: boolean
+  /** «Вернуть с причиной» у файла, присланного по ссылке — граница или декларант. */
+  returnFile: boolean
 }
 
 export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>): TruckRights {
@@ -56,6 +66,11 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
     clearProblem: (border || declare || manage) && s === 'problem',
     archive: manage && !archived,
     unarchive: manage && archived,
+    pi: declare && inWork,
+    uploadCargoLink: declare && !archived,
+    uploadVehicleLink: border && !archived,
+    anyLinks: (declare || manage || border) && !archived,
+    returnFile: (border || declare) && !archived,
   }
 }
 
@@ -185,12 +200,19 @@ export const STAGE_BLOCKERS: Readonly<Record<number, readonly string[]>> = {
  */
 export const TD_HINT_BLOCKERS: readonly string[] = ['declaration_missing', 'declaration_incomplete']
 
+/**
+ * «ПИ не подана» (очередь 3): сервер шлёт их, пока машина на этапах 1–2; pi_urgent — вместо pi_not_submitted, если до
+ * ожидаемого въезда меньше 2 часов (красная строка с минутами).
+ */
+export const PI_BLOCKERS: readonly string[] = ['pi_urgent', 'pi_not_submitted']
+
 /** «Что мешает» сейчас: блокеры текущего этапа (сервер присылает полный список всех этапов) и подсказки по ТД. */
 export function currentBlockers(card: Pick<TruckCard, 'blockers' | 'currentStage' | 'status'>): Blocker[] {
   if (card.status === 'released' || card.status === 'archived' || card.currentStage == null) return []
   const own = STAGE_BLOCKERS[card.currentStage] ?? []
   return [
     ...card.blockers.filter((b) => own.includes(b.code)),
+    ...(card.currentStage <= 2 ? card.blockers.filter((b) => PI_BLOCKERS.includes(b.code)) : []),
     ...card.blockers.filter((b) => TD_HINT_BLOCKERS.includes(b.code)),
   ]
 }
@@ -210,13 +232,23 @@ const cap = (s: string) => s.charAt(0).toLocaleUpperCase() + s.slice(1)
 
 /** Текст «что мешает» по коду, с номером партии, если блокер — её. */
 export function blockerText(b: Blocker, card: Pick<TruckCard, 'parties'>, t: Translate): string {
-  const params = { count: b.count ?? 0 }
-  const text = t(`${K}.blocker.hint.${b.code}`, params)
+  const params: Record<string, unknown> = { count: b.count ?? 0 }
+  let hint = b.code
+  if (b.code === 'pi_urgent') {
+    params.minutes = b.minutesLeft ?? 0
+    // Время въезда уже прошло — «до въезда −5 мин» не пишем.
+    if ((b.minutesLeft ?? 0) <= 0) hint = 'pi_urgent_late'
+  }
+  const text = t(`${K}.blocker.hint.${hint}`, params)
   const fallback = t(`${K}.blocker.${b.code}`, params)
-  const body = text === `${K}.blocker.hint.${b.code}` ? fallback : text
+  const body = text === `${K}.blocker.hint.${hint}` ? fallback : text
   const p = b.partyId ? card.parties.find((x) => x.id === b.partyId) : undefined
-  return p ? t(`${K}.blocker.party`, { n: p.number, text: body }) : cap(body)
+  const n = p?.number ?? b.partyNumber ?? null
+  return n != null ? t(`${K}.blocker.party`, { n, text: body }) : cap(body)
 }
+
+/** Строка «Что мешает» красная: ПИ не подана, а до въезда меньше 2 часов. */
+export const isUrgent = (b: Blocker): boolean => b.code === 'pi_urgent'
 
 // ---- Видимость получателю ----
 
@@ -237,9 +269,11 @@ export const truckLevelHidden = (f: Pick<TruckFile, 'partyId' | 'kind'>): boolea
 
 export type LinkState = 'none' | 'active' | 'revoked' | 'expired'
 
-/** Ссылка партии: действующая, иначе последняя по сроку. */
-export function partyLink(links: RecipientLink[], partyId: string, now: Date): { link: RecipientLink | null; state: LinkState } {
-  const own = links.filter((l) => l.partyId === partyId).sort((a, b) => b.expiresAtUtc.localeCompare(a.expiresAtUtc))
+const purposeOf = (l: RecipientLink): LinkPurpose => l.purpose ?? 'view'
+
+/** Действующая ссылка из списка, иначе последняя по сроку. */
+function pickLink(own: RecipientLink[], now: Date): { link: RecipientLink | null; state: LinkState } {
+  own = [...own].sort((a, b) => b.expiresAtUtc.localeCompare(a.expiresAtUtc))
   const active = own.find((l) => !l.revokedAtUtc && new Date(l.expiresAtUtc).getTime() > now.getTime())
   if (active) return { link: active, state: 'active' }
   const last = own[0]
@@ -247,7 +281,21 @@ export function partyLink(links: RecipientLink[], partyId: string, now: Date): {
   return { link: last, state: last.revokedAtUtc ? 'revoked' : 'expired' }
 }
 
-export const linkUrl = (origin: string, token: string): string => `${origin}/t/${encodeURIComponent(token)}`
+/** Ссылка партии этого назначения (по умолчанию — просмотр получателя; у старого сервера purpose нет — просмотр). */
+export function partyLink(
+  links: RecipientLink[], partyId: string, now: Date, purpose: 'view' | 'uploadCargo' = 'view',
+): { link: RecipientLink | null; state: LinkState } {
+  return pickLink(links.filter((l) => l.partyId === partyId && purposeOf(l) === purpose), now)
+}
+
+/** Ссылка на машину (uploadVehicle) для водителя или перевозчика. */
+export function truckLink(links: RecipientLink[], now: Date): { link: RecipientLink | null; state: LinkState } {
+  return pickLink(links.filter((l) => !l.partyId && purposeOf(l) === 'uploadVehicle'), now)
+}
+
+/** Адрес ссылки: просмотр получателя — /t/, загрузка документов — /u/. */
+export const linkUrl = (origin: string, token: string, purpose: LinkPurpose = 'view'): string =>
+  `${origin}/${purpose === 'view' ? 't' : 'u'}/${encodeURIComponent(token)}`
 
 // ---- Формы ----
 

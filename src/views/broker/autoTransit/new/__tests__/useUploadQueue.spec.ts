@@ -203,3 +203,64 @@ describe('useUploadQueue', () => {
   })
 })
 
+
+describe('useUploadQueue: своя отправка (страница ссылки загрузки, очередь 3)', () => {
+  it('send вместо загрузки модуля; ответ — в onResult; classify задаёт текст и запрет повтора', async () => {
+    const send = vi.fn()
+      .mockResolvedValueOnce({ id: 'f1' })
+      .mockRejectedValueOnce(httpError(409, { code: 'upload_limit' }))
+    const onResult = vi.fn()
+    mountQueue({
+      send, onResult,
+      classify: (status, data) => (status === 409 && (data as { code?: string }).code === 'upload_limit' ? { key: 'x.limit', retryable: false } : null),
+    })
+    q.add(files('a.pdf', 'b.pdf'), { kind: 'cmr' })
+    await q.start()
+    expect(api.uploadFile).not.toHaveBeenCalled()
+    expect(send).toHaveBeenNthCalledWith(1, 't1', expect.any(File), { kind: 'cmr' }, expect.any(Function))
+    expect(onResult).toHaveBeenCalledWith({ id: 'f1' }, expect.objectContaining({ name: 'a.pdf' }))
+    expect(states()).toEqual(['done', 'failed'])
+    expect(q.items.value[1]).toMatchObject({ errorKey: 'x.limit', retryable: false })
+  })
+
+  it('429 — не ошибка: пауза по Retry-After и повтор того же файла', async () => {
+    vi.useFakeTimers()
+    try {
+      const busy = Object.assign(httpError(429, ''), {})
+      ;(busy as unknown as { response: { headers: Record<string, string> } }).response.headers = { 'retry-after': '7' }
+      const send = vi.fn().mockRejectedValueOnce(busy).mockResolvedValueOnce({ id: 'f1' })
+      mountQueue({ send, retryOn429: true })
+      q.add(files('a.pdf'))
+      const run = q.start()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(states()).toEqual(['queued'])
+      expect(q.items.value[0]!.errorKey).toBe('broker.autoTransit.upload.waitRetry')
+      await vi.advanceTimersByTimeAsync(6_900)
+      expect(send).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(200)
+      await run
+      expect(send).toHaveBeenCalledTimes(2)
+      expect(states()).toEqual(['done'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('429 без Retry-After — пауза 15 с; после 5 пауз подряд — ошибка с повтором', async () => {
+    vi.useFakeTimers()
+    try {
+      const send = vi.fn().mockRejectedValue(httpError(429, ''))
+      mountQueue({ send, retryOn429: true })
+      q.add(files('a.pdf'))
+      const run = q.start()
+      await vi.advanceTimersByTimeAsync(14_900)
+      expect(send).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(5 * 15_000)
+      await run
+      expect(send).toHaveBeenCalledTimes(6)
+      expect(q.items.value[0]).toMatchObject({ state: 'failed', retryable: true, errorKey: 'broker.autoTransit.upload.tooFrequent' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

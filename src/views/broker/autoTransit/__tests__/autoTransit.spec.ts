@@ -155,6 +155,7 @@ describe('autoTransit: фильтры и ошибки', () => {
       'stage_order', 'td_number_missing', 'party_submitted', 'nothing_to_undo', 'problem', 'archived', 'released',
       'inspection_required', 'already_submitted', 'not_submitted', 'td_number_set', 'last_party', 'not_in_problem',
       'not_in_work', 'duplicate_plate', 'conflict',
+      'pi_already_submitted', 'pi_not_submitted', 'pi_number_locked', 'short_number_locked',
     ]))
     for (const code of [...ERROR_CODES, 'unknown']) {
       const key = `broker.autoTransit.error.${code}`
@@ -194,10 +195,13 @@ describe('autoTransit: переводы', () => {
     // Числовые шаблоны вида «{n} мин» и коды могут совпадать по форме; осмысленные тексты — нет.
     const same = (o: Record<string, string>) => Object.keys(r).filter((key) => /[А-Яа-яЁё]{4,}/.test(r[key]!) && o[key] === r[key])
     // По-казахски эти слова пишутся так же: «Авто-транзит» (как группа прав), «Декларация», «{n} партия» (без склонения),
-    // «Инвойс», «Журнал», «Валюта», «Брутто, кг» (задача 9), «Файл» (кнопка «+ файл» партии).
+    // «Инвойс», «Журнал», «Валюта», «Брутто, кг» (задача 9), «Файл» (кнопка «+ файл» партии); очередь 3 — заголовок
+    // настроек «Авто-транзит», вид файла «Инвойс», «Брутто, кг» в плашке итогов; этап 2 — «Брутто, кг», «Валюта»,
+    // «инвойс» в сверке документов и «Инвойс» на странице ссылки загрузки.
     expect(same(k).sort()).toEqual([
       'file.kind.invoice', 'journal.title', 'list.parties.one', 'list.title', 'party.addFile', 'party.fields.currency', 'party.fields.grossKg',
-      'party.invoice', 'stage.declaration',
+      'party.invoice', 'settings.fileKinds.invoice', 'settings.title', 'stage.declaration', 'td.fromDocs.check.grossKg',
+      'td.fromDocs.fields.transit_docCurrencyCode', 'td.fromDocs.slot.invoice', 'td.totals.grossKg', 'uploadLink.kinds.invoice',
     ])
     expect(same(e)).toEqual([])
     expect(Object.values(e).filter((v) => /[А-Яа-яЁё]/.test(v))).toEqual([])

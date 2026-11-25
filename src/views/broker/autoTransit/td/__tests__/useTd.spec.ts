@@ -137,17 +137,21 @@ describe('useTd', () => {
 
 describe('useTd: сверка с сервером 7c905cb', () => {
   it('PUT шлёт всю форму целиком (все разделы, даже пустые) и незнакомые поля data из ответа', async () => {
-    const data = { ...fullData({ containers: [] }), driver: { name: 'Ван Лэй' } }
+    const data = { ...fullData({ containers: [] }), futureBlock: { name: 'x' } }
     api.getDeclaration.mockResolvedValue(response({ data: data as never }))
     const td = await start()
     api.saveDeclaration.mockResolvedValue(response())
     await td.save()
     const body = api.saveDeclaration.mock.calls[0][2]
     expect(Object.keys(body.data).sort()).toEqual([
-      'cargoOperations', 'carriers', 'containers', 'doc44', 'driver', 'goods', 'guarantees', 'identificationMeans', 'organizations',
-      'packages', 'packagingType', 'precedingDocs', 'sealNumber', 'transit', 'transportMeans',
+      'cargoOperations', 'carriers', 'containers', 'doc44', 'driver', 'futureBlock', 'goods', 'guarantees', 'identificationMeans', 'organizations',
+      'packages', 'packagingType', 'precedingDocs', 'sealNumber', 'transit', 'transportMeans', 'vehicles',
     ])
-    expect(body.data.driver).toEqual({ name: 'Ван Лэй' })
+    expect(body.data.futureBlock).toEqual({ name: 'x' })
+    // Старая ТД без машин и водителя: пустой список и null, ЖД-транспорт не тронут.
+    expect(body.data.vehicles).toEqual([])
+    expect(body.data.driver).toBeNull()
+    expect(body.data.transportMeans).toEqual(data.transportMeans)
     expect(body.data.containers).toEqual([])
   })
 
@@ -204,5 +208,84 @@ describe('useTd: сверка с сервером 7c905cb', () => {
     const before = JSON.stringify(td.draft)
     td.applyCopy(fullData({ organizations: [] }), true)
     expect(JSON.stringify(td.draft)).toBe(before)
+  })
+})
+
+describe('useTd: машины и водитель (очередь 3)', () => {
+  const vehicles = [
+    { role: 'tractor', typeCode: '303', regNumber: '123ASD12', countryCode: 'KZ', vin: '-', headIndex: null },
+    { role: 'trailer', typeCode: '312', regNumber: '12DS12', countryCode: 'KZ', vin: '-', headIndex: 0 },
+  ]
+  const driver = { fullName: 'ТЕСТОВ ТЕСТ', countryCode: 'KZ', docKindCode: null, docNumber: 'N0000001', personalNumber: null }
+  const withAuto = () => response({ data: { ...fullData(), vehicles, driver } as never })
+
+  it('правка водителя — dirty и «Машины и водитель» в изменённых; PUT несёт vehicles и driver', async () => {
+    api.getDeclaration.mockResolvedValue(withAuto())
+    const td = await start()
+    expect(td.auto.vehicles).toHaveLength(2)
+    expect(td.dirty.value).toBe(false)
+    td.auto.driver.docNumber = 'N0000002'
+    await nextTick()
+    expect(td.dirty.value).toBe(true)
+    expect(td.changed.value).toEqual(['vehicles'])
+    api.saveDeclaration.mockResolvedValue(response({ version: 8, data: { ...fullData(), vehicles, driver: { ...driver, docNumber: 'N0000002' } } as never }))
+    await td.save()
+    const body = api.saveDeclaration.mock.calls[0][2]
+    expect(body.data.vehicles).toEqual(vehicles)
+    expect(body.data.driver.docNumber).toBe('N0000002')
+    await flushPromises()
+    await nextTick()
+    expect(td.dirty.value).toBe(false)
+  })
+
+  it('«Отменить» возвращает машины и водителя', async () => {
+    api.getDeclaration.mockResolvedValue(withAuto())
+    const td = await start()
+    td.auto.vehicles.splice(1, 1)
+    td.auto.driver.fullName = null
+    await nextTick()
+    td.revert()
+    await nextTick()
+    expect(td.auto.vehicles).toHaveLength(2)
+    expect(td.auto.driver.fullName).toBe('ТЕСТОВ ТЕСТ')
+    expect(td.dirty.value).toBe(false)
+  })
+
+  it('409 conflict → «Обновить»: свои правки машин остаются поверх свежей версии', async () => {
+    api.getDeclaration.mockResolvedValue(withAuto())
+    const td = await start()
+    td.auto.vehicles[0]!.countryCode = 'CN'
+    api.saveDeclaration.mockRejectedValue(httpError(409, { code: 'conflict' }))
+    await td.save()
+    api.getDeclaration.mockResolvedValue(response({ version: 9, data: { ...fullData(), vehicles, driver: { ...driver, personalNumber: '900101300000' } } as never }))
+    await td.reload()
+    await flushPromises()
+    expect(td.auto.vehicles[0]!.countryCode).toBe('CN')
+    // Чужая правка водителя пришла: свои правки водителя не трогали.
+    expect(td.auto.driver.personalNumber).toBe('900101300000')
+    expect(td.version.value).toBe(9)
+    expect(td.dirty.value).toBe(true)
+  })
+
+  it('копия с прошлой ТД машины и водителя не трогает', async () => {
+    api.getDeclaration.mockResolvedValue(withAuto())
+    const td = await start()
+    td.applyCopy({ ...fullData(), vehicles: [], driver: null } as never, false)
+    expect(td.auto.vehicles).toHaveLength(2)
+    expect(td.auto.driver.fullName).toBe('ТЕСТОВ ТЕСТ')
+  })
+
+  it('расхождение итогов — по текущим товарам формы', async () => {
+    const totalsCheck = { places: { goods: 3, party: 3 }, grossKg: { goods: 15.5, party: 15.5 }, value: { goods: 10, party: 10 } }
+    const data = fullData()
+    api.getDeclaration.mockResolvedValue(response({ data, totalsCheck }))
+    const td = await start()
+    td.draft.goods.splice(0, td.draft.goods.length,
+      { ...data.goods[0]!, packagesCount: 3, grossWeightKg: 15.5, customsValue: 10 })
+    await nextTick()
+    expect(td.totals.value).toEqual([])
+    td.draft.goods[0]!.grossWeightKg = 16
+    await nextTick()
+    expect(td.totals.value).toEqual([{ key: 'grossKg', goods: 16, party: 15.5, diff: 0.5 }])
   })
 })

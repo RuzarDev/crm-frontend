@@ -10,8 +10,8 @@ import { dateText } from '../truck/truckView'
 /** Итог копии: ok — подставлено (окно закрывается), cancelled — пользователь не стал заменять, остальное — ошибка в окне. */
 export type CopyResult = 'ok' | 'cancelled' | 'notFound' | 'error'
 
-// «Копировать с прошлой ТД» (очередь 2а, Task 3): список прошлых ТД того же получателя (сервер отбирает по БИН/регномеру,
-// новые сверху, не больше 20), выбор одной и галочка «Скопировать и товары». Само копирование (загрузка источника,
+// «Копировать с прошлой ТД» (очередь 2а, Task 3; очередь 3 — ещё по отправителю и посту назначения, с отметкой «совпало»):
+// список прошлых ПИ / ТД (сервер отбирает, новые сверху, не больше 20), выбор одной и галочка «Скопировать и товары». Само копирование (загрузка источника,
 // подтверждение замены, applyCopy) — run от страницы; в базу ничего не пишется до «Сохранить».
 const props = defineProps<{
   open: boolean
@@ -36,11 +36,14 @@ watch(selected, () => { error.value = null })
 
 const rows = computed(() => props.sources.map((s) => ({
   id: s.partyId,
-  title: t(`${C}.source`, { plate: s.truckPlate }),
+  // Получатель источника (ревью этапа 1): по посту назначения в списке бывают ПИ других клиентов.
+  title: [t(`${C}.source`, { plate: s.truckPlate }), s.recipientName?.trim()].filter(Boolean).join(' · '),
   meta: [
     s.tdNumber.trim() ? t(`${C}.tdNumber`, { n: s.tdNumber.trim() }) : t(`${C}.noTdNumber`),
     s.updatedAtUtc ? t(`${C}.saved`, { date: dateText(s.updatedAtUtc) }) : '',
     t(`${C}.goods`, { n: s.goodsCount }),
+    // Очередь 3: источник подходит по получателю, отправителю или посту назначения — пишем, по чему.
+    s.matchedBy?.length ? t(`${C}.matched`, { by: s.matchedBy.map((m) => t(`${C}.matchedBy.${m}`)).join(', ') }) : '',
   ].filter(Boolean).join(' · '),
 })))
 

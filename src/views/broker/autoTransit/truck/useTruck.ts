@@ -212,6 +212,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   const submit = (partyId: string) => run((i) => api.submitParty(i, partyId))
   const unsubmit = (partyId: string) => run((i) => api.unsubmitParty(i, partyId))
   const setTd = (partyId: string, body: TdBody) => run((i) => api.setTd(i, partyId, body))
+  const piSubmitted = (partyId: string, piNumber: string) => run((i) => api.piSubmitted(i, partyId, piNumber))
+  const piUnsubmit = (partyId: string) => run((i) => api.piUnsubmit(i, partyId))
   const setProblem = (note: string) => run((i) => api.setProblem(i, note))
   const clearProblem = () => run((i) => api.clearProblem(i))
   const archive = () => run((i) => api.archiveTruck(i))
@@ -223,6 +225,13 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   const deleteParty = (partyId: string) => run((i) => api.deleteParty(i, partyId))
   const patchFile = (fileId: string, patch: FilePatch, truckId?: string) => run((i) => api.patchFile(i, fileId, patch), truckId)
   const deleteFile = (fileId: string) => run((i) => api.deleteFile(i, fileId))
+  /** «Вернуть с причиной» (очередь 3): ответ — файл, а не карточка; он заменяет свой файл в карточке на месте. */
+  const returnFile = (fileId: string, reason: string) => run(async (i) => {
+    const f = await api.returnFile(i, fileId, reason)
+    const c = card.value
+    if (!c || c.id !== i) return api.getTruck(i, { silent: true })
+    return { ...c, files: c.files.map((x) => (x.id === f.id ? f : x)) }
+  })
 
   /**
    * Загрузить файлы через очередь: по одному, последовательно; ошибка одного не останавливает остальные. Файлы больше
@@ -291,8 +300,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
 
   return {
     card, loading, notFound, loadError, reloadError, busy, uploading,
-    reload, mark, undo, submit, unsubmit, setTd, setProblem, clearProblem, archive, unarchive, updateTruck,
-    addParty, updateParty, deleteParty, patchFile, deleteFile, upload,
+    reload, mark, undo, submit, unsubmit, setTd, piSubmitted, piUnsubmit, setProblem, clearProblem, archive, unarchive, updateTruck,
+    addParty, updateParty, deleteParty, patchFile, deleteFile, returnFile, upload,
     queue, retryUpload, retryAllUploads, removeUpload,
   }
 }

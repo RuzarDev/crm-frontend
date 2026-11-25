@@ -115,11 +115,11 @@ describe('tdModel.copyWouldReplace — подтверждение перед з�
 
 describe('tdModel: незнакомые поля верхнего уровня data не теряются при сохранении', () => {
   it('dataExtras отделяет их, draftToData кладёт обратно', () => {
-    const data = { ...fullData(), driver: { name: 'Ван Лэй' }, futureFlag: true } as unknown as DeclarationData
+    const data = { ...fullData(), legacyBlock: { name: 'Ван Лэй' }, futureFlag: true } as unknown as DeclarationData
     const extras = dataExtras(data)
-    expect(extras).toEqual({ driver: { name: 'Ван Лэй' }, futureFlag: true })
+    expect(extras).toEqual({ legacyBlock: { name: 'Ван Лэй' }, futureFlag: true })
     const back = draftToData(dataToDraft(data), extras) as unknown as Record<string, unknown>
-    expect(back.driver).toEqual({ name: 'Ван Лэй' })
+    expect(back.legacyBlock).toEqual({ name: 'Ван Лэй' })
     expect(back.futureFlag).toBe(true)
     // Известные поля берутся из черновика, а не из «лишних».
     expect(dataExtras({ ...fullData(), goods: [] })).toEqual({})

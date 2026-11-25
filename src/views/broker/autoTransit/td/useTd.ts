@@ -4,7 +4,10 @@ import { i18n } from '@/i18n'
 import { message } from '@/ui/message'
 import { useGoodsTotalsSync } from '@/views/broker/transit/record/goodsTotalsSync'
 import { assignDraft, changedSections, mergeDrafts, type RecordDraft, type SectionKey } from '@/views/broker/transit/record/recordModel'
-import { TD_SECTIONS, applyCopy, dataExtras, dataToDraft, draftToData } from './tdModel'
+import {
+  TD_SECTIONS, applyCopy, dataExtras, dataToAuto, dataToDraft, draftToData, totalsMismatch, type AutoPart, type TdSectionKey, type TotalsRow,
+} from './tdModel'
+import { mergeFromDocuments, type GoodsMode } from './fromDocs'
 
 /** Почему ТД не сохранилась — ключ broker.autoTransit.td.error.*. invalid — 400 «данные не читаются» / нет версии. */
 export type TdSaveError = 'conflict' | 'submitted' | 'archived' | 'tooLarge' | 'invalid' | 'forbidden' | 'unknown'
@@ -23,13 +26,20 @@ export interface Td {
   saving: Ref<boolean>
   saveError: Ref<TdSaveError | null>
   dirty: ComputedRef<boolean>
-  changed: ComputedRef<SectionKey[]>
+  /** Изменённые разделы (с «Машины и водитель» — vehicles). */
+  changed: ComputedRef<TdSectionKey[]>
+  /** Машины и водитель ПИ (очередь 3): правятся на месте разделом TdSectionVehicles. */
+  auto: AutoPart
+  /** Расхождения итогов товаров (текущих правок формы) и партии; пусто — сходятся или сравнивать не с чем. */
+  totals: ComputedRef<TotalsRow[]>
   load(): Promise<void>
   save(): Promise<boolean>
   reload(): Promise<void>
   revert(): void
   /** Подставить прошлую ТД (applyCopy) в черновик на месте; не сохраняет. Итоги «Основного» остаются прежними. */
   applyCopy(source: Partial<DeclarationData>, withGoods: boolean): void
+  /** «Заполнить из документов» (очередь 3): пустое заполняется, товары — заменить или добавить; не сохраняет. */
+  applyFromDocuments(data: Partial<DeclarationData>, mode: GoodsMode): void
 }
 
 const statusOf = (e: unknown): number | undefined => (e as { response?: { status?: number } })?.response?.status
@@ -67,6 +77,13 @@ function saveErrorOf(e: unknown): TdSaveError {
  */
 export function useTd(truckId: () => string, partyId: () => string): Td {
   const draft = reactive<RecordDraft>(dataToDraft(null))
+  const auto = reactive<AutoPart>(dataToAuto(null))
+  // Снимок машин и водителя — от чего шли правки (dirty, «Отменить», слияние при конфликте).
+  const autoSnap = ref<string | null>(null)
+  const setAuto = (a: AutoPart) => {
+    auto.vehicles.splice(0, auto.vehicles.length, ...a.vehicles)
+    Object.assign(auto.driver, a.driver)
+  }
   const totals = useGoodsTotalsSync(() => draft.goods, () => draft.transit)
   const response = shallowRef<DeclarationResponse | null>(null)
   const loading = ref(false)
@@ -98,11 +115,24 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
   }
 
   /** Свежий ответ; base — от чего шли текущие правки (null — заменить черновик целиком). */
-  const apply = (fresh: DeclarationResponse, base: RecordDraft | null, inPlace = false) => {
+  const apply = (fresh: DeclarationResponse, base: RecordDraft | null, inPlace = false, baseAuto: string | null = null) => {
     response.value = fresh
     saveError.value = null
     extras = dataExtras(fresh.data)
     const theirs = dataToDraft(fresh.data)
+    const theirsAuto = dataToAuto(fresh.data)
+    const theirsAutoJson = JSON.stringify(theirsAuto)
+    // Машины и водитель целиком: свои правки (с базы) остаются, иначе — свежая версия. Водитель — отдельно от машин.
+    if (!base || baseAuto === null) setAuto(theirsAuto)
+    else {
+      const mine = plain(auto)
+      const was = JSON.parse(baseAuto) as AutoPart
+      setAuto({
+        vehicles: JSON.stringify(mine.vehicles) !== JSON.stringify(was.vehicles) ? mine.vehicles : theirsAuto.vehicles,
+        driver: JSON.stringify(mine.driver) !== JSON.stringify(was.driver) ? mine.driver : theirsAuto.driver,
+      })
+    }
+    autoSnap.value = theirsAutoJson
     if (!base) {
       setDraft(theirs, inPlace)
       setSnapshot()
@@ -124,6 +154,8 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     setSnapshot(null)
     extras = {}
     setDraft(dataToDraft(null), false)
+    setAuto(dataToAuto(null))
+    autoSnap.value = null
     if (!truckId() || !partyId()) return
     loading.value = true
     try {
@@ -142,13 +174,14 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
   const reload = async () => {
     if (!response.value) return load()
     const base = snapshotDraft.value ?? plain(draft)
+    const baseAuto = autoSnap.value ?? JSON.stringify(auto)
     const my = ++seq
     reloading.value = true
     try {
       const fresh = await getDeclaration(truckId(), partyId())
       if (my !== seq) return
       // Форма закрылась (ТД подана, машина в архиве): правки всё равно не сохранить — показываем то, что в базе.
-      apply(fresh, fresh.readOnly ? null : base, true)
+      apply(fresh, fresh.readOnly ? null : base, true, baseAuto)
     } catch (e) {
       if (my !== seq) return
       if ([404, 403].includes(statusOf(e) ?? 0)) notFound.value = true
@@ -162,14 +195,15 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     const cur = response.value
     if (!cur || cur.readOnly || saving.value || reloading.value) return false
     const sent = plain(draft)
+    const sentAuto = plain(auto)
     const my = seq
     saving.value = true
     try {
-      const fresh = await saveDeclaration(truckId(), partyId(), { version: cur.version, data: draftToData(sent, extras) })
+      const fresh = await saveDeclaration(truckId(), partyId(), { version: cur.version, data: draftToData(sent, extras, sentAuto) })
       if (my !== seq) return true
       message.success(i18n.global.t('broker.autoTransit.td.saved'))
       // Правки, сделанные пока шёл запрос, остаются поверх ответа.
-      apply(fresh, sent)
+      apply(fresh, sent, false, JSON.stringify(sentAuto))
       return true
     } catch (e) {
       if (my === seq) saveError.value = saveErrorOf(e)
@@ -182,6 +216,7 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
   const revert = () => {
     const snap = snapshotDraft.value
     if (snap) setDraft(structuredClone(snap), true)
+    if (autoSnap.value) setAuto(JSON.parse(autoSnap.value) as AutoPart)
   }
 
   const doApplyCopy = (source: Partial<DeclarationData>, withGoods: boolean) => {
@@ -189,13 +224,29 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     setDraft(applyCopy(plain(draft), source, withGoods), true)
   }
 
+  const doApplyFromDocuments = (data: Partial<DeclarationData>, mode: GoodsMode) => {
+    if (readOnlyNow()) return
+    const merged = mergeFromDocuments(plain(draft), plain(auto), data, mode)
+    setDraft(merged.draft, true)
+    setAuto(merged.auto)
+  }
+
   const draftJson = computed(() => JSON.stringify(draft))
-  const dirty = computed(() => snapshot.value !== null && draftJson.value !== snapshot.value)
-  const changed = computed<SectionKey[]>(() => {
+  const autoDirty = computed(() => autoSnap.value !== null && JSON.stringify(auto) !== autoSnap.value)
+  const dirty = computed(() => (snapshot.value !== null && draftJson.value !== snapshot.value) || autoDirty.value)
+  const changed = computed<TdSectionKey[]>(() => {
     const snap = snapshotDraft.value
-    if (!dirty.value || !snap) return []
-    return changedSections(snap, draft).filter((k) => TD_SECTIONS.includes(k) || k === 'containers')
+    if (!dirty.value) return []
+    const own: TdSectionKey[] = snap && draftJson.value !== snapshot.value
+      ? changedSections(snap, draft).filter((k: SectionKey) => TD_SECTIONS.includes(k) || k === 'containers')
+      : []
+    if (!autoDirty.value) return own
+    // «Машины и водитель» — на своё место по порядку разделов страницы.
+    const at = TD_SECTIONS.indexOf('vehicles')
+    const before = own.filter((k) => TD_SECTIONS.indexOf(k) >= 0 && TD_SECTIONS.indexOf(k) < at)
+    return [...before, 'vehicles', ...own.filter((k) => !before.includes(k))]
   })
+  const totalsRows = computed(() => totalsMismatch(response.value?.totalsCheck, draft.goods))
 
   function readOnlyNow() { return response.value?.readOnly ?? true }
 
@@ -208,7 +259,7 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     isDraft: computed(() => response.value?.isDraft ?? false),
     missing: computed(() => response.value?.missing ?? []),
     version: computed(() => response.value?.version ?? null),
-    loading, notFound, loadError, reloading, saving, saveError, dirty, changed,
-    load, save, reload, revert, applyCopy: doApplyCopy,
+    loading, notFound, loadError, reloading, saving, saveError, dirty, changed, auto, totals: totalsRows,
+    load, save, reload, revert, applyCopy: doApplyCopy, applyFromDocuments: doApplyFromDocuments,
   }
 }

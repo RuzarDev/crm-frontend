@@ -102,7 +102,9 @@ export const FILTERS: { id: FilterId; key: string }[] = (
 export const ERROR_CODES = [
   'stage_order', 'td_number_missing', 'party_submitted', 'nothing_to_undo', 'problem', 'archived', 'released',
   'inspection_required', 'already_submitted', 'not_submitted', 'td_number_set', 'last_party', 'not_in_problem',
-  'not_in_work', 'duplicate_plate', 'conflict',
+  'not_in_work', 'duplicate_plate', 'conflict', 'short_number_required',
+  // ПИ (очередь 3, ревью этапа 1 M4): другая вкладка уже отметила / сняла ПИ; очистка номера у поданной ПИ / ТД.
+  'pi_already_submitted', 'pi_not_submitted', 'pi_number_locked', 'short_number_locked',
 ] as const
 
 export const errorKey = (code: string): string =>

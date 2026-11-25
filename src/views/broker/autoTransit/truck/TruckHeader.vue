@@ -14,7 +14,7 @@ import { stateTag } from '../autoTransit'
 import { ddmm, hhmm, lastMachineMark, type TruckRights } from './truckView'
 
 // Шапка карточки (макет 2): крошка к списку (с его фильтром), номер тягача и прицеп, строка «водитель · перевозчик ·
-// заехала · пост», метки (консолидация, состояние), «Ссылки получателям» и меню «…».
+// заехала · пост», метки (консолидация, состояние), «Ссылки» (просмотр и загрузка) и меню «…».
 const props = defineProps<{ card: TruckCard; rights: TruckRights; busy?: boolean }>()
 const emit = defineEmits<{ links: []; menu: [key: string] }>()
 const { t, locale } = useI18n()
@@ -28,6 +28,8 @@ const facts = computed(() => {
   if (c.carrierName.trim()) out.push(t(`${T}.carrier`, { name: c.carrierName.trim() }))
   if (c.arrivedAtUtc) out.push(t(`${T}.arrived`, { at: `${ddmm(c.arrivedAtUtc)} ${hhmm(c.arrivedAtUtc)}` }))
   if (c.customsPostCode.trim()) out.push(t(`${T}.post`, { code: c.customsPostCode.trim() }))
+  // Ожидаемый въезд (очередь 3): по нему «ПИ не подана» становится срочной за 2 часа.
+  if (c.expectedEntryAtUtc) out.push(t(`${T}.expectedEntry`, { at: `${ddmm(c.expectedEntryAtUtc)} ${hhmm(c.expectedEntryAtUtc)}` }))
   return out.join(' · ')
 })
 const consolidation = computed(() => {
@@ -67,7 +69,7 @@ const items = computed<ZDropdownItem[]>(() => {
       </div>
     </div>
     <div class="flex shrink-0 flex-wrap items-center gap-2">
-      <ZButton v-if="rights.links" class="max-sm:h-11" data-truck-links @click="emit('links')">
+      <ZButton v-if="rights.anyLinks" class="max-sm:h-11" data-truck-links @click="emit('links')">
         <PhLink :size="16" aria-hidden="true" />{{ t(`${T}.links`) }}
       </ZButton>
       <ZDropdown v-if="items.length" :items="items" @select="emit('menu', $event)">

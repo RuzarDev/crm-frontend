@@ -29,6 +29,7 @@ const emit = defineEmits<{
   download: [file: TruckFile]
   patch: [file: TruckFile, patch: FilePatch]
   remove: [file: TruckFile]
+  return: [file: TruckFile]
   retry: [index: number]
   retryAll: []
   dropUpload: [index: number]
@@ -60,10 +61,12 @@ const retryableCount = computed(() => props.queue.filter((i) => i.state === 'fai
           :parties="parties"
           :can-patch="rights.patchFile"
           :can-delete="rights.deleteFile"
+          :can-return="rights.returnFile"
           :busy="busy"
           @download="emit('download', $event)"
           @patch="(file, patch) => emit('patch', file, patch)"
           @remove="emit('remove', $event)"
+          @return="emit('return', $event)"
         />
       </li>
     </ul>
