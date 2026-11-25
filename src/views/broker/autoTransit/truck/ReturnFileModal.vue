@@ -5,6 +5,7 @@ import ZField from '@/components/z/ZField.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZTextarea from '@/components/z/ZTextarea.vue'
 import type { TruckFile } from '@/api/autoTransit'
+import type { ActionResult } from './useTruck'
 
 // «Вернуть с причиной» (очередь 3, спека 5.3): файл, присланный по ссылке, помечается возвращённым (не удаляется),
 // причина (обязательна, до 300 знаков) видна загружающему на странице ссылки. Повторный возврат меняет причину.
@@ -12,7 +13,7 @@ const MAX = 300
 const props = defineProps<{
   open: boolean
   file: TruckFile | null
-  save: (reason: string) => Promise<{ ok: boolean; fieldErrors: Record<string, string> }>
+  save: (reason: string) => Promise<ActionResult>
 }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 const { t } = useI18n()

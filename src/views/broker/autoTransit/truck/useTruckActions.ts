@@ -280,7 +280,7 @@ export function useTruckActions(s: TruckState, id: () => string) {
   }
   const saveReturn = async (reason: string) => {
     const f = returnTarget.value
-    if (!f) return { ok: false, fieldErrors: {} }
+    if (!f) return { ok: false as const, fieldErrors: {} }
     const res = await s.returnFile(f.id, reason)
     if (res.ok) message.success(t(`${F}.returnedToast`))
     return res

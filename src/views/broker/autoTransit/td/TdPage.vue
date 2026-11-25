@@ -7,7 +7,7 @@ import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import { getCopySource, listCopySources, type DeclarationCopySource, type DeclarationMissing } from '@/api/autoTransit'
+import { getCopySource, listCopySources, type DeclarationCopySource, type DeclarationMissing, type FromDocsConflict, type FromDocumentsResult } from '@/api/autoTransit'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
 import RecordSaveBar from '@/views/broker/transit/record/RecordSaveBar.vue'
@@ -25,6 +25,8 @@ import type { SectionKey } from '@/views/broker/transit/record/recordModel'
 import { formatNumberIn } from '@/ui/number'
 import PlateTag from '../PlateTag.vue'
 import CopyTdModal, { type CopyResult } from './CopyTdModal.vue'
+import FromDocsModal from './FromDocsModal.vue'
+import { conflictKey, documentsMismatch, wouldReplaceGoods, type DocCheckRow, type GoodsMode } from './fromDocs'
 import TdNav from './TdNav.vue'
 import TdSectionMain from './TdSectionMain.vue'
 import TdSectionVehicles from './TdSectionVehicles.vue'
@@ -179,7 +181,7 @@ const onKey = (e: KeyboardEvent) => {
   if (e.code !== 'KeyS' && e.key.toLowerCase() !== 's') return
   if (!response.value || readOnly.value) return
   const openDialog = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
-  if (copyOpen.value || confirmState.open || document.querySelector(openDialog)) return
+  if (copyOpen.value || fromDocsOpen.value || confirmState.open || document.querySelector(openDialog)) return
   e.preventDefault()
   if (dirty.value || isDraft.value) void onSave()
 }
@@ -235,6 +237,50 @@ const runCopy = async (sourcePartyId: string, withGoods: boolean): Promise<CopyR
   return 'ok'
 }
 
+// ---- «Заполнить из документов» (очередь 3, спека 5.2–5.3) ----
+// Окно: выбор файлов → ответ сервера → «Подставить в форму». После — плашки «Проверьте» (расхождения между документами
+// и предупреждения разбора) и «Документы не сходятся» (места, брутто, госномер по CMR, инвойсу, упаковочному).
+// Ничего не сохраняется до «Сохранить»; плашки живут до ухода со страницы или «Скрыть».
+const fromDocsOpen = ref(false)
+interface FromDocsReport { conflicts: FromDocsConflict[]; warnings: string[]; mismatch: DocCheckRow[] }
+const fromDocsReport = ref<FromDocsReport | null>(null)
+watch(() => [truckId.value, partyId.value] as const, () => { fromDocsReport.value = null })
+const applyFromDocs = async (r: FromDocumentsResult, mode: GoodsMode): Promise<boolean> => {
+  if (readOnly.value) return false
+  if (wouldReplaceGoods(draft, r.data, mode)) {
+    const ok = await confirm({
+      title: t(`${T}.fromDocs.replaceTitle`),
+      content: t(`${T}.fromDocs.replaceText`, { n: draft.goods.length }),
+      okText: t(`${T}.fromDocs.replaceOk`),
+      cancelText: t(`${T}.fromDocs.cancel`),
+      danger: true,
+    })
+    if (!ok) return false
+  }
+  td.applyFromDocuments(r.data, mode)
+  const report: FromDocsReport = { conflicts: r.conflicts ?? [], warnings: r.warnings ?? [], mismatch: documentsMismatch(r.documentsCheck) }
+  fromDocsReport.value = report.conflicts.length || report.warnings.length || report.mismatch.length ? report : null
+  message.success(t(`${T}.fromDocs.done`))
+  return true
+}
+const conflictLabel = (field: string): string => {
+  const c = conflictKey(field)
+  if (c.key === 'goodsItem') return t(`${T}.missing.goodsItem`, { n: c.n, field: fieldName(c.field ?? '') })
+  const k = `${T}.fromDocs.fields.${c.key}`
+  return te(k) ? t(k) : field
+}
+const conflictValues = (c: FromDocsConflict): string => c.values
+  .map((v) => [v.value?.trim() || '—', v.source?.trim() ? t(`${T}.fromDocs.from`, { source: v.source.trim() }) : ''].filter(Boolean).join(' '))
+  .join(' · ')
+const docSlotText = (row: DocCheckRow): string => (['cmr', 'invoice', 'packing'] as const)
+  .filter((s) => row[s] != null && row[s] !== '')
+  .map((s) => {
+    const v = row[s]!
+    const shown = typeof v === 'number' ? formatNumberIn(locale.value, v, row.key === 'places' ? 0 : Math.min(4, /\.(\d+)/.exec(String(v))?.[1]?.length ?? 0)) : v
+    return `${t(`${T}.fromDocs.slot.${s}`)} ${shown}`
+  })
+  .join(' · ')
+
 const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13px] font-medium text-ink-2 no-underline outline-hidden hover:text-ink focus-visible:shadow-focus max-sm:min-h-11'
 </script>
 
@@ -282,6 +328,13 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
             </p>
           </div>
           <ZButton
+            v-if="!readOnly"
+            :disabled="busy"
+            class="max-sm:h-11 max-sm:w-full"
+            data-td-from-docs
+            @click="fromDocsOpen = true"
+          >{{ t(`${T}.fromDocs.button`) }}</ZButton>
+          <ZButton
             v-if="canCopy"
             :disabled="busy"
             class="max-sm:h-11 max-sm:w-full"
@@ -328,6 +381,42 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
           </li>
         </ul>
         <p class="m-0 text-xs">{{ t(`${T}.totals.hint`) }}</p>
+      </section>
+
+      <section
+        v-if="fromDocsReport?.mismatch.length"
+        role="alert"
+        class="flex min-w-0 flex-col gap-2 rounded-panel border border-tone-danger-fg bg-tone-danger-bg px-4 py-3 text-tone-danger-fg"
+        aria-labelledby="td-doccheck-title"
+        data-td-doccheck
+      >
+        <h2 id="td-doccheck-title" class="m-0 text-base leading-6 font-semibold">{{ t(`${T}.fromDocs.checkTitle`) }}</h2>
+        <ul role="list" class="m-0 flex min-w-0 list-none flex-col gap-1 p-0 text-sm">
+          <li v-for="r in fromDocsReport.mismatch" :key="r.key" class="min-w-0 [overflow-wrap:anywhere]" :data-td-doccheck-row="r.key">
+            <span class="font-semibold">{{ t(`${T}.fromDocs.check.${r.key}`) }}:</span>{{ ' ' }}<span>{{ docSlotText(r) }}</span>
+          </li>
+        </ul>
+        <p class="m-0 text-xs">{{ t(`${T}.fromDocs.checkHint`) }}</p>
+      </section>
+
+      <section
+        v-if="fromDocsReport && (fromDocsReport.conflicts.length || fromDocsReport.warnings.length)"
+        class="flex min-w-0 flex-col gap-2 rounded-panel border border-gold-line bg-gold-soft px-4 py-3"
+        aria-labelledby="td-review-title"
+        data-td-review
+      >
+        <div class="flex min-w-0 items-start gap-2">
+          <h2 id="td-review-title" class="m-0 min-w-0 flex-1 text-sm leading-5 font-semibold text-gold-ink">{{ t(`${T}.fromDocs.reviewTitle`) }}</h2>
+          <ZButton size="sm" variant="ghost" class="shrink-0 max-sm:h-11" data-td-review-hide @click="fromDocsReport = null">{{ t(`${T}.fromDocs.hide`) }}</ZButton>
+        </div>
+        <ul v-if="fromDocsReport.conflicts.length" role="list" class="m-0 flex min-w-0 list-none flex-col gap-1 p-0 text-sm text-ink">
+          <li v-for="(c, i) in fromDocsReport.conflicts" :key="`c${i}`" class="min-w-0 [overflow-wrap:anywhere]" data-td-review-conflict>
+            <span class="font-semibold">{{ conflictLabel(c.field) }}:</span>{{ ' ' }}<span>{{ conflictValues(c) }}</span>
+          </li>
+        </ul>
+        <ul v-if="fromDocsReport.warnings.length" role="list" class="m-0 flex min-w-0 list-none flex-col gap-1 p-0 text-xs text-ink-2">
+          <li v-for="(wn, i) in fromDocsReport.warnings" :key="`w${i}`" class="min-w-0 [overflow-wrap:anywhere]" data-td-review-warning>{{ wn }}</li>
+        </ul>
       </section>
 
       <section
@@ -393,6 +482,14 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
       </div>
 
       <CopyTdModal v-model:open="copyOpen" :sources="copySources" :run="runCopy" />
+      <FromDocsModal
+        v-if="!readOnly"
+        v-model:open="fromDocsOpen"
+        :truck-id="truckId"
+        :party-id="partyId"
+        :goods-in-form="draft.goods.length"
+        :apply="applyFromDocs"
+      />
 
       <RecordSaveBar
         v-if="showSaveBar"

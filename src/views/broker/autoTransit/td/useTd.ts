@@ -7,6 +7,7 @@ import { assignDraft, changedSections, mergeDrafts, type RecordDraft, type Secti
 import {
   TD_SECTIONS, applyCopy, dataExtras, dataToAuto, dataToDraft, draftToData, totalsMismatch, type AutoPart, type TdSectionKey, type TotalsRow,
 } from './tdModel'
+import { mergeFromDocuments, type GoodsMode } from './fromDocs'
 
 /** Почему ТД не сохранилась — ключ broker.autoTransit.td.error.*. invalid — 400 «данные не читаются» / нет версии. */
 export type TdSaveError = 'conflict' | 'submitted' | 'archived' | 'tooLarge' | 'invalid' | 'forbidden' | 'unknown'
@@ -37,6 +38,8 @@ export interface Td {
   revert(): void
   /** Подставить прошлую ТД (applyCopy) в черновик на месте; не сохраняет. Итоги «Основного» остаются прежними. */
   applyCopy(source: Partial<DeclarationData>, withGoods: boolean): void
+  /** «Заполнить из документов» (очередь 3): пустое заполняется, товары — заменить или добавить; не сохраняет. */
+  applyFromDocuments(data: Partial<DeclarationData>, mode: GoodsMode): void
 }
 
 const statusOf = (e: unknown): number | undefined => (e as { response?: { status?: number } })?.response?.status
@@ -221,6 +224,13 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     setDraft(applyCopy(plain(draft), source, withGoods), true)
   }
 
+  const doApplyFromDocuments = (data: Partial<DeclarationData>, mode: GoodsMode) => {
+    if (readOnlyNow()) return
+    const merged = mergeFromDocuments(plain(draft), plain(auto), data, mode)
+    setDraft(merged.draft, true)
+    setAuto(merged.auto)
+  }
+
   const draftJson = computed(() => JSON.stringify(draft))
   const autoDirty = computed(() => autoSnap.value !== null && JSON.stringify(auto) !== autoSnap.value)
   const dirty = computed(() => (snapshot.value !== null && draftJson.value !== snapshot.value) || autoDirty.value)
@@ -250,6 +260,6 @@ export function useTd(truckId: () => string, partyId: () => string): Td {
     missing: computed(() => response.value?.missing ?? []),
     version: computed(() => response.value?.version ?? null),
     loading, notFound, loadError, reloading, saving, saveError, dirty, changed, auto, totals: totalsRows,
-    load, save, reload, revert, applyCopy: doApplyCopy,
+    load, save, reload, revert, applyCopy: doApplyCopy, applyFromDocuments: doApplyFromDocuments,
   }
 }
