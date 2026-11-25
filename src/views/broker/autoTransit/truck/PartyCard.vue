@@ -128,7 +128,8 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
         <span class="tabular-nums">{{ party.number }}</span> · {{ recipient }}
       </h3>
       <ZTag :tone="decl.tone" size="sm" data-party-decl>{{ decl.text }}</ZTag>
-      <ZTag :tone="piSubmitted ? 'submitted' : 'wait'" size="sm" data-party-pi>{{ piText }}</ZTag>
+      <!-- Номер ПИ до 64 знаков: на 375 px метка обрезается, полный текст — в подсказке (ревью этапа 1, M6). -->
+      <ZTag :tone="piSubmitted ? 'submitted' : 'wait'" size="sm" class="max-w-full min-w-0" :title="piText" data-party-pi><span class="min-w-0 truncate">{{ piText }}</span></ZTag>
       <ZTag v-if="tdMissingCount > 0" tone="accent" size="sm" data-party-td-missing>{{ t(`${P}.tdMissing`, { n: tdMissingCount }) }}</ZTag>
       <template v-if="interest !== null">
         <ZTooltip :title="interest ? t(`${P}.importContact`, { contact: interest }) : ''">

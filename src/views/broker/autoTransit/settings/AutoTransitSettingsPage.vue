@@ -20,7 +20,7 @@ import { useLocalOptions } from '@/views/broker/transit/record/sections/localOpt
 // обеспечение по умолчанию (вид, основание 103, свидетельство УЭО) и шаблон документов гр. 44 (код, название, из файла
 // какого вида брать номер и дату). Читать — autotransit.read, менять — autotransit.manage (как сервер). Данные фирмы
 // в коде не зашиваются: умолчания отдаёт сервер, страница сохраняет настройку целиком.
-const { t } = useI18n()
+const { t, te } = useI18n()
 const auth = useAuthStore()
 const S = 'broker.autoTransit.settings'
 const canEdit = computed(() => auth.hasPermission('autotransit.manage'))
@@ -67,13 +67,25 @@ const dirty = computed(() => !!draft.value && JSON.stringify(draft.value) !== sa
 
 const { guaranteeTypes } = useLocalOptions()
 const FILE_KINDS: Doc44FileKind[] = ['cmr', 'invoice', 'packing', 'passport']
-const fileKindOptions = computed<ZOption[]>(() => FILE_KINDS.map((k) => ({ value: k, label: t(`${S}.fileKinds.${k}`) })))
+const baseKindOptions = computed<ZOption[]>(() => FILE_KINDS.map((k) => ({ value: k, label: t(`${S}.fileKinds.${k}`) })))
+/**
+ * Варианты строки: четыре вида контракта и, если в строке другой вид (сервер принимает и виды файлов модуля —
+ * packingList, vehiclePassport, td…), — он же, подписанный как вид файла модуля. Иначе выбор показал бы «не задан», а
+ * сохранение стёрло бы значение (ревью этапа 1, M7).
+ */
+const fileKindOptions = (current: string | null): ZOption[] => {
+  if (!current || (FILE_KINDS as string[]).includes(current)) return baseKindOptions.value
+  const key = `broker.autoTransit.file.kind.${current}`
+  return [...baseKindOptions.value, { value: current, label: te(key) ? t(key) : current }]
+}
+/** Как на сервере: не больше 30 строк шаблона (ревью этапа 1, M1). */
+const MAX_ROWS = 30
 
-const addRow = () => { draft.value?.doc44Template.push({ code: '', name: '', fileKind: null }) }
+const addRow = () => { if (draft.value && draft.value.doc44Template.length < MAX_ROWS) draft.value.doc44Template.push({ code: '', name: '', fileKind: null }) }
 const removeRow = (i: number) => { draft.value?.doc44Template.splice(i, 1) }
 const setKind = (i: number, v: unknown) => {
   const row = draft.value?.doc44Template[i]
-  if (row) row.fileKind = FILE_KINDS.includes(v as Doc44FileKind) ? (v as Doc44FileKind) : null
+  if (row) row.fileKind = typeof v === 'string' && v ? v : null
 }
 const str = (v: unknown): string | null => (v == null || v === '' ? null : String(v))
 
@@ -99,7 +111,8 @@ const save = async () => {
   } catch (e) {
     const fe = fieldErrorsOf(e)
     errors.value = fe
-    if (!Object.keys(fe).length) message.error(t(`${S}.saveError`))
+    const conflict = (e as { response?: { status?: number } })?.response?.status === 409
+    if (!Object.keys(fe).length) message.error(t(conflict ? `${S}.conflict` : `${S}.saveError`))
   } finally {
     saving.value = false
   }
@@ -146,6 +159,7 @@ const deleteBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justi
       <section class="flex min-w-0 flex-col gap-3 border-t border-line pt-5" aria-labelledby="ats-doc44">
         <h2 id="ats-doc44" :class="groupTitle">{{ t(`${S}.groupDoc44`) }}</h2>
         <p class="m-0 text-xs text-muted">{{ t(`${S}.doc44Hint`) }}</p>
+        <p v-if="errors.doc44Template" class="m-0 text-sm text-tone-danger-fg" role="alert" data-doc44-error>{{ errors.doc44Template }}</p>
         <p v-if="!draft.doc44Template.length" class="m-0 text-sm text-ink-3" data-doc44-empty>{{ t(`${S}.empty`) }}</p>
         <ul v-else role="list" class="m-0 flex list-none flex-col gap-2.5 p-0">
           <li
@@ -160,8 +174,8 @@ const deleteBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justi
             <ZField :label="t(`${S}.name`)" :error="errors[`doc44Template.${i}.name`]">
               <ZInput v-model:value="row.name" :maxlength="300" :disabled="!canEdit" class="max-sm:h-11" data-f="name" />
             </ZField>
-            <ZField :label="t(`${S}.fileKind`)">
-              <ZSelect :value="row.fileKind" :options="fileKindOptions" allow-clear :disabled="!canEdit" :placeholder="t(`${S}.fileKindNone`)" class="max-sm:*:h-11" data-f="fileKind" @update:value="setKind(i, $event)" />
+            <ZField :label="t(`${S}.fileKind`)" :error="errors[`doc44Template.${i}.fileKind`]">
+              <ZSelect :value="row.fileKind" :options="fileKindOptions(row.fileKind)" allow-clear :disabled="!canEdit" :placeholder="t(`${S}.fileKindNone`)" class="max-sm:*:h-11" data-f="fileKind" @update:value="setKind(i, $event)" />
             </ZField>
             <button
               v-if="canEdit"
@@ -173,9 +187,10 @@ const deleteBtn = 'inline-flex size-9 shrink-0 cursor-pointer items-center justi
             ><PhX :size="16" aria-hidden="true" /></button>
           </li>
         </ul>
-        <ZButton v-if="canEdit" size="sm" variant="ghost" class="self-start max-sm:h-11" data-doc44-add @click="addRow">
+        <ZButton v-if="canEdit" size="sm" variant="ghost" class="self-start max-sm:h-11" :disabled="draft.doc44Template.length >= MAX_ROWS" data-doc44-add @click="addRow">
           <PhPlus :size="14" aria-hidden="true" />{{ t(`${S}.add`) }}
         </ZButton>
+        <p v-if="canEdit && draft.doc44Template.length >= MAX_ROWS" class="m-0 text-xs text-muted" data-doc44-limit>{{ t(`${S}.rowsLimit`, { n: MAX_ROWS }) }}</p>
       </section>
 
       <div v-if="canEdit" class="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">

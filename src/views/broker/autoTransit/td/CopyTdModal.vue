@@ -36,7 +36,8 @@ watch(selected, () => { error.value = null })
 
 const rows = computed(() => props.sources.map((s) => ({
   id: s.partyId,
-  title: t(`${C}.source`, { plate: s.truckPlate }),
+  // Получатель источника (ревью этапа 1): по посту назначения в списке бывают ПИ других клиентов.
+  title: [t(`${C}.source`, { plate: s.truckPlate }), s.recipientName?.trim()].filter(Boolean).join(' · '),
   meta: [
     s.tdNumber.trim() ? t(`${C}.tdNumber`, { n: s.tdNumber.trim() }) : t(`${C}.noTdNumber`),
     s.updatedAtUtc ? t(`${C}.saved`, { date: dateText(s.updatedAtUtc) }) : '',

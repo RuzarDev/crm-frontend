@@ -137,7 +137,8 @@ export function vehiclesState(auto: AutoPart): 'done' | 'warn' | 'empty' {
 // ---- Итоги товаров против партии (очередь 3, спека 4.6) ----
 
 export type TotalsKey = 'places' | 'grossKg' | 'value'
-export interface TotalsRow { key: TotalsKey; goods: number; party: number; diff: number }
+/** partyMissing — в партии итог не внесён (0), а по товарам есть (ревью этапа 1, M8). */
+export interface TotalsRow { key: TotalsKey; goods: number; party: number; diff: number; partyMissing?: true }
 
 /** Точность сравнения — 4 знака (decimal 18,4 сервера): суммы целыми десятитысячными, без ошибок двоичной дроби. */
 const SCALE = 10_000
@@ -148,18 +149,17 @@ const GOODS_FIELD: Record<TotalsKey, 'packagesCount' | 'grossWeightKg' | 'custom
 
 /**
  * Расхождения итогов: сторона партии — из totalsCheck сервера, сторона товаров — из goods (текущие правки формы),
- * а без goods — из totalsCheck. Сравнение точное (500 г на 19 т — расхождение). Строка не показывается, если итог
- * партии не внесён (0 или null) или товаров нет (о пустых товарах говорит «Не заполнено»).
+ * а без goods — из totalsCheck. Сравнение точное (500 г на 19 т — расхождение). Итог партии не внесён (0 или null),
+ * а по товарам есть — тоже строка, с partyMissing (ревью M8). Без товаров строк нет (о них говорит «Не заполнено»).
  */
 export function totalsMismatch(check: TotalsCheck | null | undefined, goods?: ReestrGoodsItemInput[]): TotalsRow[] {
   if (!check || (goods && !goods.length)) return []
   const out: TotalsRow[] = []
   for (const key of ['places', 'grossKg', 'value'] as TotalsKey[]) {
     const party = scaled(check[key]?.party)
-    if (!party) continue
     const g = goods ? goods.reduce((acc, x) => acc + scaled(x[GOODS_FIELD[key]]), 0) : scaled(check[key]?.goods)
     if (g === party) continue
-    out.push({ key, goods: g / SCALE, party: party / SCALE, diff: (g - party) / SCALE })
+    out.push({ key, goods: g / SCALE, party: party / SCALE, diff: (g - party) / SCALE, ...(party ? {} : { partyMissing: true as const }) })
   }
   return out
 }

@@ -55,7 +55,11 @@ const invoicesOf = (p: Party | null): PartyInvoice[] => (p?.additionalInvoices ?
 const invoices = ref<PartyInvoice[]>([])
 let initialInvoices: PartyInvoice[] = []
 const normInvoices = (list: PartyInvoice[]) => list.map((x) => ({ number: x.number.trim(), date: x.date || null }))
-const addInvoice = () => { invoices.value.push({ number: '', date: null }) }
+/** Как на сервере: не больше 100 доп. инвойсов (ревью этапа 1, M1). */
+const MAX_INVOICES = 100
+const addInvoice = () => { if (invoices.value.length < MAX_INVOICES) invoices.value.push({ number: '', date: null }) }
+/** Ошибка номера строки: ключ сервера additionalInvoices.{i}.number (или старый additionalInvoices.{i}). */
+const invoiceNumberError = (i: number) => errors.value[`additionalInvoices.${i}.number`] ?? errors.value[`additionalInvoices.${i}`]
 const removeInvoice = (i: number) => { invoices.value.splice(i, 1) }
 const draft = reactive<Draft>(fromParty(null))
 let initial: Draft = fromParty(null)
@@ -112,7 +116,7 @@ const localErrors = (): Record<string, string> => {
     if (draft[k] && !/^[A-Z]{2}$/.test(draft[k])) e[k] = t('broker.autoTransit.truck.countryHint')
   }
   if (draft.currency && !/^[A-Z]{3}$/.test(draft.currency)) e.currency = t(`${F}.currencyHint`)
-  invoices.value.forEach((x, i) => { if (!x.number.trim()) e[`additionalInvoices.${i}`] = t(`${F}.invoiceRequired`) })
+  invoices.value.forEach((x, i) => { if (!x.number.trim()) e[`additionalInvoices.${i}.number`] = t(`${F}.invoiceRequired`) })
   return e
 }
 
@@ -207,11 +211,12 @@ const section = 'col-span-full m-0 mt-2 text-xs font-semibold tracking-[0.02em] 
       <div class="flex min-w-0 flex-col gap-2 sm:col-span-2" data-party-extra-invoices>
         <span class="text-[13px] font-medium text-ink-2">{{ t(`${F}.additionalInvoices`) }}</span>
         <span class="text-xs text-muted">{{ t(`${F}.additionalInvoicesHint`) }}</span>
+        <p v-if="errors.additionalInvoices" class="m-0 text-xs text-tone-danger-fg" role="alert" data-party-invoices-error>{{ errors.additionalInvoices }}</p>
         <div v-for="(inv, i) in invoices" :key="i" class="grid grid-cols-[minmax(0,1fr)_minmax(0,10rem)_auto] items-start gap-2 max-sm:grid-cols-[minmax(0,1fr)_auto]">
-          <ZField :label="t(`${F}.invoiceNumber`)" :error="errors[`additionalInvoices.${i}`]">
+          <ZField :label="t(`${F}.invoiceNumber`)" :error="invoiceNumberError(i)">
             <ZInput v-model:value="inv.number" mono :maxlength="100" :data-party-extra-invoice="i" />
           </ZField>
-          <ZField :label="t(`${F}.invoiceDate`)" class="max-sm:order-3 max-sm:col-span-2">
+          <ZField :label="t(`${F}.invoiceDate`)" :error="errors[`additionalInvoices.${i}.date`]" class="max-sm:order-3 max-sm:col-span-2">
             <ZDate v-model:value="inv.date" allow-clear />
           </ZField>
           <button
@@ -222,9 +227,10 @@ const section = 'col-span-full m-0 mt-2 text-xs font-semibold tracking-[0.02em] 
             @click="removeInvoice(i)"
           ><PhX :size="16" aria-hidden="true" /></button>
         </div>
-        <ZButton size="sm" variant="ghost" class="self-start max-sm:h-11" data-party-add-invoice @click="addInvoice">
+        <ZButton size="sm" variant="ghost" class="self-start max-sm:h-11" :disabled="invoices.length >= MAX_INVOICES" data-party-add-invoice @click="addInvoice">
           <PhPlus :size="14" aria-hidden="true" />{{ t(`${F}.addInvoice`) }}
         </ZButton>
+        <span v-if="invoices.length >= MAX_INVOICES" class="text-xs text-muted" data-party-invoices-limit>{{ t(`${F}.invoicesLimit`, { n: MAX_INVOICES }) }}</span>
       </div>
 
       <h3 :class="section">{{ t(`${F}.sectionPi`) }}</h3>

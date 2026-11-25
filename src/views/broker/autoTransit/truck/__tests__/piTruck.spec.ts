@@ -162,6 +162,46 @@ describe('TruckPage: ПИ партии', () => {
     expect($('[data-party-modal]')!.textContent).toContain('Введите номер или удалите строку')
   })
 
+  it('ревью M1: ошибки сервера — общий ключ над списком и ключи строк под полями; больше 100 не добавить', async () => {
+    await mountWith(card({ currentStage: 1, can: DECL, parties: [party('p1', 1, { additionalInvoices: [{ number: 'A', date: null }] })] }))
+    await w.get('[data-party-edit]').trigger('click')
+    await flushPromises()
+    setInput('[data-party-extra-invoice="0"]', 'A2')
+    api.updateParty.mockRejectedValue(httpError(400, { errors: {
+      additionalInvoices: ['Не больше 100 дополнительных инвойсов.'], 'additionalInvoices.0.date': ['Дата в формате ГГГГ-ММ-ДД.'],
+    } }))
+    okIn('[data-party-modal]', 'Сохранить').click()
+    await flushPromises()
+    expect($('[data-party-invoices-error]')!.textContent).toBe('Не больше 100 дополнительных инвойсов.')
+    expect($('[data-party-modal]')!.textContent).toContain('Дата в формате ГГГГ-ММ-ДД.')
+    for (let i = 0; i < 100; i++) {
+      const add = $('[data-party-add-invoice]') as HTMLButtonElement
+      if (add.disabled) break
+      add.click()
+      await flushPromises()
+    }
+    expect($$('[data-party-extra-invoice]')).toHaveLength(100)
+    expect(($('[data-party-add-invoice]') as HTMLButtonElement).disabled).toBe(true)
+    expect($('[data-party-modal]')!.textContent).toContain('Не больше 100 дополнительных инвойсов')
+  })
+
+  it('ревью M4: 409 кодов ПИ — свои тексты', async () => {
+    await mountWith(card({ currentStage: 1, can: DECL, parties: [party('p1', 1, { piNumber: 'P-1', piSubmittedAtUtc: '2026-11-16T09:00:00Z' })] }))
+    api.piUnsubmit.mockRejectedValue(httpError(409, { code: 'pi_not_submitted', error: '…' }))
+    await w.get('[data-party-pi-unsubmit]').trigger('click')
+    await flushPromises()
+    expect(msg.error).toHaveBeenCalledWith('ПИ уже не отмечена поданной — карточка обновлена.')
+  })
+
+  it('ревью M6: длинный номер ПИ в метке обрезается, полный — в подсказке', async () => {
+    const long = 'П'.repeat(64)
+    await mountWith(card({ parties: [party('p1', 1, { piNumber: long, piSubmittedAtUtc: '2026-11-16T09:00:00Z' })] }))
+    const tag = w.get('[data-party-pi]')
+    expect(tag.attributes('title')).toContain(long)
+    expect(tag.classes()).toContain('max-w-full')
+    expect(tag.find('.truncate').exists()).toBe(true)
+  })
+
   it('доп. инвойсы видны в карточке партии счётчиком', async () => {
     await mountWith(card({ parties: [party('p1', 1, { additionalInvoices: [{ number: 'A', date: null }, { number: 'B', date: null }] })] }))
     expect(text(w.get('[data-party-invoice]').text())).toBe('KT-1 · 15.11.2026 +2')

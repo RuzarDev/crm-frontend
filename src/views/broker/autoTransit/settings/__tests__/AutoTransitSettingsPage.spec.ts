@@ -106,4 +106,46 @@ describe('AutoTransitSettingsPage', () => {
     await flushPromises()
     expect(w.findAll('[data-doc44-row]')).toHaveLength(6)
   })
+  it('ревью M7: вид файла модуля (packingList) показывается и сохраняется как есть', async () => {
+    api.getSettings.mockResolvedValue({ ...DEFAULTS(), doc44Template: [{ code: '04131', name: 'Упаковочный', fileKind: 'packingList' }] })
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    const sel = w.get('[data-doc44-row] [data-f="fileKind"]')
+    expect(sel.attributes('data-value')).toBe('packingList')
+    expect(sel.get('[data-option="packingList"]').text()).toBe('Упаковочный лист')
+    await setInput('[data-f="aeoCertificateNumber"]', 'N1')
+    api.saveSettings.mockResolvedValue(DEFAULTS())
+    await w.get('[data-settings-form]').trigger('submit')
+    await flushPromises()
+    expect((api.saveSettings.mock.calls[0]![0] as AutoTransitSettings).doc44Template[0]!.fileKind).toBe('packingList')
+  })
+
+  it('ревью M1: общий ключ doc44Template и ключи строк сервера видны; больше 30 строк не добавить', async () => {
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    await setInput('[data-f="aeoCertificateNumber"]', 'N1')
+    api.saveSettings.mockRejectedValue(Object.assign(new Error('400'), { response: { status: 400, data: { errors: {
+      doc44Template: ['Не больше 30 документов в шаблоне.'], 'doc44Template.1.fileKind': ['Неизвестный вид файла «x».'],
+    } } } }))
+    await w.get('[data-settings-form]').trigger('submit')
+    await flushPromises()
+    expect(w.get('[data-doc44-error]').text()).toBe('Не больше 30 документов в шаблоне.')
+    expect(w.findAll('[data-doc44-row]')[1]!.text()).toContain('Неизвестный вид файла «x».')
+    for (let i = 0; i < 30; i++) {
+      const add = w.find('[data-doc44-add]')
+      if (add.attributes('disabled') !== undefined) break
+      await add.trigger('click')
+    }
+    expect(w.findAll('[data-doc44-row]')).toHaveLength(30)
+    expect(w.get('[data-doc44-add]').attributes('disabled')).toBeDefined()
+    expect(w.text()).toContain('Не больше 30 строк')
+  })
+
+  it('ревью M4: 409 conflict — свой текст', async () => {
+    await mountAs(['autotransit.read', 'autotransit.manage'])
+    await setInput('[data-f="aeoCertificateNumber"]', 'N1')
+    api.saveSettings.mockRejectedValue(Object.assign(new Error('409'), { response: { status: 409, data: { code: 'conflict' } } }))
+    await w.get('[data-settings-form]').trigger('submit')
+    await flushPromises()
+    expect(msg.error).toHaveBeenCalledWith('Настройки только что сохранил другой пользователь. Обновите страницу и повторите.')
+  })
 })
+

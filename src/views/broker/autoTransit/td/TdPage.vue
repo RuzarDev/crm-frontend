@@ -68,7 +68,10 @@ const decimals = (n: number): number => Math.min(4, /\.(\d+)/.exec(String(n))?.[
 const totalsLines = computed(() => totals.value.map((r) => {
   const digits = Math.max(DIGITS[r.key], r.key === 'places' ? 0 : decimals(r.diff))
   const f = (n: number) => formatNumberIn(locale.value, n, digits)
-  return { key: r.key, label: t(`${T}.totals.${r.key}`), goods: f(r.goods), party: f(r.party), diff: `${r.diff > 0 ? '+' : '−'}${f(Math.abs(r.diff))}` }
+  return {
+    key: r.key, label: t(`${T}.totals.${r.key}`), goods: f(r.goods), party: f(r.party), diff: `${r.diff > 0 ? '+' : '−'}${f(Math.abs(r.diff))}`,
+    partyMissing: !!r.partyMissing,
+  }
 }))
 
 const truckPath = computed(() => `/auto-transit/${encodeURIComponent(truckId.value)}`)
@@ -316,9 +319,12 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
         <h2 id="td-totals-title" class="m-0 text-base leading-6 font-semibold">{{ t(`${T}.totals.title`) }}</h2>
         <ul role="list" class="m-0 flex min-w-0 list-none flex-col gap-1 p-0 text-sm">
           <li v-for="l in totalsLines" :key="l.key" class="min-w-0 [overflow-wrap:anywhere]" :data-td-totals-row="l.key">
-            <span class="font-semibold">{{ l.label }}:</span>
-            {{ t(`${T}.totals.line`, { goods: l.goods, party: l.party }) }}
-            <span class="font-semibold tabular-nums">({{ l.diff }})</span>
+            <span class="font-semibold">{{ l.label }}:</span>{{ ' ' }}
+            <span v-if="l.partyMissing">{{ t(`${T}.totals.linePartyMissing`, { goods: l.goods }) }}</span>
+            <template v-else>
+              {{ t(`${T}.totals.line`, { goods: l.goods, party: l.party }) }}
+              <span class="font-semibold tabular-nums">({{ l.diff }})</span>
+            </template>
           </li>
         </ul>
         <p class="m-0 text-xs">{{ t(`${T}.totals.hint`) }}</p>

@@ -98,8 +98,16 @@ describe('tdModel: сравнение итогов с партией', () => {
     ])
   })
 
-  it('итог партии не внесён (0 или null) или товаров нет — строку не показываем', () => {
-    expect(totalsMismatch(check({ value: [10, 0], places: [6, null] }))).toEqual([])
+  it('ревью M8: итог партии не внесён (0 или null) при ненулевых товарах — тоже расхождение', () => {
+    expect(totalsMismatch(check({ value: [10, 0], places: [6, null] }))).toEqual([
+      { key: 'places', goods: 6, party: 0, diff: 6, partyMissing: true },
+      { key: 'value', goods: 10, party: 0, diff: 10, partyMissing: true },
+    ])
+    // Ни в товарах, ни в партии ничего — сравнивать нечего.
+    expect(totalsMismatch(check({ value: [0, 0], places: [null, null] }))).toEqual([])
+  })
+
+  it('товаров нет — строку не показываем (о пустых товарах говорит «Не заполнено»)', () => {
     expect(totalsMismatch(check({ grossKg: [100, 90] }), [])).toEqual([])
   })
 })

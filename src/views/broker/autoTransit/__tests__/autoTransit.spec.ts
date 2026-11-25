@@ -155,6 +155,7 @@ describe('autoTransit: фильтры и ошибки', () => {
       'stage_order', 'td_number_missing', 'party_submitted', 'nothing_to_undo', 'problem', 'archived', 'released',
       'inspection_required', 'already_submitted', 'not_submitted', 'td_number_set', 'last_party', 'not_in_problem',
       'not_in_work', 'duplicate_plate', 'conflict',
+      'pi_already_submitted', 'pi_not_submitted', 'pi_number_locked', 'short_number_locked',
     ]))
     for (const code of [...ERROR_CODES, 'unknown']) {
       const key = `broker.autoTransit.error.${code}`

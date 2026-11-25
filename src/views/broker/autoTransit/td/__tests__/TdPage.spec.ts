@@ -348,6 +348,17 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     expect(w.get('[data-td-nav] [data-nav-item="vehicles"]').attributes('data-state')).toBe('empty')
   })
 
+  it('стык сервера 562e375: «Не заполнено» vehicles без индекса подписан и ведёт к разделу машин', async () => {
+    await open(response({ missing: [{ key: 'vehicles', section: 'vehicles' }] }))
+    const item = w.get('[data-td-missing-item]')
+    expect(text(item.text())).toBe('Машины: тягач или грузовик')
+    const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {})
+    await item.trigger('click')
+    await settle()
+    expect(spy.mock.instances[0]).toBe(document.getElementById('sec-vehicles'))
+    spy.mockRestore()
+  })
+
   it('«Не заполнено» водителя ведёт к полю водителя', async () => {
     await open(response({ missing: [{ key: 'driver.fullName', section: 'vehicles' }, { key: 'vehicles[0].countryCode', section: 'vehicles' }] }))
     const items = w.findAll('[data-td-missing-item]')
@@ -367,6 +378,23 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     expect(banner).toContain('19 000,5')
     expect(banner).toContain('19 000')
     expect(banner).toContain('+0,5')
+  })
+
+  it('ревью M8: в партии итог не указан, а в товарах есть — строка «в партии не указано»', async () => {
+    const data = fullData({ goods: [{ ...fullData().goods[0]!, packagesCount: 10, grossWeightKg: 19000, customsValue: 100 }] })
+    await open(response({ data, totalsCheck: { places: { goods: 10, party: 0 }, grossKg: { goods: 19000, party: 19000 }, value: { goods: 100, party: 100 } } }))
+    const row = w.get('[data-td-totals-row="places"]')
+    expect(text(row.text())).toBe('Места: товары 10, в партии не указано')
+  })
+
+  it('копия: виден получатель источника', async () => {
+    api.listCopySources.mockResolvedValue([
+      { partyId: 'old1', truckId: 't0', truckPlate: '777AAA02', tdNumber: '', updatedAtUtc: null, goodsCount: 1, matchedBy: ['destinationOffice'], recipientName: 'ТОО «Чужой»' },
+    ])
+    await open(response())
+    await w.get('[data-td-copy]').trigger('click')
+    await settle()
+    expect(text(document.body.querySelector('[data-td-copy-source]')!.textContent ?? '')).toContain('Машина 777AAA02 · ТОО «Чужой»')
   })
 
   it('итоги сходятся — плашки нет', async () => {

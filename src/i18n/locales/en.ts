@@ -884,6 +884,7 @@ export default {
           sectionDestination: 'Destination',
           destinationCountry: 'Destination country',
           destinationOfficeCode: 'Customs of destination (code)',
+          invoicesLimit: 'No more than {n} additional invoices',
         },
         tdModal: {
           title: 'TD number · consignment {n}',
@@ -919,6 +920,7 @@ export default {
           value: 'Value',
           line: 'goods {goods}, batch {party}',
           hint: 'Exact comparison, no rounding: KEDEN rejects even a 500 g difference. Fix the goods or the batch totals.',
+          linePartyMissing: 'goods {goods}, not entered in the batch',
         },
         title: 'PI / TD',
         party: 'Consignment {n}',
@@ -1149,7 +1151,7 @@ export default {
       row: { consolidation: 'Consolidation · {n}', noRecipient: 'Recipient not specified' },
       since: { min: '{m} min', hour: '{h} h', hourMin: '{h} h {m} min', day: '{d} d', dayHour: '{d} d {h} h' },
       wait: { declarant: 'Awaiting the declarant', border: 'Awaiting the border manager', problem: 'The truck has a problem: clear it first', archived: 'The truck is archived', released: 'The truck is released' },
-      error: { short_number_required: '“TD submitted” needs the short number: enter the warehouse short number in the batch.', stage_order: 'Stages are marked in order.', td_number_missing: 'Enter the TD number for every batch first.', party_submitted: 'A batch is submitted: remove “TD submitted” first.', nothing_to_undo: 'There is no mark to undo.', problem: 'The truck has a problem: clear it first.', archived: 'The truck is archived.', released: 'The truck is released: only a sales head or administrator can correct its data.', inspection_required: '“TD submitted” is marked after inspection (stage 4).', already_submitted: 'The batch is already submitted.', not_submitted: 'The batch is not submitted yet: the TD number is entered after “TD submitted”.', td_number_set: 'A TD number is entered: clear it first.', last_party: 'A truck must keep at least one batch.', not_in_problem: 'The truck has no problem status.', not_in_work: 'A problem can be set only on a truck in progress.', duplicate_plate: 'A truck with this plate is already in progress.', conflict: 'Another employee has just changed this truck. The card is refreshed — repeat the action.', unknown: 'The action failed. Refresh the card and try again.' },
+      error: { short_number_required: '“TD submitted” needs the short number: enter the warehouse short number in the batch.', stage_order: 'Stages are marked in order.', td_number_missing: 'Enter the TD number for every batch first.', party_submitted: 'A batch is submitted: remove “TD submitted” first.', nothing_to_undo: 'There is no mark to undo.', problem: 'The truck has a problem: clear it first.', archived: 'The truck is archived.', released: 'The truck is released: only a sales head or administrator can correct its data.', inspection_required: '“TD submitted” is marked after inspection (stage 4).', already_submitted: 'The batch is already submitted.', not_submitted: 'The batch is not submitted yet: the TD number is entered after “TD submitted”.', td_number_set: 'A TD number is entered: clear it first.', last_party: 'A truck must keep at least one batch.', not_in_problem: 'The truck has no problem status.', not_in_work: 'A problem can be set only on a truck in progress.', duplicate_plate: 'A truck with this plate is already in progress.', conflict: 'Another employee has just changed this truck. The card is refreshed — repeat the action.', unknown: 'The action failed. Refresh the card and try again.', pi_already_submitted: 'The PI is already marked as submitted — the card is refreshed.', pi_not_submitted: 'The PI is no longer marked as submitted — the card is refreshed.', pi_number_locked: 'The PI is submitted: its number cannot be cleared. Remove “PI submitted” first.', short_number_locked: 'The TD is submitted: the short number cannot be cleared. Remove “TD submitted” first.' },
       settings: {
         title: 'Auto transit',
         lead: 'What a new PI gets by default: guarantee and box 44 documents. Fill in your own company data — none is built into the code.',
@@ -1178,6 +1180,8 @@ export default {
         empty: 'The template is empty — box 44 of a new PI stays blank.',
         codeInvalid: 'Kind code is 5 digits',
         nameRequired: 'Enter the name',
+        rowsLimit: 'No more than {n} rows in the template',
+        conflict: 'Another user has just saved the settings. Refresh the page and try again.',
       },
     },
     settings: {

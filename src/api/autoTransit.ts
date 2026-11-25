@@ -399,6 +399,8 @@ export interface DeclarationCopySource {
   updatedAtUtc: string | null
   goodsCount: number
   matchedBy?: CopyMatch[]
+  /** Получатель партии-источника; null — не указан (сервер 562e375). */
+  recipientName?: string | null
 }
 
 /** Список источников — подсказка на странице: сбой не мешает работать, без тоста. */
@@ -413,7 +415,11 @@ export const getCopySource = async (id: string, partyId: string, sourcePartyId: 
 
 /** Строка шаблона гр. 44: код вида документа, название, вид файла партии, из которого брать номер и дату. */
 export type Doc44FileKind = 'cmr' | 'invoice' | 'packing' | 'passport'
-export interface Doc44TemplateItem { code: string; name: string; fileKind: Doc44FileKind | null }
+/**
+ * fileKind — вид контракта (Doc44FileKind) или вид файла модуля (packingList, vehiclePassport, td…): сервер принимает
+ * оба, фронт незнакомое значение хранит как есть (ревью этапа 1, M7).
+ */
+export interface Doc44TemplateItem { code: string; name: string; fileKind: Doc44FileKind | (string & {}) | null }
 export interface AutoTransitSettings {
   guaranteeTypeCode: string | null
   /** Основание непредоставления обеспечения; по умолчанию 103. */
