@@ -58,6 +58,14 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      // Ссылка загрузки «Авто-транзита» (очередь 3, 25.11.2026): клиент, водитель или перевозчик присылает документы
+      // с телефона — без входа и вне оболочки.
+      path: '/u/:token',
+      name: 'auto-transit-upload',
+      component: () => import('@/views/public/AutoTransitUploadPage.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       // Политика конфиденциальности (30.10.2026) — без входа: ссылка с форм регистрации и приглашения.
       path: '/privacy',
       name: 'privacy',

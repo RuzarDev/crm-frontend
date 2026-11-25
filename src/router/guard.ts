@@ -28,6 +28,8 @@ export function guardRedirect(path: string, meta: Record<string, unknown>, a: Gu
   if (path.startsWith('/verify/')) return null
   // Страница получателя «Авто-транзита» по ссылке брокера (16.11.2026) — тоже без входа для всех.
   if (path.startsWith('/t/')) return null
+  // Ссылка загрузки документов «Авто-транзита» (очередь 3, 25.11.2026) — так же.
+  if (path.startsWith('/u/')) return null
   // Политика конфиденциальности (30.10.2026) — тоже для всех: читать её должен и вошедший по временному паролю.
   if (path === '/privacy') return null
   // Временный пароль (волна 5б): пока не сменён, всё, кроме профиля и входа, ведёт на смену пароля.

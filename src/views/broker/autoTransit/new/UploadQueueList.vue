@@ -45,7 +45,7 @@ const errorOf = (it: QueueItem) => it.errorText ?? (it.errorKey ? t(it.errorKey)
           :role="it.state === 'failed' ? 'alert' : undefined"
           data-upload-state
         >
-          <template v-if="it.state === 'queued'">{{ t(`${U}.queued`) }}</template>
+          <template v-if="it.state === 'queued'">{{ it.errorKey ? t(it.errorKey) : t(`${U}.queued`) }}</template>
           <template v-else-if="it.state === 'uploading'">{{ t(`${U}.uploadingPct`, { n: it.progress }) }}</template>
           <template v-else-if="it.state === 'done'">{{ t(`${U}.done`) }}</template>
           <template v-else>{{ errorOf(it) }}</template>

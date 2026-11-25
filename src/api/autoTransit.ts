@@ -105,6 +105,14 @@ export interface TruckFile {
   sizeBytes: number
   uploadedBy: string | null
   uploadedAtUtc: string
+  // Очередь 3 (сервер f5a0fae). Старый сервер полей не шлёт — undefined.
+  /** staff — загрузил сотрудник; link — прислан по ссылке загрузки (linkId — ссылка, uploadedBy тогда null). */
+  uploadedVia?: 'staff' | 'link'
+  linkId?: string | null
+  /** «Вернуть с причиной»: файл не удаляется, загружающий видит причину на странице ссылки. */
+  returned?: boolean
+  returnReason?: string | null
+  returnedAtUtc?: string | null
 }
 
 export interface TruckEvent {
@@ -188,13 +196,23 @@ export interface TdBody { tdNumber: string; tdDate: string | null }
 export interface FilePatch { partyId?: string | null; kind?: FileKind; stamped?: boolean; visibleToRecipient?: boolean }
 export interface UploadOpts { partyId?: string | null; kind?: FileKind }
 
+/**
+ * Назначение ссылки (очередь 3): view — страница получателя (/t/), uploadCargo — клиент присылает CMR, инвойс,
+ * упаковочный на партию (/u/), uploadVehicle — водитель или перевозчик присылает паспорт и техпаспорта на машину (/u/).
+ */
+export type LinkPurpose = 'view' | 'uploadCargo' | 'uploadVehicle'
+
 export interface RecipientLink {
   id: string
-  partyId: string
+  /** null — ссылка на машину (uploadVehicle). */
+  partyId: string | null
   token: string
   expiresAtUtc: string
   revokedAtUtc: string | null
   lastOpenedAtUtc: string | null
+  /** Старый сервер не шлёт — view. */
+  truckId?: string
+  purpose?: LinkPurpose
 }
 
 export interface PublicTruckView {
@@ -411,6 +429,40 @@ export const listCopySources = async (id: string, partyId: string): Promise<Decl
 export const getCopySource = async (id: string, partyId: string, sourcePartyId: string): Promise<{ data: DeclarationData }> =>
   (await apiClient.get<{ data: DeclarationData }>(`${party(id, partyId)}/declaration/copy-sources/${enc(sourcePartyId)}`, { silent: true })).data
 
+// ───────── «Заполнить из документов» (очередь 3, этап 2) ─────────
+
+/** Значение поля по одному документу; source — имя документа (файла), из которого оно. */
+export interface FromDocsConflictValue { value: string | null; source: string | null }
+/**
+ * Документы разошлись по полю: field — ключ ПИ (organizations.consignor, transit.docCurrencyCode, vehicles, doc44.invoice.number,
+ * goods[0].grossWeightKg…) или имя поля Zircon AI как есть; values[0] — выбранное значение, дальше альтернативы.
+ */
+export interface FromDocsConflict { field: string; values: FromDocsConflictValue[] }
+export interface DocValues<T> { cmr: T | null; invoice: T | null; packing: T | null }
+/** Сверка документов между собой: места, брутто, госномера («тягач / прицеп») по CMR, инвойсу и упаковочному. */
+export interface DocumentsCheck { places: DocValues<number>; grossKg: DocValues<number>; plates: DocValues<string> }
+export interface FromDocumentsResult {
+  /** Фрагмент ПИ: нераспознанные разделы — null. В базу ничего не записано. */
+  data: Partial<DeclarationData>
+  /** Что распознано (ключи как у missing). */
+  filled: string[]
+  conflicts: FromDocsConflict[]
+  warnings: string[]
+  documentsCheck: DocumentsCheck
+}
+
+/** Сколько ждать разбор: сервис Zircon AI отвечает до ~220 с, файлы уже на сервере. */
+export const FROM_DOCUMENTS_TIMEOUT_MS = 240_000
+
+/**
+ * Распознать файлы партии и общие файлы машины (не возвращённые). Ошибки окно пишет само: 400 { error, errors.fileIds | warnings },
+ * 404 — файл не этой машины / партии, 413 / 503 — ProblemDetails { title, detail, limitMb | retryAfterMin }, 502 — сбой сервиса.
+ */
+export const fromDocuments = async (id: string, partyId: string, fileIds: string[]): Promise<FromDocumentsResult> =>
+  (await apiClient.post<FromDocumentsResult>(`${party(id, partyId)}/declaration/from-documents`, { fileIds }, {
+    silent: true, timeout: FROM_DOCUMENTS_TIMEOUT_MS,
+  })).data
+
 // ───────── настройки авто-транзита (очередь 3) ─────────
 
 /** Строка шаблона гр. 44: код вида документа, название, вид файла партии, из которого брать номер и дату. */
@@ -466,6 +518,13 @@ export const uploadFile = (
 export const patchFile = (id: string, fileId: string, patch: FilePatch): Promise<TruckCard> =>
   card(apiClient.patch<TruckCard>(`${base(id)}/files/${enc(fileId)}`, patch, { silentStatuses: [409] }))
 
+/**
+ * «Вернуть с причиной» (очередь 3): файл помечается возвращённым, не удаляется; ответ — файл, не карточка.
+ * 400 { errors: { reason } } и 409 окно пишет само.
+ */
+export const returnFile = async (id: string, fileId: string, reason: string): Promise<TruckFile> =>
+  (await apiClient.post<TruckFile>(`${base(id)}/files/${enc(fileId)}/return`, { reason }, { silentStatuses: FORM_SILENT })).data
+
 export const deleteFile = (id: string, fileId: string): Promise<TruckCard> =>
   card(apiClient.delete<TruckCard>(`${base(id)}/files/${enc(fileId)}`, { silentStatuses: [409] }))
 
@@ -487,8 +546,13 @@ export const downloadBlob = async (url: string, fallbackName: string): Promise<{
 export const listLinks = async (id: string): Promise<RecipientLink[]> =>
   (await apiClient.get<RecipientLink[]>(`${base(id)}/links`)).data
 
-export const createLink = async (id: string, partyId: string): Promise<RecipientLink> =>
-  (await apiClient.post<RecipientLink>(`${party(id, partyId)}/link`)).data
+/** Ссылка партии: без purpose — просмотр получателя (как раньше), uploadCargo — загрузка документов груза (право declare). */
+export const createLink = async (id: string, partyId: string, purpose?: 'view' | 'uploadCargo'): Promise<RecipientLink> =>
+  (await apiClient.post<RecipientLink>(`${party(id, partyId)}/link`, purpose ? { purpose } : undefined)).data
+
+/** Ссылка на машину для водителя / перевозчика (uploadVehicle, право border). Прежняя такая же ссылка отзывается. */
+export const createTruckLink = async (id: string): Promise<RecipientLink> =>
+  (await apiClient.post<RecipientLink>(`${base(id)}/links`, { purpose: 'uploadVehicle' })).data
 
 export const revokeLink = async (id: string, linkId: string): Promise<RecipientLink> =>
   (await apiClient.post<RecipientLink>(`${base(id)}/links/${enc(linkId)}/revoke`)).data
@@ -509,4 +573,42 @@ export const publicZipUrl = (token: string): string => `${API_ROOT}${pub(token)}
 /** «Оформить импорт»: телефон или почта, 5–100 знаков. */
 export const publicImportInterest = async (token: string, contact: string): Promise<void> => {
   await apiClient.post(`${pub(token)}/import-interest`, { contact: contact.trim() }, { silent: true })
+}
+
+// ───────── ссылка загрузки (без входа, очередь 3) ─────────
+// /u/:token — клиент (uploadCargo) или водитель / перевозчик (uploadVehicle) присылает документы. Всё недействительное
+// (чужой, отозванный, просроченный токен, ссылка просмотра) — пустой 404. Частота — 20 запросов в минуту (429).
+
+export interface PublicUploadKind { kind: FileKind; label: string; required: boolean; uploaded: boolean }
+export interface PublicUploadFile { id: string; name: string; kind: FileKind; uploadedAtUtc: string; returned: boolean; returnReason: string | null }
+export interface PublicUploadView {
+  purpose: 'uploadCargo' | 'uploadVehicle'
+  truckPlate: string
+  partyNumber: number | null
+  recipientName: string | null
+  expiresAtUtc: string
+  kinds: PublicUploadKind[]
+  /** Только файлы, присланные по этой ссылке. */
+  files: PublicUploadFile[]
+}
+
+const pubUpload = (token: string) => `/public/auto-transit/upload/${enc(token)}`
+
+/** Страница сама пишет 404 / 429 / сбой — без тоста. */
+export const publicUploadGet = async (token: string): Promise<PublicUploadView> =>
+  (await apiClient.get<PublicUploadView>(pubUpload(token), { silent: true })).data
+
+/** Один файл с видом; ошибки пишет очередь загрузки в строке файла (silent). */
+export const publicUploadFile = (
+  token: string, file: File, kind: FileKind, onProgress?: (fraction: number) => void,
+): Promise<PublicUploadFile> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('kind', kind)
+  return heicQueued(file, async () => (await apiClient.post<PublicUploadFile>(`${pubUpload(token)}/files`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    silent: true,
+    timeout: uploadTimeoutMs(file),
+    ...(onProgress ? { onUploadProgress: (e: { loaded: number; total?: number }) => { if (e.total) onProgress(Math.min(1, e.loaded / e.total)) } } : {}),
+  })).data)
 }
