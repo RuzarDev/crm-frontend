@@ -212,6 +212,8 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
   const submit = (partyId: string) => run((i) => api.submitParty(i, partyId))
   const unsubmit = (partyId: string) => run((i) => api.unsubmitParty(i, partyId))
   const setTd = (partyId: string, body: TdBody) => run((i) => api.setTd(i, partyId, body))
+  const piSubmitted = (partyId: string, piNumber: string) => run((i) => api.piSubmitted(i, partyId, piNumber))
+  const piUnsubmit = (partyId: string) => run((i) => api.piUnsubmit(i, partyId))
   const setProblem = (note: string) => run((i) => api.setProblem(i, note))
   const clearProblem = () => run((i) => api.clearProblem(i))
   const archive = () => run((i) => api.archiveTruck(i))
@@ -291,7 +293,7 @@ export function useTruck(id: () => string, opts: UseTruckOptions = {}) {
 
   return {
     card, loading, notFound, loadError, reloadError, busy, uploading,
-    reload, mark, undo, submit, unsubmit, setTd, setProblem, clearProblem, archive, unarchive, updateTruck,
+    reload, mark, undo, submit, unsubmit, setTd, piSubmitted, piUnsubmit, setProblem, clearProblem, archive, unarchive, updateTruck,
     addParty, updateParty, deleteParty, patchFile, deleteFile, upload,
     queue, retryUpload, retryAllUploads, removeUpload,
   }

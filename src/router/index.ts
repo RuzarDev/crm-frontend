@@ -371,6 +371,14 @@ const router = createRouter({
           meta: { requiresPermission: 'import40.assign' },
         },
         {
+          // Авто-транзит (очередь 3, 25.11.2026): обеспечение и шаблон гр. 44 для черновика ПИ. Видна с правом manage,
+          // сервер так же: запись — autotransit.manage.
+          path: '/settings/auto-transit',
+          name: 'settings-auto-transit',
+          component: () => import('@/views/broker/autoTransit/settings/AutoTransitSettingsPage.vue'),
+          meta: { requiresPermission: 'autotransit.manage' },
+        },
+        {
           // Настройки ИИ: подбор кода ТН ВЭД (17.10) — провайдер, «ИИ для клиентов», лимиты, статистика.
           path: '/settings/ai',
           name: 'settings-ai',

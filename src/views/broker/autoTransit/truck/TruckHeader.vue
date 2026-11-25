@@ -28,6 +28,8 @@ const facts = computed(() => {
   if (c.carrierName.trim()) out.push(t(`${T}.carrier`, { name: c.carrierName.trim() }))
   if (c.arrivedAtUtc) out.push(t(`${T}.arrived`, { at: `${ddmm(c.arrivedAtUtc)} ${hhmm(c.arrivedAtUtc)}` }))
   if (c.customsPostCode.trim()) out.push(t(`${T}.post`, { code: c.customsPostCode.trim() }))
+  // Ожидаемый въезд (очередь 3): по нему «ПИ не подана» становится срочной за 2 часа.
+  if (c.expectedEntryAtUtc) out.push(t(`${T}.expectedEntry`, { at: `${ddmm(c.expectedEntryAtUtc)} ${hhmm(c.expectedEntryAtUtc)}` }))
   return out.join(' · ')
 })
 const consolidation = computed(() => {

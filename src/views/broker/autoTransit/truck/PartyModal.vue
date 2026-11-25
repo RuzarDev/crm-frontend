@@ -8,7 +8,9 @@ import ZInput from '@/components/z/ZInput.vue'
 import ZModal from '@/components/z/ZModal.vue'
 import ZNumber from '@/components/z/ZNumber.vue'
 import ZSelect from '@/components/z/ZSelect.vue'
-import type { Party, PartyFields } from '@/api/autoTransit'
+import { PhPlus, PhX } from '@phosphor-icons/vue'
+import ZButton from '@/components/z/ZButton.vue'
+import type { Party, PartyFields, PartyInvoice } from '@/api/autoTransit'
 import { clientsOnboardingApi, type ClientOnboardingRow } from '@/api/clientsOnboarding'
 import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import { useAuthStore } from '@/stores/auth'
@@ -18,7 +20,8 @@ import { CURRENCY_OPTIONS, diffPatch, upperCode } from './truckView'
 
 // Партия: создать или изменить. Получатель — клиент платформы (подставляет название, БИН, страну KZ, почту, телефон;
 // список «Клиентов» — по праву clients.read) или вручную. Страны — две буквы, валюта — три, заглавными.
-// В правке уходят только изменённые поля, очищенное — null.
+// В правке уходят только изменённые поля, очищенное — null. Очередь 3: номер ПИ, краткий номер от СВХ (без него
+// «ТД подана» не отметить) и доп. инвойсы — список уходит целиком, только если изменился.
 const props = defineProps<{
   open: boolean
   party: Party | null
@@ -36,6 +39,7 @@ type Draft = {
   shipperName: string; shipperCountry: string; invoiceNumber: string; invoiceDate: string | null
   places: number | null; grossKg: number | null; value: number | null; currency: string
   destinationCountry: string; destinationOfficeCode: string
+  piNumber: string; shortNumber: string
 }
 const fromParty = (p: Party | null): Draft => ({
   clientId: p?.clientId ?? null,
@@ -45,7 +49,14 @@ const fromParty = (p: Party | null): Draft => ({
   invoiceNumber: p?.invoiceNumber ?? '', invoiceDate: p?.invoiceDate ?? null,
   places: p ? p.places || null : null, grossKg: p ? p.grossKg || null : null, value: p ? p.value || null : null, currency: p?.currency ?? '',
   destinationCountry: p?.destinationCountry ?? '', destinationOfficeCode: p?.destinationOfficeCode ?? '',
+  piNumber: p?.piNumber ?? '', shortNumber: p?.shortNumber ?? '',
 })
+const invoicesOf = (p: Party | null): PartyInvoice[] => (p?.additionalInvoices ?? []).map((x) => ({ number: x.number ?? '', date: x.date ?? null }))
+const invoices = ref<PartyInvoice[]>([])
+let initialInvoices: PartyInvoice[] = []
+const normInvoices = (list: PartyInvoice[]) => list.map((x) => ({ number: x.number.trim(), date: x.date || null }))
+const addInvoice = () => { invoices.value.push({ number: '', date: null }) }
+const removeInvoice = (i: number) => { invoices.value.splice(i, 1) }
 const draft = reactive<Draft>(fromParty(null))
 let initial: Draft = fromParty(null)
 const errors = ref<Record<string, string>>({})
@@ -85,6 +96,8 @@ watch(() => props.open, (v) => {
   if (!v) return
   initial = fromParty(props.party)
   Object.assign(draft, initial)
+  initialInvoices = invoicesOf(props.party)
+  invoices.value = invoicesOf(props.party)
   errors.value = {}
   void loadClients()
 })
@@ -99,6 +112,7 @@ const localErrors = (): Record<string, string> => {
     if (draft[k] && !/^[A-Z]{2}$/.test(draft[k])) e[k] = t('broker.autoTransit.truck.countryHint')
   }
   if (draft.currency && !/^[A-Z]{3}$/.test(draft.currency)) e.currency = t(`${F}.currencyHint`)
+  invoices.value.forEach((x, i) => { if (!x.number.trim()) e[`additionalInvoices.${i}`] = t(`${F}.invoiceRequired`) })
   return e
 }
 
@@ -106,6 +120,8 @@ const onOk = async () => {
   const local = localErrors()
   if (Object.keys(local).length) { errors.value = local; return }
   const fields = (props.party ? diffPatch(initial, draft) : diffPatch(fromParty(null), draft)) as PartyFields
+  const nextInvoices = normInvoices(invoices.value)
+  if (JSON.stringify(nextInvoices) !== JSON.stringify(normInvoices(props.party ? initialInvoices : []))) fields.additionalInvoices = nextInvoices
   if (props.party && !Object.keys(fields).length) { emit('update:open', false); return }
   saving.value = true
   try {
@@ -186,6 +202,37 @@ const section = 'col-span-full m-0 mt-2 text-xs font-semibold tracking-[0.02em] 
       </ZField>
       <ZField :label="t(`${F}.currency`)" :error="errors.currency">
         <ZCombobox :value="draft.currency" :options="CURRENCY_OPTIONS" mono allow-clear data-party-currency @update:value="setCurrency" />
+      </ZField>
+
+      <div class="flex min-w-0 flex-col gap-2 sm:col-span-2" data-party-extra-invoices>
+        <span class="text-[13px] font-medium text-ink-2">{{ t(`${F}.additionalInvoices`) }}</span>
+        <span class="text-xs text-muted">{{ t(`${F}.additionalInvoicesHint`) }}</span>
+        <div v-for="(inv, i) in invoices" :key="i" class="grid grid-cols-[minmax(0,1fr)_minmax(0,10rem)_auto] items-start gap-2 max-sm:grid-cols-[minmax(0,1fr)_auto]">
+          <ZField :label="t(`${F}.invoiceNumber`)" :error="errors[`additionalInvoices.${i}`]">
+            <ZInput v-model:value="inv.number" mono :maxlength="100" :data-party-extra-invoice="i" />
+          </ZField>
+          <ZField :label="t(`${F}.invoiceDate`)" class="max-sm:order-3 max-sm:col-span-2">
+            <ZDate v-model:value="inv.date" allow-clear />
+          </ZField>
+          <button
+            type="button"
+            class="mt-6 inline-flex size-9 cursor-pointer items-center justify-center rounded-field border-0 bg-transparent p-0 text-ink-3 outline-hidden hover:bg-tone-danger-bg hover:text-tone-danger-fg focus-visible:shadow-focus max-sm:size-11"
+            :aria-label="t(`${F}.removeInvoice`, { n: i + 1 })"
+            data-party-remove-invoice
+            @click="removeInvoice(i)"
+          ><PhX :size="16" aria-hidden="true" /></button>
+        </div>
+        <ZButton size="sm" variant="ghost" class="self-start max-sm:h-11" data-party-add-invoice @click="addInvoice">
+          <PhPlus :size="14" aria-hidden="true" />{{ t(`${F}.addInvoice`) }}
+        </ZButton>
+      </div>
+
+      <h3 :class="section">{{ t(`${F}.sectionPi`) }}</h3>
+      <ZField :label="t(`${F}.piNumber`)" :error="errors.piNumber">
+        <ZInput v-model:value="draft.piNumber" mono :maxlength="64" data-party-pi-number />
+      </ZField>
+      <ZField :label="t(`${F}.shortNumber`)" :error="errors.shortNumber" :extra="t(`${F}.shortNumberHint`)">
+        <ZInput v-model:value="draft.shortNumber" mono :maxlength="32" data-party-short-number />
       </ZField>
 
       <h3 :class="section">{{ t(`${F}.sectionDestination`) }}</h3>

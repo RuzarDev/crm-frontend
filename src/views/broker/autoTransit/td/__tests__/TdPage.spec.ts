@@ -79,8 +79,12 @@ describe('TdPage', () => {
     expect(head).toContain('ТОО «Получатель 1»')
     expect(w.get('[data-td-back]').attributes('href')).toBe('/auto-transit/t1')
     expect(w.findAll('[data-td-sections] > section').map((s) => s.attributes('data-record-section'))).toEqual([
-      'main', 'organizations', 'carriers', 'transport', 'seals', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc',
+      'main', 'organizations', 'carriers', 'vehicles', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc',
     ])
+    // ЖД-раздел «Транспорт» и «Пломбы» на странице ПИ не показываются.
+    expect(has('[data-record-section="transport"]')).toBe(false)
+    expect(has('[data-record-section="seals"]')).toBe(false)
+    expect(text(w.get('h1').text())).toBe('ПИ / ТД')
     expect(has('[data-record-section="row"]')).toBe(false)
     expect(has('[data-f="post"]')).toBe(false)
     expect(has('[data-f="loadingRailStation"]')).toBe(false)
@@ -295,5 +299,89 @@ describe('TdPage: мелочи из отчёта Task 2', () => {
     await settle()
     expect(e.defaultPrevented).toBe(true)
     expect(api.saveDeclaration).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('TdPage: ПИ под авто (очередь 3)', () => {
+  const vehicles = [
+    { role: 'tractor', typeCode: '303', regNumber: '123ASD12', countryCode: 'KZ', vin: '-', headIndex: null },
+    { role: 'trailer', typeCode: '312', regNumber: '12DS12', countryCode: 'KZ', vin: '-', headIndex: 0 },
+  ]
+  const driver = { fullName: 'ТЕСТОВ ТЕСТ', countryCode: 'KZ', docKindCode: null, docNumber: 'N0000001', personalNumber: null }
+
+  it('«Машины и водитель»: тягач и прицеп с типами, водитель; правка водителя уходит в PUT, ЖД-транспорт не тронут', async () => {
+    const data = { ...fullData(), vehicles, driver }
+    await open(response({ data: data as never }))
+    const cards = w.findAll('[data-record-section="vehicles"] [data-vehicle]')
+    expect(cards.map((c) => c.attributes('data-vehicle'))).toEqual(['tractor', 'trailer'])
+    expect(cards[0]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('303')
+    expect(cards[1]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('312')
+    expect(cards[1]!.get('[data-f="headIndex"]').attributes('data-value')).toBe('0')
+    expect(w.get('[data-td-nav] [data-nav-item="vehicles"]').attributes('data-state')).toBe('done')
+    await typeInto('[data-f="driver.docNumber"]', 'N0000009')
+    expect(text(w.get('[data-savebar-text]').text())).toContain('машины и водитель')
+    api.saveDeclaration.mockResolvedValue(response({ data: data as never }))
+    await w.get('[data-td-save]').trigger('click')
+    await settle()
+    const body = api.saveDeclaration.mock.calls[0][2]
+    expect(body.data.driver.docNumber).toBe('N0000009')
+    expect(body.data.vehicles).toEqual(vehicles)
+    expect(body.data.transportMeans).toEqual(data.transportMeans)
+  })
+
+  it('добавить прицеп — тип 312 и ссылка на тягач; удалить тягач — ссылка снимается', async () => {
+    await open(response({ data: { ...fullData(), vehicles: [vehicles[0]] } as never }))
+    await w.get('[data-vehicle-add="trailer"]').trigger('click')
+    let cards = w.findAll('[data-vehicle]')
+    expect(cards[1]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('312')
+    expect(cards[1]!.get('[data-f="vin"] input, input[data-f="vin"]').exists()).toBe(true)
+    expect(cards[1]!.get('[data-f="headIndex"]').attributes('data-value')).toBe('0')
+    await cards[0]!.get('[data-vehicle-delete]').trigger('click')
+    cards = w.findAll('[data-vehicle]')
+    expect(cards).toHaveLength(1)
+    expect(cards[0]!.get('[data-f="headIndex"]').attributes('data-value')).toBe('')
+  })
+
+  it('старая ТД без машин и водителя открывается: пусто, без ошибок', async () => {
+    await open(response())
+    expect(has('[data-vehicles-empty]')).toBe(true)
+    expect(w.get('[data-td-nav] [data-nav-item="vehicles"]').attributes('data-state')).toBe('empty')
+  })
+
+  it('«Не заполнено» водителя ведёт к полю водителя', async () => {
+    await open(response({ missing: [{ key: 'driver.fullName', section: 'vehicles' }, { key: 'vehicles[0].countryCode', section: 'vehicles' }] }))
+    const items = w.findAll('[data-td-missing-item]')
+    expect(items.map((i) => text(i.text()))).toEqual(['Водитель: ФИО', 'Машина 1: страна регистрации'])
+    await items[0]!.trigger('click')
+    await settle()
+    const field = w.get('[data-f="driver.fullName"]').element
+    expect(document.activeElement).toBe(field.matches('input') ? field : field.querySelector('input'))
+  })
+
+  it('расхождение итогов с партией — плашка с точными числами, 0,5 кг на 19 т видно', async () => {
+    const data = fullData({ goods: [{ ...fullData().goods[0]!, packagesCount: 10, grossWeightKg: 19000.5, customsValue: 100 }] })
+    await open(response({ data, totalsCheck: { places: { goods: 10, party: 10 }, grossKg: { goods: 19000.5, party: 19000 }, value: { goods: 100, party: 100 } } }))
+    const banner = text(w.get('[data-td-totals]').text())
+    expect(banner).toContain('Итоги товаров не сходятся с партией')
+    expect(w.findAll('[data-td-totals-row]').map((r) => r.attributes('data-td-totals-row'))).toEqual(['grossKg'])
+    expect(banner).toContain('19 000,5')
+    expect(banner).toContain('19 000')
+    expect(banner).toContain('+0,5')
+  })
+
+  it('итоги сходятся — плашки нет', async () => {
+    const data = fullData({ goods: [{ ...fullData().goods[0]!, packagesCount: 10, grossWeightKg: 19000, customsValue: 100 }] })
+    await open(response({ data, totalsCheck: { places: { goods: 10, party: 10 }, grossKg: { goods: 19000, party: 19000 }, value: { goods: 100, party: 100 } } }))
+    expect(has('[data-td-totals]')).toBe(false)
+  })
+
+  it('копия: в списке видно, по чему совпало', async () => {
+    api.listCopySources.mockResolvedValue([
+      { partyId: 'old1', truckId: 't0', truckPlate: '777AAA02', tdNumber: '', updatedAtUtc: null, goodsCount: 1, matchedBy: ['consignor', 'destinationOffice'] },
+    ])
+    await open(response())
+    await w.get('[data-td-copy]').trigger('click')
+    await settle()
+    expect(text(document.body.querySelector('[data-td-copy-source]')!.textContent ?? '')).toContain('совпало: отправитель, пост назначения')
   })
 })

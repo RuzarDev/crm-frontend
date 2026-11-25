@@ -10,9 +10,10 @@ import ZTooltip from '@/components/z/ZTooltip.vue'
 import { UPLOAD_ACCEPT, type FileKind, type FilePatch, type Party, type TruckFile } from '@/api/autoTransit'
 import { formatNumberIn } from '@/ui/number'
 import FileChip from './FileChip.vue'
-import { MISSING_UPLOAD, dateText, type TruckRights } from './truckView'
+import { MISSING_UPLOAD, dateText, ddmm, hhmm, type TruckRights } from './truckView'
 
-// Партия машины (макет 2): номер и получатель, состояние декларации («Не подана» / «Подана» / «ТД № …»),
+// Партия машины (макет 2): номер и получатель, состояние декларации («Не подана» / «Подана» / «ТД № …»), ПИ (очередь 3:
+// «ПИ не подана» / «ПИ № … подана», «ПИ подана» с номером, краткий номер — без него «ТД подана» выключена),
 // инвойс, места и брутто, стоимость, назначение; файлы партии и пунктиром — недостающие по блокерам; действия по правам.
 // Загрузка прямо в партию (как в макете): пунктирный чип «нет …» — кнопка, открывает выбор файла / камеру и грузит
 // с видом этого чипа; «+ файл» — сначала вид из короткого меню. Файлы идут той же очередью, что и остальные.
@@ -34,6 +35,8 @@ const emit = defineEmits<{
   submit: [party: Party]
   unsubmit: [party: Party]
   td: [party: Party]
+  pi: [party: Party]
+  piUndo: [party: Party]
   remove: [party: Party]
   download: [file: TruckFile]
   patchFile: [file: TruckFile, patch: FilePatch]
@@ -59,8 +62,26 @@ const recipient = computed(() => props.party.recipientName.trim() || t(`${P}.noR
 const invoice = computed(() => {
   const n = props.party.invoiceNumber.trim()
   const d = dateText(props.party.invoiceDate)
-  return n ? (d ? `${n} · ${d}` : n) : dash
+  // Доп. инвойсы (очередь 3) — счётчиком «+N» рядом с основным.
+  const more = (props.party.additionalInvoices ?? []).length
+  const main = n ? (d ? `${n} · ${d}` : n) : dash
+  return more ? `${main} ${t(`${P}.moreInvoices`, { n: more })}` : main
 })
+// ---- ПИ (очередь 3) ----
+const piSubmitted = computed(() => !!props.party.piSubmittedAtUtc)
+const piText = computed(() => {
+  const at = props.party.piSubmittedAtUtc
+  if (!at) return t(`${P}.piNotSubmitted`)
+  return t(`${P}.piSubmittedTag`, { number: props.party.piNumber?.trim() ?? '', at: `${ddmm(at)} ${hhmm(at)}` })
+})
+const canPi = computed(() => props.rights.pi && !piSubmitted.value)
+const canPiUndo = computed(() => props.rights.pi && piSubmitted.value && !submitted.value)
+const shortNumber = computed(() => props.party.shortNumber?.trim() ?? '')
+/**
+ * «ТД подана» без краткого номера сервер отклоняет (409 short_number_required) — кнопка выключена с подсказкой.
+ * Старый сервер поля не шлёт (undefined) — не блокируем: проверит сервер.
+ */
+const needsShort = computed(() => props.party.shortNumber !== undefined && !shortNumber.value)
 const placesGross = computed(() => (props.party.places || props.party.grossKg
   ? `${num(props.party.places)} / ${t(`${P}.kg`, { n: num(props.party.grossKg, 3) })}`
   : dash))
@@ -107,6 +128,7 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
         <span class="tabular-nums">{{ party.number }}</span> · {{ recipient }}
       </h3>
       <ZTag :tone="decl.tone" size="sm" data-party-decl>{{ decl.text }}</ZTag>
+      <ZTag :tone="piSubmitted ? 'submitted' : 'wait'" size="sm" data-party-pi>{{ piText }}</ZTag>
       <ZTag v-if="tdMissingCount > 0" tone="accent" size="sm" data-party-td-missing>{{ t(`${P}.tdMissing`, { n: tdMissingCount }) }}</ZTag>
       <template v-if="interest !== null">
         <ZTooltip :title="interest ? t(`${P}.importContact`, { contact: interest }) : ''">
@@ -134,6 +156,10 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
       <div class="min-w-0">
         <dt class="text-xs leading-4 text-muted">{{ t(`${P}.destination`) }}</dt>
         <dd class="m-0 truncate text-[13px] text-ink" data-party-destination>{{ destination }}</dd>
+      </div>
+      <div v-if="shortNumber" class="min-w-0">
+        <dt class="text-xs leading-4 text-muted">{{ t(`${P}.shortNumber`) }}</dt>
+        <dd class="m-0 truncate font-mono text-[13px] text-ink" data-party-short>{{ shortNumber }}</dd>
       </div>
     </dl>
 
@@ -195,15 +221,17 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
         data-party-td-form
       >{{ party.hasDeclaration ? t(`${P}.openTd`) : t(`${P}.fillTd`) }}</RouterLink>
       <ZButton v-if="rights.editParty" size="sm" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-edit @click="emit('edit', party)">{{ t(`${P}.edit`) }}</ZButton>
+      <ZButton v-if="canPi" size="sm" variant="primary" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-pi-submit @click="emit('pi', party)">{{ t(`${P}.piSubmit`) }}</ZButton>
+      <ZButton v-if="canPiUndo" size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-pi-unsubmit @click="emit('piUndo', party)">{{ t(`${P}.piUnsubmit`) }}</ZButton>
       <template v-if="canSubmit">
-        <ZTooltip v-if="rights.submitLocked" :title="t(`${P}.submitLocked`)">
+        <ZTooltip v-if="rights.submitLocked || needsShort" :title="rights.submitLocked ? t(`${P}.submitLocked`) : t(`${P}.submitNeedsShort`)">
           <span tabindex="0" class="rounded-field outline-hidden focus-visible:shadow-focus" data-party-submit-lock>
             <ZButton size="sm" variant="primary" disabled class="max-sm:h-11 max-sm:px-4" data-party-submit>{{ t(`${P}.submit`) }}</ZButton>
           </span>
         </ZTooltip>
         <ZButton v-else size="sm" variant="primary" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-submit @click="emit('submit', party)">{{ t(`${P}.submit`) }}</ZButton>
       </template>
-      <span v-if="canSubmit && !rights.submitLocked" class="text-xs text-muted" data-party-submit-keden>{{ t(`${P}.submitKeden`) }}</span>
+      <span v-if="canSubmit && !rights.submitLocked && !needsShort" class="text-xs text-muted" data-party-submit-keden>{{ t(`${P}.submitKeden`) }}</span>
       <ZButton v-if="canUnsubmit" size="sm" variant="ghost" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-unsubmit @click="emit('unsubmit', party)">{{ t(`${P}.unsubmit`) }}</ZButton>
       <ZButton v-if="canTd" size="sm" class="max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-td @click="emit('td', party)">{{ t(`${P}.tdNumber`) }}</ZButton>
       <ZDropdown v-if="rights.upload" :items="kindItems" @select="pickFor($event as FileKind)">
@@ -214,5 +242,6 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
       <ZButton v-if="canDeleteThis" size="sm" variant="danger-ghost" class="ml-auto max-sm:h-11 max-sm:px-4" :disabled="busy" data-party-delete @click="emit('remove', party)">{{ t(`${P}.delete`) }}</ZButton>
     </div>
     <p v-if="canSubmit && rights.submitLocked" class="m-0 text-xs text-muted sm:hidden" data-party-submit-hint>{{ t(`${P}.submitLocked`) }}</p>
+    <p v-else-if="canSubmit && needsShort" class="m-0 text-xs text-muted" data-party-submit-hint>{{ t(`${P}.submitNeedsShort`) }}</p>
   </article>
 </template>

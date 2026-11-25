@@ -102,7 +102,7 @@ export const FILTERS: { id: FilterId; key: string }[] = (
 export const ERROR_CODES = [
   'stage_order', 'td_number_missing', 'party_submitted', 'nothing_to_undo', 'problem', 'archived', 'released',
   'inspection_required', 'already_submitted', 'not_submitted', 'td_number_set', 'last_party', 'not_in_problem',
-  'not_in_work', 'duplicate_plate', 'conflict',
+  'not_in_work', 'duplicate_plate', 'conflict', 'short_number_required',
 ] as const
 
 export const errorKey = (code: string): string =>

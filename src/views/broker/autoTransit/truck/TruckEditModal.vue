@@ -11,7 +11,8 @@ import { useCountryAlpha2Options } from '@/composables/useCountryAlpha2Options'
 import type { ActionResult } from './useTruck'
 import { diffPatch, upperCode } from './truckView'
 
-// «Изменить данные машины»: номера тягача и прицепа со странами, водитель, перевозчик, пост, номер этапа 2, заезд.
+// «Изменить данные машины»: номера тягача и прицепа со странами, водитель, перевозчик, пост, номер этапа 2, заезд,
+// ожидаемый въезд (очередь 3: за 2 часа до него неподанная ПИ — срочная).
 // Уходят только изменённые поля; очищенное — null.
 const props = defineProps<{ open: boolean; card: TruckCard | null; save: (patch: TruckFields) => Promise<ActionResult> }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -23,12 +24,21 @@ type Draft = {
   plate: string; plateCountry: string; trailerPlate: string; trailerCountry: string; driverName: string; driverDoc: string
   carrierName: string; carrierCountry: string; carrierRegNumber: string; customsPostCode: string; stageNumber: string
   arrivedDate: string | null; arrivedTime: string
+  entryDate: string | null; entryTime: string
 }
 const pad = (n: number) => String(n).padStart(2, '0')
+/** UTC → местные дата YYYY-MM-DD и время ЧЧ:ММ; пусто — null и ''. */
+const local = (iso: string | null | undefined): { date: string | null; time: string } => {
+  const d = iso ? new Date(iso) : null
+  if (!d || !Number.isFinite(d.getTime())) return { date: null, time: '' }
+  return { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` }
+}
 const fromCard = (c: TruckCard | null): Draft => {
   const at = c?.arrivedAtUtc ? new Date(c.arrivedAtUtc) : null
   const ok = at && Number.isFinite(at.getTime())
+  const entry = local(c?.expectedEntryAtUtc)
   return {
+    entryDate: entry.date, entryTime: entry.time,
     plate: c?.plate ?? '', plateCountry: c?.plateCountry ?? '', trailerPlate: c?.trailerPlate ?? '', trailerCountry: c?.trailerCountry ?? '',
     driverName: c?.driverName ?? '', driverDoc: c?.driverDoc ?? '', carrierName: c?.carrierName ?? '', carrierCountry: c?.carrierCountry ?? '',
     carrierRegNumber: c?.carrierRegNumber ?? '', customsPostCode: c?.customsPostCode ?? '', stageNumber: c?.stageNumber ?? '',
@@ -47,22 +57,27 @@ watch(() => props.open, (v) => {
   errors.value = {}
 })
 
-/** Дата и время заезда (местные) → UTC; без даты — null. */
-const arrivedIso = (d: Draft): string | null => {
-  if (!d.arrivedDate) return null
-  const [y, m, day] = d.arrivedDate.split('-').map(Number)
-  const [hh, mm] = (d.arrivedTime || '00:00').split(':').map(Number)
+/** Местные дата и время → UTC; без даты — null. */
+const toIso = (date: string | null, time: string): string | null => {
+  if (!date) return null
+  const [y, m, day] = date.split('-').map(Number)
+  const [hh, mm] = (time || '00:00').split(':').map(Number)
   return new Date(y!, m! - 1, day!, hh || 0, mm || 0).toISOString()
 }
+const arrivedIso = (d: Draft): string | null => toIso(d.arrivedDate, d.arrivedTime)
+const entryIso = (d: Draft): string | null => toIso(d.entryDate, d.entryTime)
 
 const onOk = async () => {
   if (!draft.plate.trim()) { errors.value = { plate: t(`${F}.plateRequired`) }; return }
-  const { arrivedDate: _d, arrivedTime: _t, ...rest } = draft
-  const { arrivedDate: _d0, arrivedTime: _t0, ...rest0 } = initial
+  const { arrivedDate: _d, arrivedTime: _t, entryDate: _ed, entryTime: _et, ...rest } = draft
+  const { arrivedDate: _d0, arrivedTime: _t0, entryDate: _ed0, entryTime: _et0, ...rest0 } = initial
   const patch: TruckFields = diffPatch(rest0, rest) as TruckFields
   const a0 = arrivedIso(initial)
   const a1 = arrivedIso(draft)
   if (a0 !== a1) patch.arrivedAtUtc = a1
+  const e0 = entryIso(initial)
+  const e1 = entryIso(draft)
+  if (e0 !== e1) patch.expectedEntryAtUtc = e1
   if (!Object.keys(patch).length) { emit('update:open', false); return }
   saving.value = true
   try {
@@ -127,6 +142,14 @@ const setCountry = (k: 'plateCountry' | 'trailerCountry' | 'carrierCountry', v: 
         </ZField>
         <ZField :label="t(`${F}.arrivedTime`)">
           <ZInput v-model:value="draft.arrivedTime" type="time" :disabled="!draft.arrivedDate" />
+        </ZField>
+      </div>
+      <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,7rem)] gap-2">
+        <ZField :label="t(`${F}.expectedEntryDate`)" :error="errors.expectedEntryAtUtc">
+          <ZDate v-model:value="draft.entryDate" allow-clear data-edit-entry-date />
+        </ZField>
+        <ZField :label="t(`${F}.expectedEntryTime`)">
+          <ZInput v-model:value="draft.entryTime" type="time" :disabled="!draft.entryDate" data-edit-entry-time />
         </ZField>
       </div>
     </div>

@@ -81,7 +81,19 @@ export interface Party {
   hasDeclaration?: boolean
   /** Сколько пунктов ТД не заполнено (подсказка, этапы не блокирует); null — ТД нет (сервер 7c905cb шлёт null). */
   declarationMissingCount?: number | null
+  // ПИ под авто (очередь 3, этап 1, план 2026-11-25). Старый сервер полей не шлёт — undefined.
+  /** Номер предварительной информации (до 64). */
+  piNumber?: string | null
+  /** Когда отмечено «ПИ подана»; null — не подана. Ставит только POST …/pi-submitted. */
+  piSubmittedAtUtc?: string | null
+  /** Краткий номер от СВХ (до 32): без него «ТД подана» — 409 short_number_required. */
+  shortNumber?: string | null
+  /** Ещё инвойсы того же отправителя и получателя; основной — invoiceNumber/invoiceDate. */
+  additionalInvoices?: PartyInvoice[]
 }
+
+/** Дополнительный инвойс партии; дата без времени, YYYY-MM-DD. */
+export interface PartyInvoice { number: string; date: string | null }
 
 export interface TruckFile {
   id: string
@@ -105,8 +117,11 @@ export interface TruckEvent {
   note: string
 }
 
-/** count — только у declaration_incomplete: сколько полей ТД не заполнено (очередь 2а). */
-export interface Blocker { code: string; partyId: string | null; count?: number | null }
+/**
+ * count — только у declaration_incomplete: сколько полей ТД не заполнено (очередь 2а).
+ * partyNumber — у pi_not_submitted и pi_urgent; minutesLeft — у pi_urgent: минут до ожидаемого въезда (может быть ≤ 0).
+ */
+export interface Blocker { code: string; partyId: string | null; count?: number | null; partyNumber?: number | null; minutesLeft?: number | null }
 export interface TruckCan { border: boolean; declare: boolean; manage: boolean }
 
 export interface TruckCard extends TruckListItem {
@@ -119,6 +134,8 @@ export interface TruckCard extends TruckListItem {
   customsPostCode: string
   arrivedAtUtc: string | null
   stageNumber: string
+  /** Ожидаемое время въезда (вносит КПП или декларант); старый сервер не шлёт. */
+  expectedEntryAtUtc?: string | null
   parties: Party[]
   files: TruckFile[]
   events: TruckEvent[]
@@ -157,6 +174,7 @@ export interface TruckFields {
   customsPostCode?: string | null
   stageNumber?: string | null
   arrivedAtUtc?: string | null
+  expectedEntryAtUtc?: string | null
 }
 /** Создание: номер обязателен; force — завести рядом с невыпущенной машиной того же номера (иначе 409 duplicate_plate). */
 export type TruckCreate = TruckFields & { plate: string; force?: boolean }
@@ -164,7 +182,7 @@ export type TruckCreate = TruckFields & { plate: string; force?: boolean }
 /** Поля партии. В PUT пропущенное поле не меняется, null очищает. */
 export type PartyFields = Partial<Omit<Party,
   'id' | 'number' | 'submittedAtUtc' | 'submittedBy' | 'tdNumber' | 'tdDate' | 'importInterestAtUtc' | 'importInterestContact'
-  | 'hasDeclaration' | 'declarationMissingCount'>>
+  | 'hasDeclaration' | 'declarationMissingCount' | 'piSubmittedAtUtc'>>
 
 export interface TdBody { tdNumber: string; tdDate: string | null }
 export interface FilePatch { partyId?: string | null; kind?: FileKind; stamped?: boolean; visibleToRecipient?: boolean }
@@ -275,6 +293,14 @@ export const submitParty = (id: string, partyId: string): Promise<TruckCard> =>
 export const unsubmitParty = (id: string, partyId: string): Promise<TruckCard> =>
   card(apiClient.post<TruckCard>(`${party(id, partyId)}/unsubmit`, undefined, { silentStatuses: [409] }))
 
+/** «ПИ подана» с номером (обязателен, до 64). Право autotransit.declare; 400 под полем piNumber пишет окно. */
+export const piSubmitted = (id: string, partyId: string, piNumber: string): Promise<TruckCard> =>
+  card(apiClient.post<TruckCard>(`${party(id, partyId)}/pi-submitted`, { piNumber }, { silentStatuses: FORM_SILENT }))
+
+/** Снять «ПИ подана». */
+export const piUnsubmit = (id: string, partyId: string): Promise<TruckCard> =>
+  card(apiClient.post<TruckCard>(`${party(id, partyId)}/pi-unsubmit`, undefined, { silentStatuses: [409] }))
+
 /** Номер и дата ТД; пустой номер очищает. */
 export const setTd = (id: string, partyId: string, body: TdBody): Promise<TruckCard> =>
   card(apiClient.put<TruckCard>(`${party(id, partyId)}/td`, body, { silentStatuses: FORM_SILENT }))
@@ -298,7 +324,33 @@ export interface DeclarationData {
   precedingDocs: ReestrPrecedingDocInput[]
   cargoOperations: ReestrCargoOperationInput[]
   guarantees: ReestrGuaranteeInput[]
+  /** ПИ под авто (очередь 3): тягач, прицеп, грузовик. Старая ТД поля не имеет — фронт считает пустым списком. */
+  vehicles?: AutoVehicle[]
+  /** Водитель; null или нет поля — не заполнен. */
+  driver?: AutoDriver | null
 }
+
+export type AutoVehicleRole = 'tractor' | 'trailer' | 'truck'
+/** Транспортное средство ПИ: тип — классификатор 2024 (тягач 303, прицеп 312), headIndex — индекс тягача у прицепа. */
+export interface AutoVehicle {
+  role: AutoVehicleRole
+  typeCode: string | null
+  regNumber: string | null
+  countryCode: string | null
+  vin: string | null
+  headIndex: number | null
+}
+export interface AutoDriver {
+  fullName: string | null
+  countryCode: string | null
+  docKindCode: string | null
+  docNumber: string | null
+  personalNumber: string | null
+}
+
+/** Итоги по товарам против итогов партии (decimal, без округления). */
+export interface TotalsPair { goods: number | null; party: number | null }
+export interface TotalsCheck { places: TotalsPair; grossKg: TotalsPair; value: TotalsPair }
 
 /** Пункт «Не заполнено»: key — путь поля (goods[2].tnvedCode), section — ключ раздела (SectionKey). */
 export interface DeclarationMissing { key: string; section: string }
@@ -316,6 +368,8 @@ export interface DeclarationResponse {
   updatedBy: string | null
   truck: { id: string; plate: string; trailerPlate: string }
   party: { id: string; number: number; recipientName: string; submitted: boolean }
+  /** Сравнение итогов товаров и партии (очередь 3); старый сервер не шлёт. */
+  totalsCheck?: TotalsCheck | null
 }
 
 export interface DeclarationSaveBody { version: number; data: DeclarationData }
@@ -332,7 +386,11 @@ export const getDeclaration = async (id: string, partyId: string): Promise<Decla
 export const saveDeclaration = async (id: string, partyId: string, body: DeclarationSaveBody): Promise<DeclarationResponse> =>
   (await apiClient.put<DeclarationResponse>(`${party(id, partyId)}/declaration`, body, { silentStatuses: [...FORM_SILENT, 403, 413] })).data
 
-/** Прошлая ТД того же получателя (тот же непустой БИН/регномер), кроме текущей партии; новые сверху, не больше 20. */
+/**
+ * Прошлая ПИ / ТД того же получателя, отправителя или поста назначения (очередь 3), кроме текущей партии; новые сверху,
+ * не больше 20. matchedBy — по каким признакам подошла (старый сервер не шлёт: тогда только получатель).
+ */
+export type CopyMatch = 'consignee' | 'consignor' | 'destinationOffice'
 export interface DeclarationCopySource {
   partyId: string
   truckId: string
@@ -340,6 +398,7 @@ export interface DeclarationCopySource {
   tdNumber: string
   updatedAtUtc: string | null
   goodsCount: number
+  matchedBy?: CopyMatch[]
 }
 
 /** Список источников — подсказка на странице: сбой не мешает работать, без тоста. */
@@ -349,6 +408,29 @@ export const listCopySources = async (id: string, partyId: string): Promise<Decl
 /** Данные прошлой ТД; 404 — источник не из списка (другой получатель, ТД удалена). Окно копии пишет ошибку само. */
 export const getCopySource = async (id: string, partyId: string, sourcePartyId: string): Promise<{ data: DeclarationData }> =>
   (await apiClient.get<{ data: DeclarationData }>(`${party(id, partyId)}/declaration/copy-sources/${enc(sourcePartyId)}`, { silent: true })).data
+
+// ───────── настройки авто-транзита (очередь 3) ─────────
+
+/** Строка шаблона гр. 44: код вида документа, название, вид файла партии, из которого брать номер и дату. */
+export type Doc44FileKind = 'cmr' | 'invoice' | 'packing' | 'passport'
+export interface Doc44TemplateItem { code: string; name: string; fileKind: Doc44FileKind | null }
+export interface AutoTransitSettings {
+  guaranteeTypeCode: string | null
+  /** Основание непредоставления обеспечения; по умолчанию 103. */
+  guaranteeBasisCode: string | null
+  aeoCertificateNumber: string | null
+  /** Дата без времени, YYYY-MM-DD. */
+  aeoCertificateDate: string | null
+  doc44Template: Doc44TemplateItem[]
+}
+
+/** Чтение — autotransit.read. Страница сама пишет сбой загрузки — без тоста. */
+export const getSettings = async (): Promise<AutoTransitSettings> =>
+  (await apiClient.get<AutoTransitSettings>('/auto-transit/settings', { silent: true })).data
+
+/** Запись — autotransit.manage; 400 { errors } страница пишет под полями. */
+export const saveSettings = async (body: AutoTransitSettings): Promise<AutoTransitSettings> =>
+  (await apiClient.put<AutoTransitSettings>('/auto-transit/settings', body, { silentStatuses: [400] })).data
 
 // ───────── файлы ─────────
 

@@ -10,7 +10,6 @@ import ZSkeleton from '@/components/z/ZSkeleton.vue'
 import { getCopySource, listCopySources, type DeclarationCopySource, type DeclarationMissing } from '@/api/autoTransit'
 import { confirmState, useConfirm } from '@/ui/confirm'
 import { message } from '@/ui/message'
-import RecordNav from '@/views/broker/transit/record/RecordNav.vue'
 import RecordSaveBar from '@/views/broker/transit/record/RecordSaveBar.vue'
 import SectionCarriers from '@/views/broker/transit/record/sections/SectionCarriers.vue'
 import SectionContainers from '@/views/broker/transit/record/sections/SectionContainers.vue'
@@ -21,14 +20,15 @@ import SectionMisc from '@/views/broker/transit/record/sections/SectionMisc.vue'
 import SectionOrganizations from '@/views/broker/transit/record/sections/SectionOrganizations.vue'
 import SectionPackaging from '@/views/broker/transit/record/sections/SectionPackaging.vue'
 import SectionPreceding from '@/views/broker/transit/record/sections/SectionPreceding.vue'
-import SectionSeals from '@/views/broker/transit/record/sections/SectionSeals.vue'
-import SectionTransport from '@/views/broker/transit/record/sections/SectionTransport.vue'
 import { provideRecordRefs } from '@/views/broker/transit/record/sections/refs'
-import { sectionDomId } from '@/views/broker/transit/record/sections/sectionId'
+import type { SectionKey } from '@/views/broker/transit/record/recordModel'
+import { formatNumberIn } from '@/ui/number'
 import PlateTag from '../PlateTag.vue'
 import CopyTdModal, { type CopyResult } from './CopyTdModal.vue'
+import TdNav from './TdNav.vue'
 import TdSectionMain from './TdSectionMain.vue'
-import { TD_SECTIONS, copyWouldReplace, missingLabel, missingSection, missingTarget, parseMissingKey } from './tdModel'
+import TdSectionVehicles from './TdSectionVehicles.vue'
+import { TD_SECTIONS, copyWouldReplace, missingLabel, missingSection, missingTarget, parseMissingKey, type TdSectionKey, type TotalsRow } from './tdModel'
 import { useTd } from './useTd'
 
 // ТД партии «Авто-транзита» — /auto-transit/:id/parties/:partyId/td (очередь 2а, спека 2026-11-17). Разделы — те же,
@@ -36,7 +36,9 @@ import { useTd } from './useTd'
 // Шапка: госномер тягача и прицепа, партия, получатель, «Сохранить», «Назад к машине». Черновик (isDraft) помечен,
 // «Не заполнено: N» — подсказка от сервера (сохранение не блокирует), клик ведёт к разделу и полю.
 // Контейнеры — свёрнутым блоком в конце (у авто обычно не нужны). Уход с несохранённым спрашивает, beforeunload — тоже.
-const { t, te } = useI18n()
+// Очередь 3 (спека 2026-11-25): форма «ПИ / ТД»; вместо ЖД «Транспорт» и «Пломбы» — «Машины и водитель» (TdSectionVehicles);
+// плашка расхождения итогов товаров и партии (totalsCheck, без округления).
+const { t, te, locale } = useI18n()
 const route = useRoute()
 const { confirm } = useConfirm()
 provideRecordRefs()
@@ -53,7 +55,21 @@ watch(() => (route.name === PAGE_ROUTE ? [route.params.id, route.params.partyId]
 })
 
 const td = useTd(() => truckId.value, () => partyId.value)
-const { draft, response, readOnly, isDraft, missing, loading, notFound, loadError, reloading, saving, saveError, dirty, changed } = td
+const { draft, auto, response, readOnly, isDraft, missing, loading, notFound, loadError, reloading, saving, saveError, dirty, changed, totals } = td
+const sectionDomId = (key: TdSectionKey): string => `sec-${key}`
+// Плашка сохранения подписывает разделы ключами broker.transitRecord.sections.* (vehicles там тоже есть).
+const changedKeys = computed(() => changed.value as SectionKey[])
+
+// ---- Итоги товаров против партии ----
+// Без округления: места — целые; брутто — до 3 знаков (граммы), а если расхождение мельче — до 4 (decimal 18,4); стоимость — до 4.
+const DIGITS: Record<TotalsRow['key'], number> = { places: 0, grossKg: 3, value: 4 }
+/** Знаков после запятой у числа (не больше 4): 0,0004 кг не показывается как 0. */
+const decimals = (n: number): number => Math.min(4, /\.(\d+)/.exec(String(n))?.[1]?.length ?? 0)
+const totalsLines = computed(() => totals.value.map((r) => {
+  const digits = Math.max(DIGITS[r.key], r.key === 'places' ? 0 : decimals(r.diff))
+  const f = (n: number) => formatNumberIn(locale.value, n, digits)
+  return { key: r.key, label: t(`${T}.totals.${r.key}`), goods: f(r.goods), party: f(r.party), diff: `${r.diff > 0 ? '+' : '−'}${f(Math.abs(r.diff))}` }
+}))
 
 const truckPath = computed(() => `/auto-transit/${encodeURIComponent(truckId.value)}`)
 const truck = computed(() => response.value?.truck ?? null)
@@ -89,6 +105,10 @@ function fieldName(field: string): string {
 function labelOf(m: DeclarationMissing): string {
   const { key, params } = missingLabel(m)
   if (key === 'goodsItem') return t(`${T}.missing.goodsItem`, { n: params.n as number, field: fieldName(String(params.field ?? '')) })
+  if (key === 'vehicleItem') {
+    const f = `${T}.missing.vehicleField.${String(params.field ?? '')}`
+    return t(`${T}.missing.vehicleItem`, { n: params.n as number, field: te(f) ? t(f) : String(params.field ?? '') })
+  }
   const k = `${T}.missing.keys.${key}`
   if (te(k)) return t(k)
   // Сервер прислал ключ, которого фронт не знает: раздел и ключ как есть.
@@ -287,6 +307,24 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
       </ZAlert>
 
       <section
+        v-if="totalsLines.length"
+        role="alert"
+        class="flex min-w-0 flex-col gap-2 rounded-panel border border-tone-danger-fg bg-tone-danger-bg px-4 py-3 text-tone-danger-fg"
+        aria-labelledby="td-totals-title"
+        data-td-totals
+      >
+        <h2 id="td-totals-title" class="m-0 text-base leading-6 font-semibold">{{ t(`${T}.totals.title`) }}</h2>
+        <ul role="list" class="m-0 flex min-w-0 list-none flex-col gap-1 p-0 text-sm">
+          <li v-for="l in totalsLines" :key="l.key" class="min-w-0 [overflow-wrap:anywhere]" :data-td-totals-row="l.key">
+            <span class="font-semibold">{{ l.label }}:</span>
+            {{ t(`${T}.totals.line`, { goods: l.goods, party: l.party }) }}
+            <span class="font-semibold tabular-nums">({{ l.diff }})</span>
+          </li>
+        </ul>
+        <p class="m-0 text-xs">{{ t(`${T}.totals.hint`) }}</p>
+      </section>
+
+      <section
         v-if="missing.length"
         class="flex min-w-0 flex-col gap-2 rounded-panel border border-gold-line bg-gold-soft px-4 py-3"
         aria-labelledby="td-missing-title"
@@ -317,14 +355,13 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
       </section>
 
       <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-x-7 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]">
-        <RecordNav :draft="draft" :sections="TD_SECTIONS" :label="t(`${T}.navLabel`)" />
+        <TdNav :draft="draft" :auto="auto" :sections="TD_SECTIONS" :label="t(`${T}.navLabel`)" />
         <div class="flex min-w-0 flex-col gap-[18px]">
           <div class="flex min-w-0 flex-col gap-[18px]" data-td-sections>
             <TdSectionMain :draft="draft" :readonly="readOnly" />
             <SectionOrganizations :draft="draft" :readonly="readOnly" />
             <SectionCarriers :draft="draft" :readonly="readOnly" />
-            <SectionTransport :draft="draft" :readonly="readOnly" />
-            <SectionSeals :draft="draft" :readonly="readOnly" />
+            <TdSectionVehicles :auto="auto" :readonly="readOnly" />
             <SectionGoods :draft="draft" :readonly="readOnly" />
             <SectionDoc44 :draft="draft" :readonly="readOnly" />
             <SectionPackaging :draft="draft" :readonly="readOnly" />
@@ -353,7 +390,7 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
 
       <RecordSaveBar
         v-if="showSaveBar"
-        :changed="changed"
+        :changed="changedKeys"
         :is-new="isDraft"
         :saving="saving"
         :disabled="busy"

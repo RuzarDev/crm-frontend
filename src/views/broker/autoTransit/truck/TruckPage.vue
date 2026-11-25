@@ -19,6 +19,7 @@ import PartyModal from './PartyModal.vue'
 import PrimaryBar from './PrimaryBar.vue'
 import ProblemModal from './ProblemModal.vue'
 import StageRail from './StageRail.vue'
+import PiModal from './PiModal.vue'
 import TdModal from './TdModal.vue'
 import TruckEditModal from './TruckEditModal.vue'
 import TruckFiles from './TruckFiles.vue'
@@ -164,6 +165,8 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnloa
                 @submit="a.submit"
                 @unsubmit="a.unsubmit"
                 @td="a.openTd"
+                @pi="a.openPi"
+                @pi-undo="a.piUndo"
                 @remove="a.removeParty"
                 @download="a.download"
                 @patch-file="a.patchFile"
@@ -205,6 +208,7 @@ onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnloa
       <TruckEditModal v-model:open="a.editOpen.value" :card="card" :save="s.updateTruck" />
       <ProblemModal v-model:open="a.problemOpen.value" :save="s.setProblem" />
       <PartyModal v-model:open="a.partyOpen.value" :party="a.partyEditing.value" :save="saveParty" />
+      <PiModal v-model:open="a.piOpen.value" :party="a.piParty.value" :save="a.savePi" />
       <TdModal v-model:open="a.tdOpen.value" :party="a.tdParty.value" :save="(body) => s.setTd(a.tdParty.value!.id, body)" />
       <LinksModal v-if="rights.links" v-model:open="a.linksOpen.value" :truck-id="card.id" :plate="card.plate" :parties="card.parties" />
     </div>

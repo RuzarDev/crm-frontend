@@ -28,6 +28,8 @@ export interface TruckRights {
   archive: boolean
   /** «Вернуть из архива» (очередь 2а) — manage. */
   unarchive: boolean
+  /** «ПИ подана» и её отмена (очередь 3) — декларант, машина в работе. */
+  pi: boolean
 }
 
 export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>): TruckRights {
@@ -56,6 +58,7 @@ export function rights(card: Pick<TruckCard, 'status' | 'currentStage' | 'can'>)
     clearProblem: (border || declare || manage) && s === 'problem',
     archive: manage && !archived,
     unarchive: manage && archived,
+    pi: declare && inWork,
   }
 }
 
@@ -185,12 +188,19 @@ export const STAGE_BLOCKERS: Readonly<Record<number, readonly string[]>> = {
  */
 export const TD_HINT_BLOCKERS: readonly string[] = ['declaration_missing', 'declaration_incomplete']
 
+/**
+ * «ПИ не подана» (очередь 3): сервер шлёт их, пока машина на этапах 1–2; pi_urgent — вместо pi_not_submitted, если до
+ * ожидаемого въезда меньше 2 часов (красная строка с минутами).
+ */
+export const PI_BLOCKERS: readonly string[] = ['pi_urgent', 'pi_not_submitted']
+
 /** «Что мешает» сейчас: блокеры текущего этапа (сервер присылает полный список всех этапов) и подсказки по ТД. */
 export function currentBlockers(card: Pick<TruckCard, 'blockers' | 'currentStage' | 'status'>): Blocker[] {
   if (card.status === 'released' || card.status === 'archived' || card.currentStage == null) return []
   const own = STAGE_BLOCKERS[card.currentStage] ?? []
   return [
     ...card.blockers.filter((b) => own.includes(b.code)),
+    ...(card.currentStage <= 2 ? card.blockers.filter((b) => PI_BLOCKERS.includes(b.code)) : []),
     ...card.blockers.filter((b) => TD_HINT_BLOCKERS.includes(b.code)),
   ]
 }
@@ -210,13 +220,23 @@ const cap = (s: string) => s.charAt(0).toLocaleUpperCase() + s.slice(1)
 
 /** Текст «что мешает» по коду, с номером партии, если блокер — её. */
 export function blockerText(b: Blocker, card: Pick<TruckCard, 'parties'>, t: Translate): string {
-  const params = { count: b.count ?? 0 }
-  const text = t(`${K}.blocker.hint.${b.code}`, params)
+  const params: Record<string, unknown> = { count: b.count ?? 0 }
+  let hint = b.code
+  if (b.code === 'pi_urgent') {
+    params.minutes = b.minutesLeft ?? 0
+    // Время въезда уже прошло — «до въезда −5 мин» не пишем.
+    if ((b.minutesLeft ?? 0) <= 0) hint = 'pi_urgent_late'
+  }
+  const text = t(`${K}.blocker.hint.${hint}`, params)
   const fallback = t(`${K}.blocker.${b.code}`, params)
-  const body = text === `${K}.blocker.hint.${b.code}` ? fallback : text
+  const body = text === `${K}.blocker.hint.${hint}` ? fallback : text
   const p = b.partyId ? card.parties.find((x) => x.id === b.partyId) : undefined
-  return p ? t(`${K}.blocker.party`, { n: p.number, text: body }) : cap(body)
+  const n = p?.number ?? b.partyNumber ?? null
+  return n != null ? t(`${K}.blocker.party`, { n, text: body }) : cap(body)
 }
+
+/** Строка «Что мешает» красная: ПИ не подана, а до въезда меньше 2 часов. */
+export const isUrgent = (b: Blocker): boolean => b.code === 'pi_urgent'
 
 // ---- Видимость получателю ----
 
