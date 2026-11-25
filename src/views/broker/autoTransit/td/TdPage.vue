@@ -5,10 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { PhArrowLeft, PhCaretDown, PhCaretRight } from '@phosphor-icons/vue'
 import ZAlert from '@/components/z/ZAlert.vue'
 import ZButton from '@/components/z/ZButton.vue'
+import ZDropdown, { type ZDropdownItem } from '@/components/z/ZDropdown.vue'
 import ZEmpty from '@/components/z/ZEmpty.vue'
 import ZSkeleton from '@/components/z/ZSkeleton.vue'
-import { getCopySource, listCopySources, type DeclarationCopySource, type DeclarationMissing, type FromDocsConflict, type FromDocumentsResult } from '@/api/autoTransit'
+import { blobErrorCode, downloadPartyDoc, getCopySource, listCopySources, type DeclarationCopySource, type PartyDocKind, type DeclarationMissing, type FromDocsConflict, type FromDocumentsResult } from '@/api/autoTransit'
 import { confirmState, useConfirm } from '@/ui/confirm'
+import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import RecordSaveBar from '@/views/broker/transit/record/RecordSaveBar.vue'
 import SectionCarriers from '@/views/broker/transit/record/sections/SectionCarriers.vue'
@@ -40,6 +42,8 @@ import { useTd } from './useTd'
 // Контейнеры — свёрнутым блоком в конце (у авто обычно не нужны). Уход с несохранённым спрашивает, beforeunload — тоже.
 // Очередь 3 (спека 2026-11-25): форма «ПИ / ТД»; вместо ЖД «Транспорт» и «Пломбы» — «Машины и водитель» (TdSectionVehicles);
 // плашка расхождения итогов товаров и партии (totalsCheck, без округления).
+// Этап 3 (спека 2026-11-25-auto-transit-docs): меню «Документы» — опись документов ТД и заготовка акта осмотра (.docx)
+// из сохранённой ПИ; при черновике или несохранённых правках пункты выключены с подсказкой «Сначала сохраните ПИ».
 const { t, te, locale } = useI18n()
 const route = useRoute()
 const { confirm } = useConfirm()
@@ -237,6 +241,42 @@ const runCopy = async (sourcePartyId: string, withGoods: boolean): Promise<CopyR
   return 'ok'
 }
 
+// ---- Опись и акт осмотра (этап 3) ----
+// Файл собирает сервер из СОХРАНЁННОЙ ПИ: черновик (ни разу не сохраняли) и несохранённые правки в документ не попадут.
+const docsBlocked = computed(() => isDraft.value || dirty.value)
+const DOC_KINDS: { kind: PartyDocKind; label: string }[] = [
+  { kind: 'inventory', label: 'inventory' },
+  { kind: 'inspection-act', label: 'act' },
+]
+const docItems = computed<ZDropdownItem[]>(() => DOC_KINDS.map((d) => ({
+  key: d.kind,
+  label: t(`${T}.docs.${d.label}`),
+  disabled: docsBlocked.value,
+  hint: docsBlocked.value ? t(`${T}.docs.saveFirst`) : undefined,
+})))
+const docBusy = ref(false)
+const onDoc = async (key: string) => {
+  const kind = DOC_KINDS.find((d) => d.kind === key)?.kind
+  if (!kind || docBusy.value) return
+  if (docsBlocked.value) {
+    message.warning(t(`${T}.docs.saveFirst`))
+    return
+  }
+  docBusy.value = true
+  try {
+    const { blob, fileName } = await downloadPartyDoc(truckId.value, partyId.value, kind, `${kind}.docx`)
+    saveBlob(blob, fileName)
+  } catch (e) {
+    // 409 перехватчик не показывает (silentStatuses): код — из ответа-Blob. Прочие ошибки — общий тост.
+    if (statusOf(e) === 409) {
+      const code = await blobErrorCode(e)
+      message.error(t(`${T}.docs.${code === 'declaration_not_saved' ? 'notSaved' : 'failed'}`))
+    }
+  } finally {
+    docBusy.value = false
+  }
+}
+
 // ---- «Заполнить из документов» (очередь 3, спека 5.2–5.3) ----
 // Окно: выбор файлов → ответ сервера → «Подставить в форму». После — плашки «Проверьте» (расхождения между документами
 // и предупреждения разбора) и «Документы не сходятся» (места, брутто, госномер по CMR, инвойсу, упаковочному).
@@ -327,6 +367,11 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
               </span>
             </p>
           </div>
+          <ZDropdown :items="docItems" @select="onDoc">
+            <ZButton :loading="docBusy" :disabled="loading" class="max-sm:h-11 max-sm:w-full" data-td-docs>
+              {{ t(`${T}.docs.button`) }}<PhCaretDown :size="14" aria-hidden="true" />
+            </ZButton>
+          </ZDropdown>
           <ZButton
             v-if="!readOnly"
             :disabled="busy"

@@ -999,6 +999,14 @@ export default {
             guarantees: 'Guarantee',
           },
         },
+        docs: {
+          button: 'Documents',
+          inventory: 'Document inventory (.docx)',
+          act: 'Inspection report — draft (.docx)',
+          saveFirst: 'Save the PI first: the document is built from the saved PI.',
+          notSaved: 'The PI has not been saved yet. Save it and download the document again.',
+          failed: 'The document could not be generated. Refresh the page and try again.',
+        },
         fromDocs: {
           button: 'Fill in from documents',
           title: 'Fill in from documents',
