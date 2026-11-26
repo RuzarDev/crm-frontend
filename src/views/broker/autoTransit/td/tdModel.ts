@@ -94,12 +94,18 @@ export const VEHICLE_PAIRS = [
 ] as const
 export type VehiclePair = (typeof VEHICLE_PAIRS)[number]
 
-/** Индексы первой сцепки: головное ТС (не прицеп) и его прицепы (headIndex на него; прицеп без ссылки — к первому головному). */
+/**
+ * Первая сцепка: первое головное ТС (не прицеп), у которого есть прицеп, и его прицепы. Прицеп привязан к головному через headIndex;
+ * прицеп без ссылки считается прицепом первого головного ТС списка.
+ */
 export function firstHitch(list: AutoVehicle[]): { head: number; trailers: number[] } | null {
-  const head = list.findIndex((v) => v.role !== 'trailer')
-  if (head < 0) return null
-  const trailers = list.flatMap((v, i) => (v.role === 'trailer' && (v.headIndex === head || v.headIndex == null) ? [i] : []))
-  return trailers.length ? { head, trailers } : null
+  const firstHead = list.findIndex((v) => v.role !== 'trailer')
+  for (let head = 0; head < list.length; head++) {
+    if (list[head]!.role === 'trailer') continue
+    const trailers = list.flatMap((v, i) => (v.role === 'trailer' && (v.headIndex === head || (v.headIndex == null && head === firstHead)) ? [i] : []))
+    if (trailers.length) return { head, trailers }
+  }
+  return null
 }
 
 /**

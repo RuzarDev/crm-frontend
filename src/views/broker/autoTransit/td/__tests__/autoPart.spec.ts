@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AutoVehicle } from '@/api/autoTransit'
 import {
   autoToData, dataExtras, dataToAuto, dataToDraft, draftToData, missingLabel, missingSection, missingTarget, newVehicle,
-  removeVehicle, totalsMismatch, vehiclesState, applyVehiclePair, currentVehiclePair, VEHICLE_PAIRS,
+  removeVehicle, totalsMismatch, vehiclesState, applyVehiclePair, currentVehiclePair, firstHitch, VEHICLE_PAIRS,
 } from '../tdModel'
 import { fullData, manyGoods } from './tdFixture'
 
@@ -33,6 +33,14 @@ describe('tdModel: связка типов ТС', () => {
     expect(list.map((v) => [v.role, v.typeCode, v.headIndex])).toEqual([
       ['tractor', '307', null], ['trailer', '319', 0], ['tractor', '303', null], ['trailer', '312', 2],
     ])
+  })
+
+  it('[тягач A, тягач B, прицеп → B]: связка ставится сцепке B, тягач A не трогается', () => {
+    const list = [tractor({ regNumber: 'A', typeCode: null }), tractor({ regNumber: 'B', typeCode: null }), trailer({ regNumber: 'T', typeCode: null, headIndex: 1 })]
+    expect(firstHitch(list)).toEqual({ head: 1, trailers: [2] })
+    applyVehiclePair(list, VEHICLE_PAIRS[0])
+    expect(list.map((v) => [v.typeCode, v.headIndex])).toEqual([[null, null], ['307', null], ['319', 1]])
+    expect(currentVehiclePair(list)?.key).toBe('tractorSemi')
   })
 
   it('одиночная машина без прицепа — связки нет', () => {
