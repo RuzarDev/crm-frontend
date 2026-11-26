@@ -10,7 +10,7 @@ import { newDtGoodsItem, useDtGoods } from '../useDtGoods'
 
 // «Из документов» в уже созданную ДТ (29.10.2026): весь путь страницы — файлы заявки, extract-batch, сводка, «Применить»
 // (форма + сохранение + сверка к ДТ), «Отмена». Данные вымышленные: «ТОО ТЕСТ».
-const api = vi.hoisted(() => ({ listFiles: vi.fn(), extractBatch: vi.fn(), downloadFile: vi.fn() }))
+const api = vi.hoisted(() => ({ listFiles: vi.fn(), extractBatch: vi.fn(), downloadFile: vi.fn(), importOptions: vi.fn(async () => ({ senderAsManufacturer: false })) }))
 const checks = vi.hoisted(() => ({ link: vi.fn(async () => undefined) }))
 const msg = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }))
 const tnved = vi.hoisted(() => ({ checkCodes: vi.fn() }))
