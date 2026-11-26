@@ -11,16 +11,17 @@ import { COLLECTION_SECTION, TRANSIT_FIELD_SECTION, type RecordDraft, type Secti
 export type TdSectionKey = SectionKey | 'vehicles'
 
 /**
- * Разделы страницы ПИ / ТД по порядку. ЖД-разделов «Транспорт» и «Пломбы» нет (очередь 3, спека 2026-11-25, 4.3):
- * вместо них «Машины и водитель»; данные transportMeans и identificationMeans в JSON остаются как были.
+ * Разделы страницы ПИ / ТД по порядку. ЖД-раздела «Транспорт» нет (очередь 3, спека 2026-11-25, 4.3): вместо него
+ * «Машины и водитель»; данные transportMeans в JSON остаются как были. «Пломбы» (identificationMeans) с этапа 4
+ * (спека 2026-11-26) снова на странице: их вносит декларант, в «Не заполнено» они не входят (считает сервер).
  * Контейнеры — свёрнутым блоком в конце, в меню их нет.
  */
 export const TD_SECTIONS: TdSectionKey[] = [
-  'main', 'organizations', 'carriers', 'vehicles', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc',
+  'main', 'organizations', 'carriers', 'vehicles', 'seals', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc',
 ]
 const PAGE_SECTIONS = new Set<TdSectionKey>([...TD_SECTIONS, 'containers'])
-/** Скрытые на странице ПИ разделы записи транзита: их пункты «Не заполнено» ведут в «Машины и водитель». */
-const HIDDEN_TO_VEHICLES = new Set<string>(['transport', 'seals'])
+/** Скрытый на странице ПИ ЖД-раздел «Транспорт»: его пункты «Не заполнено» ведут в «Машины и водитель». */
+const HIDDEN_TO_VEHICLES = new Set<string>(['transport'])
 
 type CollectionKey = keyof typeof COLLECTION_SECTION
 const COLLECTIONS = Object.keys(COLLECTION_SECTION) as CollectionKey[]
@@ -263,7 +264,7 @@ export function parseMissingKey(key: string): { head: string; index: number | nu
 
 /**
  * Раздел страницы для пункта: section ответа, если такой раздел на странице есть; иначе — по ключу; иначе «Основное».
- * Машины и водитель (vehicles[i].*, driver.*) и скрытые ЖД-разделы (транспорт, пломбы) — «Машины и водитель».
+ * Машины и водитель (vehicles[i].*, driver.*) и скрытый ЖД-раздел «Транспорт» — «Машины и водитель»; пломбы — свой раздел.
  */
 export function missingSection(m: DeclarationMissing): TdSectionKey {
   if (PAGE_SECTIONS.has(m.section as TdSectionKey)) return m.section as TdSectionKey
