@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   get: vi.fn(), updateDeclaration: vi.fn(), kedenReadiness: vi.fn(), ratesOnDate: vi.fn(),
   downloadKedenXml: vi.fn(), blankPdf: vi.fn(), downloadAllDocuments: vi.fn(),
   splitSuggestion: vi.fn(), splitState: vi.fn(), splitDeclaration: vi.fn(), calculatePayments: vi.fn(), calculateCustomsValue: vi.fn(),
+  importOptions: vi.fn(async () => ({ senderAsManufacturer: false })),
 }))
 const dts = vi.hoisted(() => ({ get: vi.fn(), pdf: vi.fn(), xml: vi.fn() }))
 const refs = vi.hoisted(() => ({ listCountries: vi.fn(), listCustomsPosts: vi.fn(), listCustomsDgds: vi.fn(async () => []), listExpenseTypes: vi.fn(), listOkeiUnits: vi.fn(async () => []) }))
