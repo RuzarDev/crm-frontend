@@ -169,7 +169,7 @@ function currencyFromHeaderRows(rows: unknown[][], upTo: number): string | null 
 /** Читает книгу и собирает товары инвойса с данными упаковочного листа и валютой. */
 export async function readGoodsWorkbook(file: Blob): Promise<GoodsWorkbookResult> {
   const XLSX = await loadXlsx()
-  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', sheetRows: GOODS_SHEET_MAX_ROWS })
+  const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array', sheetRows: GOODS_SHEET_MAX_ROWS })
   if (!wb.SheetNames.length) return { problem: 'noSheets' }
   const sheets = wb.SheetNames.map((name) => {
     const ws = wb.Sheets[name]
