@@ -81,7 +81,7 @@ export function kedenGoodsRows(draft: KedenGoodsSource): KedenTable {
   return { header: [...KEDEN_GOODS_HEADER], rows }
 }
 
-export type KedenIssueKind = 'noQuantity' | 'noGoods' | 'tooMany' | 'codeShort' | 'noDescription' | 'noGross' | 'noValue' | 'noCurrency' | 'codeNot10' | 'totals'
+export type KedenIssueKind = 'noQuantity' | 'noPackageKind' | 'noGoods' | 'tooMany' | 'codeShort' | 'noDescription' | 'noGross' | 'noValue' | 'noCurrency' | 'codeNot10' | 'totals'
 /** Пункт проверки: key — вид (для подписи на нужном языке), numbers — номера товаров с 1, text — подпись по-русски. */
 export interface KedenIssue { key: KedenIssueKind; text: string; numbers?: number[]; totalsKey?: 'places' | 'grossKg' | 'value' }
 
@@ -108,6 +108,10 @@ export function kedenGoodsCheck(draft: KedenGoodsSource, totals?: TotalsCheck | 
   add(errors, 'noValue', pick((g) => !(typeof g.customsValue === 'number' && g.customsValue > 0)), 'Нет стоимости')
   add(errors, 'noQuantity', pick((g) => !(typeof g.quantity === 'number' && g.quantity > 0)), 'КЕДЕН не загрузит товары без количества')
   add(errors, 'noCurrency', pick((g) => !currencyOf(g, draft)), 'Нет валюты')
+  // Вид упаковки КЕДЕН требует у каждого товара с местами (проверка импорта ПИ 26.11); у товара он не хранится — берётся из
+  // «Упаковки», когда там один вид. Нет или разные — ошибка с подсказкой заполнить «Упаковку».
+  const packageKind = single((draft.packages ?? []).map((p) => p.packageTypeCode))
+  if (!packageKind) add(errors, 'noPackageKind', pick((g) => typeof g.packagesCount === 'number' && g.packagesCount > 0), 'Нет вида упаковки (раздел «Упаковка»: один вид, например PK)')
   add(warnings, 'codeNot10', pick((g) => { const n = digits(g.tnvedCode).length; return n >= 6 && n < 10 }), 'Код ТН ВЭД короче 10 знаков')
   for (const r of totalsMismatch(totals, goods)) {
     const label = r.key === 'places' ? 'мест' : r.key === 'grossKg' ? 'брутто, кг' : 'стоимость'

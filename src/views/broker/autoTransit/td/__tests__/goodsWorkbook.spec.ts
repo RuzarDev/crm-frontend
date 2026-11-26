@@ -115,7 +115,7 @@ describe('readGoodsWorkbook: раскладка настоящих книг бр
     expect(r.goods.map((g) => g.currency)).toEqual(['USD', 'USD', 'USD'])
     expect(r.goods.reduce((a, g) => a + (g.customsValue ?? 0), 0)).toBeCloseTo(10455.3, 4)
     expect(r.report.unmatched).toEqual([])
-    const check = kedenGoodsCheck({ goods: r.goods, packages: [], containers: [] })
+    const check = kedenGoodsCheck({ goods: r.goods, packages: [{ packagingInfoKindCode: null, packageTypeCode: 'PK', packageCount: null, description: null }], containers: [] })
     expect(check.errors).toEqual([])
   })
 })

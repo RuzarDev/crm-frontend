@@ -1030,6 +1030,7 @@ export default {
           xlsxFailed: 'Could not build the Excel file. Try again.',
           issue: {
             noQuantity: 'KEDEN will not load goods without a quantity: goods {numbers}.',
+            noPackageKind: 'No package kind: set one kind in the «Packaging» section (e.g. PK) — KEDEN requires it for every item. Goods {numbers}.',
             noGoods: 'The TD has no goods.',
             tooMany: '{n} goods: split the consignment — KEDEN imports up to {max} rows.',
             codeShort: 'HS code shorter than 6 digits: goods {numbers}.',
