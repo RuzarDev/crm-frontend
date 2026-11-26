@@ -1,5 +1,5 @@
-// «Товары для КЕДЕН» (этап 4, спека 2026-11-26): таблица товаров ПИ / ТД партии в порядке и с заголовками окна
-// «Импорт из файла» списка товаров ПИ в КЕДЕН. Чистые функции: строки, проверка, TSV (буфер обмена), .xlsx (все ячейки
+// «Товары для КЕДЕН» (этап 4, спека 2026-11-26; раунд 2 — по живой проверке 26.11): таблица товаров ПИ / ТД партии для окна
+// «Импорт из файла» списка товаров ПИ в КЕДЕН — без строки заголовков, столбцы в порядке KEDEN_GOODS_COLUMNS. Чистые функции: строки, проверка, TSV (буфер обмена), .xlsx (все ячейки
 // текстом — код ТН ВЭД не теряет ведущие нули и не становится числом). Числа — как сохранены, без округления.
 import type { TotalsCheck } from '@/api/autoTransit'
 import type { ReestrGoodsItemInput } from '@/types/api'
@@ -11,13 +11,30 @@ import { totalsMismatch } from './tdModel'
 export type KedenGoodsSource = Pick<RecordDraft, 'goods' | 'packages' | 'containers'>
 export interface KedenTable { header: string[]; rows: string[][] }
 
-/** Заголовки окна сопоставления КЕДЕН — ровно в этом порядке (первая версия — по руководству, поправка после тест-загрузки). */
-export const KEDEN_GOODS_HEADER = [
-  'Код ТН ВЭД', 'Полное описание товара', 'Страна происхождения', 'Стоимость', 'Валюта',
-  'Масса брутто, кг', 'Масса нетто, кг', 'Количество в доп. ед.', 'Код доп. ед.',
-  'Количество грузовых мест', 'Наличие упаковки', 'Вид упаковки', 'Количество упаковок',
-  'Описание грузового места', 'Номер контейнера',
-]
+/**
+ * Столбцы по порядку (живая проверка в КЕДЕН 26.11): КЕДЕН заголовков не распознаёт — у каждого столбца брокер выбирает
+ * «тип» вручную (есть галочка «Сохранить схему граф для импорта»); первая строка считается товаром, поэтому в данных
+ * заголовков нет. name — наше название (лист «Схема», окно), kedenType — тип столбца в КЕДЕН.
+ */
+export const KEDEN_GOODS_COLUMNS = [
+  { name: 'Код ТН ВЭД', kedenType: '*Код ТН ВЭД' },
+  { name: 'Описание товара', kedenType: '*Коммерческое описание товара' },
+  { name: 'Страна происхождения', kedenType: 'Страна происхождения' },
+  { name: 'Стоимость', kedenType: '*Стоимость товара' },
+  { name: 'Валюта', kedenType: '*Валюта' },
+  { name: 'Масса брутто, кг', kedenType: '*Вес брутто, кг' },
+  { name: 'Масса нетто, кг', kedenType: 'Вес нетто, кг' },
+  { name: 'Количество в доп. ед.', kedenType: '*Количество товара с указанием дополнительной ед.изм.' },
+  { name: 'Вид информации об упаковке (всегда 0)', kedenType: '*Вид информации об упаковке' },
+  { name: 'Количество грузовых мест', kedenType: '*Количество грузовых мест' },
+  { name: 'Наличие упаковки (1/0)', kedenType: '*Информация об упаковке' },
+  { name: 'Вид упаковки', kedenType: '*Вид упаковки' },
+  { name: 'Количество упаковок', kedenType: '*Количество упаковок' },
+  { name: 'Описание грузового места', kedenType: 'Описание грузового места' },
+  { name: 'Номер контейнера', kedenType: 'Контейнеры → Номер' },
+] as const
+/** Подписи столбцов (для листа «Схема» и окна); в данные TSV и листа «Товары» не попадают. */
+export const KEDEN_GOODS_HEADER: string[] = KEDEN_GOODS_COLUMNS.map((c) => c.name)
 
 /** КЕДЕН импортирует не больше 1000 строк за раз. */
 export const KEDEN_GOODS_MAX = 1000
@@ -50,7 +67,7 @@ export function kedenGoodsRows(draft: KedenGoodsSource): KedenTable {
     const packed = places > 0
     return [
       digits(g.tnvedCode), text(g.description), text(g.countryOfOrigin), num(g.customsValue), text(g.currency),
-      num(g.grossWeightKg), num(g.netWeightKg), num(g.quantity), text(g.unitCode),
+      num(g.grossWeightKg), num(g.netWeightKg), num(g.quantity), '0',
       num(g.packagesCount), packed ? '1' : '0', packed ? packageType : '', packed ? num(g.packagesCount) : '',
       packed ? packageText : '', container,
     ]
@@ -58,7 +75,7 @@ export function kedenGoodsRows(draft: KedenGoodsSource): KedenTable {
   return { header: [...KEDEN_GOODS_HEADER], rows }
 }
 
-export type KedenIssueKind = 'noGoods' | 'tooMany' | 'codeShort' | 'noDescription' | 'noGross' | 'noValue' | 'noCurrency' | 'codeNot10' | 'totals'
+export type KedenIssueKind = 'noQuantity' | 'noGoods' | 'tooMany' | 'codeShort' | 'noDescription' | 'noGross' | 'noValue' | 'noCurrency' | 'codeNot10' | 'totals'
 /** Пункт проверки: key — вид (для подписи на нужном языке), numbers — номера товаров с 1, text — подпись по-русски. */
 export interface KedenIssue { key: KedenIssueKind; text: string; numbers?: number[]; totalsKey?: 'places' | 'grossKg' | 'value' }
 
@@ -85,6 +102,7 @@ export function kedenGoodsCheck(draft: KedenGoodsSource, totals?: TotalsCheck | 
   add(errors, 'noValue', pick((g) => !(typeof g.customsValue === 'number' && g.customsValue > 0)), 'Нет стоимости')
   add(errors, 'noCurrency', pick((g) => blank(g.currency)), 'Нет валюты')
   add(warnings, 'codeNot10', pick((g) => { const n = digits(g.tnvedCode).length; return n >= 6 && n < 10 }), 'Код ТН ВЭД короче 10 знаков')
+  add(warnings, 'noQuantity', pick((g) => !(typeof g.quantity === 'number' && g.quantity > 0)), 'КЕДЕН потребует количество, если у кода есть доп. единица; нет количества в доп. ед.')
   for (const r of totalsMismatch(totals, goods)) {
     const label = r.key === 'places' ? 'мест' : r.key === 'grossKg' ? 'брутто, кг' : 'стоимость'
     warnings.push({ key: 'totals', totalsKey: r.key, text: `Итоги товаров не сходятся с партией (${label}): по товарам ${r.goods}, в партии ${r.party}` })
@@ -92,20 +110,19 @@ export function kedenGoodsCheck(draft: KedenGoodsSource, totals?: TotalsCheck | 
   return { errors, warnings }
 }
 
-/** Строка буфера для вставки в КЕДЕН: табуляции, перевод строки \n; табы и переводы строк внутри значения — пробел. */
+/** Строка буфера для вставки в КЕДЕН (без заголовков): табуляции, перевод строки \n; табы и переводы строк внутри значения — пробел. */
 export function kedenGoodsTsv(table: KedenTable): string {
   const cell = (v: string) => v.replace(/[\t\r\n]+/g, ' ')
-  return [table.header, ...table.rows].map((r) => r.map(cell).join('\t')).join('\n')
+  return table.rows.map((r) => r.map(cell).join('\t')).join('\n')
 }
 
 /** Ширины столбцов по содержимому: от 10 до 60 знаков. */
 const widths = (table: KedenTable): { wch: number }[] =>
-  table.header.map((h, c) => ({ wch: Math.min(60, Math.max(10, h.length, ...table.rows.map((r) => (r[c] ?? '').length))) + 1 }))
+  table.header.map((_, c) => ({ wch: Math.min(60, Math.max(10, ...table.rows.map((r) => (r[c] ?? '').length))) + 1 }))
 
-/** .xlsx: один лист, все ячейки текстом (тип s), код ТН ВЭД не теряет нули. */
-export async function kedenGoodsXlsx(table: KedenTable): Promise<Blob> {
-  const XLSX = await loadXlsx()
-  const ws = XLSX.utils.aoa_to_sheet([table.header, ...table.rows].map((r) => r.map((v) => String(v))))
+/** Все ячейки листа — текстом (тип s): код ТН ВЭД не теряет нули. */
+function textSheet(XLSX: typeof import('xlsx'), rows: string[][], cols: { wch: number }[]) {
+  const ws = XLSX.utils.aoa_to_sheet(rows.map((r) => r.map((v) => String(v))))
   for (const addr of Object.keys(ws)) {
     if (addr[0] === '!') continue
     const c = ws[addr] as { t: string; v: unknown; w?: string; z?: string }
@@ -114,9 +131,20 @@ export async function kedenGoodsXlsx(table: KedenTable): Promise<Blob> {
     delete c.w
     delete c.z
   }
-  ws['!cols'] = widths(table)
+  ws['!cols'] = cols
+  return ws
+}
+
+/**
+ * .xlsx: лист «Товары» — только строки товаров, без заголовков (КЕДЕН читает первую строку как товар); лист «Схема» —
+ * «№ столбца — что в нём — тип в КЕДЕН» (подсказка для сопоставления; импорт читает первый лист).
+ */
+export async function kedenGoodsXlsx(table: KedenTable): Promise<Blob> {
+  const XLSX = await loadXlsx()
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Товары')
+  XLSX.utils.book_append_sheet(wb, textSheet(XLSX, table.rows, widths(table)), 'Товары')
+  const scheme = [['№ столбца', 'Что в нём', 'Тип в КЕДЕН'], ...KEDEN_GOODS_COLUMNS.map((c, i) => [String(i + 1), c.name, c.kedenType])]
+  XLSX.utils.book_append_sheet(wb, textSheet(XLSX, scheme, [{ wch: 11 }, { wch: 40 }, { wch: 56 }]), 'Схема')
   const bytes = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
   return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }

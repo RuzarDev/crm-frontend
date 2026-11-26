@@ -517,9 +517,9 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
       await vi.waitFor(() => expect(clip).toHaveBeenCalledTimes(1))
       const tsv = clip.mock.calls[0]![0] as string
       const lines = tsv.split('\n')
-      expect(lines).toHaveLength(3)
-      expect(lines[0]!.startsWith('Код ТН ВЭД\tПолное описание товара')).toBe(true)
-      expect(lines[1]!.split('\t').slice(0, 5)).toEqual(['8471300000', 'Товар 1', lines[1]!.split('\t')[2], '1234.5678', 'USD'])
+      expect(lines).toHaveLength(2)
+      expect(tsv).not.toContain('Код ТН ВЭД')
+      expect(lines[0]!.split('\t').slice(0, 5)).toEqual(['8471300000', 'Товар 1', lines[0]!.split('\t')[2], '1234.5678', 'USD'])
       await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith('Скопировано: 2 товаров'))
     })
 
