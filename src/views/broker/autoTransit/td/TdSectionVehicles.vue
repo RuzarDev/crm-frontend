@@ -12,7 +12,7 @@ import type { ZOption } from '@/ui/options'
 import { useRecordRefs } from '@/views/broker/transit/record/sections/refs'
 import SectionAddButton from '@/views/broker/transit/record/sections/SectionAddButton.vue'
 import { boxCtl, ctl, grid, ph, str } from '@/views/broker/transit/record/sections/ui'
-import { DEFAULT_TYPE, VEHICLE_PAIRS, applyVehiclePair, currentVehiclePair, newVehicle, removeVehicle, type AutoPart, type VehiclePair } from './tdModel'
+import { DEFAULT_TYPE, VEHICLE_PAIRS, applyVehiclePair, currentVehiclePair, firstHitch, newVehicle, removeVehicle, type AutoPart, type VehiclePair } from './tdModel'
 import { upperCode } from '../truck/truckView'
 
 // «Машины и водитель» ПИ / ТД (очередь 3, спека 2026-11-25, 4.3) — вместо ЖД-разделов «Транспорт» и «Пломбы».
@@ -39,7 +39,7 @@ const headOptions = computed<ZOption[]>(() => props.auto.vehicles.flatMap((v, i)
   : [])))
 
 /** Связка типов — только у сцепки: есть прицеп и головное ТС. */
-const showPairs = computed(() => props.auto.vehicles.some((v) => v.role === 'trailer') && props.auto.vehicles.some((v) => v.role !== 'trailer'))
+const showPairs = computed(() => firstHitch(props.auto.vehicles) !== null)
 const activePair = computed(() => currentVehiclePair(props.auto.vehicles))
 const pickPair = (pair: VehiclePair) => {
   if (props.readonly) return
@@ -137,7 +137,7 @@ const groupTitle = 'm-0 text-[13px] leading-5 font-semibold text-ink-2'
             <ZField :label="tr('role.label')">
               <ZSelect :value="v.role" :options="roleOptions" :disabled="readonly" :class="boxCtl" data-f="role" @update:value="setRole(v, $event)" />
             </ZField>
-            <ZField :label="tr('typeCode')" :extra="readonly ? undefined : tr('typeHint')">
+            <ZField :label="tr('typeCode')" :extra="readonly || v.typeCode ? undefined : tr('typeHint')">
               <ZSelect :value="v.typeCode" :options="typeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="typeCode" @update:value="v.typeCode = str($event)" />
             </ZField>
             <ZField :label="tr('regNumber')">

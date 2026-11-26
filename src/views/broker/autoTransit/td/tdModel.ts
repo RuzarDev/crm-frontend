@@ -94,16 +94,40 @@ export const VEHICLE_PAIRS = [
 ] as const
 export type VehiclePair = (typeof VEHICLE_PAIRS)[number]
 
-/** Ставит коды связки: головному ТС (не прицеп) и прицепам. Роли и остальные поля не меняются. */
-export function applyVehiclePair(list: AutoVehicle[], pair: VehiclePair): void {
-  for (const v of list) v.typeCode = v.role === 'trailer' ? pair.trailer : pair.head
+/** Индексы первой сцепки: головное ТС (не прицеп) и его прицепы (headIndex на него; прицеп без ссылки — к первому головному). */
+export function firstHitch(list: AutoVehicle[]): { head: number; trailers: number[] } | null {
+  const head = list.findIndex((v) => v.role !== 'trailer')
+  if (head < 0) return null
+  const trailers = list.flatMap((v, i) => (v.role === 'trailer' && (v.headIndex === head || v.headIndex == null) ? [i] : []))
+  return trailers.length ? { head, trailers } : null
 }
 
-/** Связка, коды которой стоят у всех машин списка (голова и прицепы); null — коды другие или пусты. */
-export function currentVehiclePair(list: AutoVehicle[]): VehiclePair | null {
-  if (!list.some((v) => v.role === 'trailer') || !list.some((v) => v.role !== 'trailer')) return null
-  return VEHICLE_PAIRS.find((p) => list.every((v) => v.typeCode === (v.role === 'trailer' ? p.trailer : p.head))) ?? null
+/**
+ * Ставит связку первой сцепке: головному ТС — роль tractor и код головного, прицепам — роль trailer, headIndex на головное ТС
+ * и код прицепа. Остальные машины списка не трогаются.
+ */
+export function applyVehiclePair(list: AutoVehicle[], pair: VehiclePair): void {
+  const hitch = firstHitch(list)
+  if (!hitch) return
+  const head = list[hitch.head]!
+  head.role = 'tractor'
+  head.typeCode = pair.head
+  head.headIndex = null
+  for (const i of hitch.trailers) {
+    const v = list[i]!
+    v.role = 'trailer'
+    v.typeCode = pair.trailer
+    v.headIndex = hitch.head
+  }
 }
+
+/** Связка, коды которой стоят у первой сцепки (голова и её прицепы); null — коды другие или пусты, или сцепки нет. */
+export function currentVehiclePair(list: AutoVehicle[]): VehiclePair | null {
+  const hitch = firstHitch(list)
+  if (!hitch) return null
+  return VEHICLE_PAIRS.find((p) => list[hitch.head]!.typeCode === p.head && hitch.trailers.every((i) => list[i]!.typeCode === p.trailer)) ?? null
+}
+
 /** VIN по умолчанию — «-» (так вносят в КЕДЕН, спека 4.3). */
 export const DEFAULT_VIN = '-'
 

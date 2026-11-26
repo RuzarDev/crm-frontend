@@ -24,6 +24,17 @@ describe('tdModel: связка типов ТС', () => {
     expect(currentVehiclePair(list)?.key).toBe('truckTrailer')
   })
 
+  it('связка ставит роли и headIndex первой сцепке, вторую сцепку не трогает', () => {
+    const list = [
+      { ...tractor({ typeCode: null }), role: 'truck' as const }, trailer({ typeCode: null, headIndex: null }),
+      tractor({ regNumber: '2', typeCode: '303' }), trailer({ regNumber: '3', typeCode: '312', headIndex: 2 }),
+    ]
+    applyVehiclePair(list, VEHICLE_PAIRS[0])
+    expect(list.map((v) => [v.role, v.typeCode, v.headIndex])).toEqual([
+      ['tractor', '307', null], ['trailer', '319', 0], ['tractor', '303', null], ['trailer', '312', 2],
+    ])
+  })
+
   it('одиночная машина без прицепа — связки нет', () => {
     expect(currentVehiclePair([{ ...tractor(), role: 'truck', typeCode: '303' }])).toBeNull()
   })
