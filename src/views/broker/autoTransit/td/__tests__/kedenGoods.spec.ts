@@ -104,10 +104,20 @@ describe('kedenGoodsCheck', () => {
     expect(r.warnings.map((w) => w.key)).toEqual(['codeNot10', 'totals'])
     expect(r.warnings[1]).toMatchObject({ totalsKey: 'places' })
   })
-  it('нет количества в доп. ед. — предупреждение, не ошибка', () => {
-    const r = kedenGoodsCheck(src([full({ quantity: null })]))
-    expect(r.errors).toEqual([])
-    expect(r.warnings.map((w) => w.key)).toEqual(['noQuantity'])
+  it('нет количества в доп. ед. — ошибка (КЕДЕН не загрузит товары), номера товаров в пункте', () => {
+    const r = kedenGoodsCheck(src([full(), full({ quantity: null }), full({ quantity: 0 })]))
+    expect(r.warnings).toEqual([])
+    expect(r.errors).toHaveLength(1)
+    expect(r.errors[0]).toMatchObject({ key: 'noQuantity', numbers: [2, 3] })
+    expect(r.errors[0]!.text).toContain('КЕДЕН не загрузит товары без количества')
+  })
+  it('валюта товара пуста — берётся валюта ТД; ошибка только если нет ни у товара, ни у ТД', () => {
+    const noCur = full({ currency: null })
+    expect(kedenGoodsRows(src([noCur], { transit: { docCurrencyCode: 'CNY' } })).rows[0]![4]).toBe('CNY')
+    expect(kedenGoodsRows(src([full({ currency: 'USD' })], { transit: { docCurrencyCode: 'CNY' } })).rows[0]![4]).toBe('USD')
+    expect(kedenGoodsCheck(src([noCur], { transit: { docCurrencyCode: 'CNY' } })).errors).toEqual([])
+    expect(kedenGoodsCheck(src([noCur], { transit: { docCurrencyCode: ' ' } })).errors.map((e) => e.key)).toEqual(['noCurrency'])
+    expect(kedenGoodsCheck(src([noCur])).errors.map((e) => e.key)).toEqual(['noCurrency'])
   })
   it('чистый набор — без ошибок и предупреждений', () => {
     expect(kedenGoodsCheck(src())).toEqual({ errors: [], warnings: [] })

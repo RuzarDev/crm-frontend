@@ -8,7 +8,10 @@ import { loadXlsx } from '@/utils/xlsx'
 import { totalsMismatch } from './tdModel'
 
 /** Что нужно от формы: товары, места и контейнеры партии. Подходит и RecordDraft, и сохранённая ТД (dataToDraft). */
-export type KedenGoodsSource = Pick<RecordDraft, 'goods' | 'packages' | 'containers'>
+export type KedenGoodsSource = Pick<RecordDraft, 'goods' | 'packages' | 'containers'> & {
+  /** Валюта ТД: подставляется товару без своей валюты. У сохранённой ТД и RecordDraft есть, в тестах может не быть. */
+  transit?: { docCurrencyCode?: string | null } | null
+}
 export interface KedenTable { header: string[]; rows: string[][] }
 
 /**
@@ -56,6 +59,9 @@ function single(values: (string | null | undefined)[]): string {
   return set.size === 1 ? [...set][0]! : ''
 }
 
+/** Валюта товара; пусто — валюта ТД (transit.docCurrencyCode); нет и её — пусто. */
+const currencyOf = (g: ReestrGoodsItemInput, draft: KedenGoodsSource): string => text(g.currency) || text(draft.transit?.docCurrencyCode)
+
 export function kedenGoodsRows(draft: KedenGoodsSource): KedenTable {
   const goods = Array.isArray(draft.goods) ? draft.goods : []
   // Вид упаковки и описание места у товара не хранятся: берём из «Упаковки» партии, когда оно одно; контейнер — тоже один.
@@ -66,7 +72,7 @@ export function kedenGoodsRows(draft: KedenGoodsSource): KedenTable {
     const places = typeof g.packagesCount === 'number' && Number.isFinite(g.packagesCount) ? g.packagesCount : 0
     const packed = places > 0
     return [
-      digits(g.tnvedCode), text(g.description), text(g.countryOfOrigin), num(g.customsValue), text(g.currency),
+      digits(g.tnvedCode), text(g.description), text(g.countryOfOrigin), num(g.customsValue), currencyOf(g, draft),
       num(g.grossWeightKg), num(g.netWeightKg), num(g.quantity), '0',
       num(g.packagesCount), packed ? '1' : '0', packed ? packageType : '', packed ? num(g.packagesCount) : '',
       packed ? packageText : '', container,
@@ -100,9 +106,9 @@ export function kedenGoodsCheck(draft: KedenGoodsSource, totals?: TotalsCheck | 
   add(errors, 'noDescription', pick((g) => blank(g.description)), 'Нет описания')
   add(errors, 'noGross', pick((g) => !(typeof g.grossWeightKg === 'number' && g.grossWeightKg > 0)), 'Нет массы брутто')
   add(errors, 'noValue', pick((g) => !(typeof g.customsValue === 'number' && g.customsValue > 0)), 'Нет стоимости')
-  add(errors, 'noCurrency', pick((g) => blank(g.currency)), 'Нет валюты')
+  add(errors, 'noQuantity', pick((g) => !(typeof g.quantity === 'number' && g.quantity > 0)), 'КЕДЕН не загрузит товары без количества')
+  add(errors, 'noCurrency', pick((g) => !currencyOf(g, draft)), 'Нет валюты')
   add(warnings, 'codeNot10', pick((g) => { const n = digits(g.tnvedCode).length; return n >= 6 && n < 10 }), 'Код ТН ВЭД короче 10 знаков')
-  add(warnings, 'noQuantity', pick((g) => !(typeof g.quantity === 'number' && g.quantity > 0)), 'КЕДЕН потребует количество, если у кода есть доп. единица; нет количества в доп. ед.')
   for (const r of totalsMismatch(totals, goods)) {
     const label = r.key === 'places' ? 'мест' : r.key === 'grossKg' ? 'брутто, кг' : 'стоимость'
     warnings.push({ key: 'totals', totalsKey: r.key, text: `Итоги товаров не сходятся с партией (${label}): по товарам ${r.goods}, в партии ${r.party}` })

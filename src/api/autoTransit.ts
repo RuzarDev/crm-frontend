@@ -229,7 +229,7 @@ export interface PublicTruckView {
 }
 
 /** Допустимые файлы (как на сервере) — для accept поля выбора файла. */
-export const UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.docx,.xlsx'
+export const UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.docx,.xlsx,.xls,.doc'
 /** Лимит одного файла модуля — 30 МБ (как на сервере: лимит «Авто-транзита», меньше общего лимита документов). */
 export const UPLOAD_MAX_BYTES = 30 * 1024 * 1024
 

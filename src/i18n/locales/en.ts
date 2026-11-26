@@ -1029,7 +1029,7 @@ export default {
           copyFailed: 'Could not copy to the clipboard. Download the Excel file.',
           xlsxFailed: 'Could not build the Excel file. Try again.',
           issue: {
-            noQuantity: 'KEDEN will require a quantity if the code has a supplementary unit; no quantity in the supplementary unit: goods {numbers}.',
+            noQuantity: 'KEDEN will not load goods without a quantity: goods {numbers}.',
             noGoods: 'The TD has no goods.',
             tooMany: '{n} goods: split the consignment — KEDEN imports up to {max} rows.',
             codeShort: 'HS code shorter than 6 digits: goods {numbers}.',
@@ -3953,6 +3953,8 @@ export default {
       goods: {
         add: 'Add item',
         fromExcel: 'From Excel',
+        workbookLoaded: '{n} goods loaded; filled from the packing list: gross {gross}, quantity {qty}',
+        workbookUnmatched: 'No match between invoice and packing list: {rows}',
         empty: 'No goods yet',
         noCode: 'No code',
         quantity: 'Qty',

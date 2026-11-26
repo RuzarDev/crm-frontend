@@ -172,7 +172,7 @@ describe('autoTransit: адреса файлов', () => {
     expect(publicZipUrl('tok')).toBe('/api/public/auto-transit/tok/all.zip')
   })
   it('допустимые файлы и лимит', () => {
-    expect(UPLOAD_ACCEPT.split(',')).toEqual(['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.docx', '.xlsx'])
+    expect(UPLOAD_ACCEPT.split(',')).toEqual(['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.docx', '.xlsx', '.xls', '.doc'])
     expect(UPLOAD_MAX_BYTES).toBe(30 * 1024 * 1024)
   })
 })
