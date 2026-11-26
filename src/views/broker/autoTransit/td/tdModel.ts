@@ -80,8 +80,30 @@ export interface AutoPart { vehicles: AutoVehicle[]; driver: AutoDriver }
 
 const DRIVER_KEYS = ['fullName', 'countryCode', 'docKindCode', 'docNumber', 'personalNumber'] as const
 const ROLES: AutoVehicleRole[] = ['tractor', 'trailer', 'truck']
-/** Тип ТС по классификатору 2024 по умолчанию: тягач 303, прицеп 312; одиночный грузовик — пусто [проверить код]. */
-export const DEFAULT_TYPE: Record<AutoVehicleRole, string | null> = { tractor: '303', trailer: '312', truck: null }
+/**
+ * Тип ТС по классификатору 2024 по умолчанию: только у одиночного грузовика — 303 (в ТД КЕДЕН так у всех одиночных машин).
+ * Сцепку молча не угадываем: связку выбирает декларант (VEHICLE_PAIRS), код тягача и прицепа без выбора пуст.
+ */
+export const DEFAULT_TYPE: Record<AutoVehicleRole, string | null> = { tractor: null, trailer: null, truck: '303' }
+
+/** Связки типов ТС сцепки: голова + прицеп (по выборке ТД КЕДЕН 26.11: 307+319 чаще всего). */
+export const VEHICLE_PAIRS = [
+  { key: 'tractorSemi', head: '307', trailer: '319' },
+  { key: 'truckTrailer', head: '303', trailer: '312' },
+  { key: 'truckSemi', head: '303', trailer: '319' },
+] as const
+export type VehiclePair = (typeof VEHICLE_PAIRS)[number]
+
+/** Ставит коды связки: головному ТС (не прицеп) и прицепам. Роли и остальные поля не меняются. */
+export function applyVehiclePair(list: AutoVehicle[], pair: VehiclePair): void {
+  for (const v of list) v.typeCode = v.role === 'trailer' ? pair.trailer : pair.head
+}
+
+/** Связка, коды которой стоят у всех машин списка (голова и прицепы); null — коды другие или пусты. */
+export function currentVehiclePair(list: AutoVehicle[]): VehiclePair | null {
+  if (!list.some((v) => v.role === 'trailer') || !list.some((v) => v.role !== 'trailer')) return null
+  return VEHICLE_PAIRS.find((p) => list.every((v) => v.typeCode === (v.role === 'trailer' ? p.trailer : p.head))) ?? null
+}
 /** VIN по умолчанию — «-» (так вносят в КЕДЕН, спека 4.3). */
 export const DEFAULT_VIN = '-'
 
@@ -110,7 +132,7 @@ export function autoToData(auto: AutoPart): { vehicles: AutoVehicle[]; driver: A
   return { vehicles: a.vehicles, driver: DRIVER_KEYS.every((k) => blank(a.driver[k])) ? null : a.driver }
 }
 
-/** Новая строка: тягач 303, прицеп 312 со ссылкой на первый тягач списка, грузовик без типа; VIN «-». */
+/** Новая строка: тип пуст у тягача и прицепа (выбирает декларант), грузовик 303; прицеп — со ссылкой на первый тягач списка; VIN «-». */
 export function newVehicle(role: AutoVehicleRole, list: AutoVehicle[]): AutoVehicle {
   const head = role === 'trailer' ? list.findIndex((v) => v.role === 'tractor') : -1
   return { role, typeCode: DEFAULT_TYPE[role], regNumber: null, countryCode: null, vin: DEFAULT_VIN, headIndex: head >= 0 ? head : null }
@@ -125,11 +147,11 @@ export function removeVehicle(list: AutoVehicle[], index: number): AutoVehicle[]
   })
 }
 
-/** Точка в меню: пусто — ни машин, ни водителя; заполнен — у машин номер и страна, у водителя ФИО и документ. */
+/** Точка в меню: пусто — ни машин, ни водителя; заполнен — у машин номер, страна и тип, у водителя ФИО и документ. */
 export function vehiclesState(auto: AutoPart): 'done' | 'warn' | 'empty' {
   const driverEmpty = DRIVER_KEYS.every((k) => blank(auto.driver[k]))
   if (!auto.vehicles.length && driverEmpty) return 'empty'
-  const vehiclesOk = auto.vehicles.length > 0 && auto.vehicles.every((v) => !blank(v.regNumber) && !blank(v.countryCode))
+  const vehiclesOk = auto.vehicles.length > 0 && auto.vehicles.every((v) => !blank(v.regNumber) && !blank(v.countryCode) && !blank(v.typeCode))
   const driverOk = !blank(auto.driver.fullName) && !blank(auto.driver.docNumber)
   return vehiclesOk && driverOk ? 'done' : 'warn'
 }

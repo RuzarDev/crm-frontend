@@ -21,6 +21,7 @@ vi.mock('@/api/clientsOnboarding', () => ({ clientsOnboardingApi: { list: vi.fn(
 
 import TruckPage from '../TruckPage.vue'
 import TruckEditModal from '../TruckEditModal.vue'
+import PartyModal from '../PartyModal.vue'
 import { confirmState } from '@/ui/confirm'
 import { useAuthStore } from '@/stores/auth'
 
@@ -150,6 +151,11 @@ describe('TruckPage: ПИ партии', () => {
     expect(api.updateParty).toHaveBeenCalledWith('t1', 'p1', { shortNumber: 'K-1', additionalInvoices: [{ number: 'INV-2', date: null }] })
   })
 
+  it('карточка партии: дата краткого номера стоит после номера', async () => {
+    await mountWith(card({ currentStage: 1, can: DECL, parties: [party('p1', 1, { shortNumber: 'K-77', shortNumberDate: '2026-09-29' })] }))
+    expect(w.get('[data-party-short]').text()).toBe('K-77 · 29.09.2026')
+  })
+
   it('пустая строка доп. инвойса — ошибка под строкой, запрос не уходит', async () => {
     await mountWith(card({ currentStage: 1, can: DECL, parties: [party('p1', 1, { additionalInvoices: [] })] }))
     await w.get('[data-party-edit]').trigger('click')
@@ -233,5 +239,24 @@ describe('TruckPage: въезд и «Что мешает»', () => {
     okIn('[data-truck-edit-modal]', 'Сохранить').click()
     await flushPromises()
     expect(save).toHaveBeenCalledWith({ expectedEntryAtUtc: new Date(2026, 10, 16, 17, 30).toISOString() })
+  })
+})
+
+describe('PartyModal: дата краткого номера', () => {
+  it('поле даты уходит изменённым как YYYY-MM-DD, прежняя дата без правки не отправляется', async () => {
+    const DateStub = { props: ['value', 'disabled'], emits: ['update:value'], template: '<input :value="value ?? \'\'" @input="$emit(\'update:value\', $event.target.value || null)" />' }
+    const save = vi.fn().mockResolvedValue({ ok: true })
+    w = mountWithI18n(PartyModal, {
+      attachTo: document.body,
+      props: { open: false, party: party('p1', 1, { shortNumber: 'K-77', shortNumberDate: '2026-09-29' }), save },
+      global: { plugins: [createPinia()], stubs: { ZDate: DateStub } },
+    })
+    await w.setProps({ open: true })
+    await flushPromises()
+    expect(($('[data-party-short-number-date]') as HTMLInputElement).value).toBe('2026-09-29')
+    setInput('[data-party-short-number-date]', '2026-10-01')
+    okIn('[data-party-modal]', 'Сохранить').click()
+    await flushPromises()
+    expect(save).toHaveBeenCalledWith({ shortNumberDate: '2026-10-01' })
   })
 })

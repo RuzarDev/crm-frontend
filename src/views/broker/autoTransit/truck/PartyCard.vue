@@ -78,6 +78,7 @@ const piText = computed(() => {
 const canPi = computed(() => props.rights.pi && !piSubmitted.value)
 const canPiUndo = computed(() => props.rights.pi && piSubmitted.value && !submitted.value)
 const shortNumber = computed(() => props.party.shortNumber?.trim() ?? '')
+const shortDate = computed(() => dateText(props.party.shortNumberDate ?? null))
 /**
  * «ТД подана» без краткого номера сервер отклоняет (409 short_number_required) — кнопка выключена с подсказкой.
  * Старый сервер поля не шлёт (undefined) — не блокируем: проверит сервер.
@@ -161,7 +162,7 @@ const missingUploadable = (code: string) => props.rights.upload && !!MISSING_UPL
       </div>
       <div v-if="shortNumber" class="min-w-0">
         <dt class="text-xs leading-4 text-muted">{{ t(`${P}.shortNumber`) }}</dt>
-        <dd class="m-0 truncate font-mono text-[13px] text-ink" data-party-short>{{ shortNumber }}</dd>
+        <dd class="m-0 truncate font-mono text-[13px] text-ink" data-party-short>{{ shortNumber }}<template v-if="shortDate"> · {{ shortDate }}</template></dd>
       </div>
     </dl>
 

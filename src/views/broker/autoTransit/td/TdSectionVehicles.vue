@@ -12,11 +12,11 @@ import type { ZOption } from '@/ui/options'
 import { useRecordRefs } from '@/views/broker/transit/record/sections/refs'
 import SectionAddButton from '@/views/broker/transit/record/sections/SectionAddButton.vue'
 import { boxCtl, ctl, grid, ph, str } from '@/views/broker/transit/record/sections/ui'
-import { DEFAULT_TYPE, newVehicle, removeVehicle, type AutoPart } from './tdModel'
+import { DEFAULT_TYPE, VEHICLE_PAIRS, applyVehiclePair, currentVehiclePair, newVehicle, removeVehicle, type AutoPart, type VehiclePair } from './tdModel'
 import { upperCode } from '../truck/truckView'
 
 // «Машины и водитель» ПИ / ТД (очередь 3, спека 2026-11-25, 4.3) — вместо ЖД-разделов «Транспорт» и «Пломбы».
-// Машины: тягач / прицеп / грузовик, тип по классификатору 2024 (тягач 303, прицеп 312), госномер, страна (две буквы),
+// Машины: тягач / прицеп / грузовик, тип по классификатору 2024 (связка сцепки выбирается кнопкой, одиночный грузовик 303), госномер, страна (две буквы),
 // VIN (по умолчанию «-»), у прицепа — к какому тягачу. Водитель: ФИО, страна, вид и номер документа, личный номер.
 // Правит auto на месте (useTd держит снимок и dirty). Данные водителя — персональные: не логируем.
 const props = defineProps<{ auto: AutoPart; readonly: boolean }>()
@@ -38,6 +38,14 @@ const headOptions = computed<ZOption[]>(() => props.auto.vehicles.flatMap((v, i)
   ? [{ value: String(i), label: tr('headOption', { n: i + 1, plate: v.regNumber?.trim() || '—' }) }]
   : [])))
 
+/** Связка типов — только у сцепки: есть прицеп и головное ТС. */
+const showPairs = computed(() => props.auto.vehicles.some((v) => v.role === 'trailer') && props.auto.vehicles.some((v) => v.role !== 'trailer'))
+const activePair = computed(() => currentVehiclePair(props.auto.vehicles))
+const pickPair = (pair: VehiclePair) => {
+  if (props.readonly) return
+  applyVehiclePair(props.auto.vehicles, pair)
+}
+
 const add = (role: AutoVehicleRole) => {
   if (props.readonly) return
   props.auto.vehicles.push(newVehicle(role, props.auto.vehicles))
@@ -46,7 +54,7 @@ const remove = (index: number) => {
   if (props.readonly) return
   props.auto.vehicles.splice(0, props.auto.vehicles.length, ...removeVehicle(props.auto.vehicles, index))
 }
-/** Смена роли: тип по умолчанию прежней роли меняется на тип новой; ссылка на тягач — только у прицепа. */
+/** Смена роли: тип по умолчанию прежней роли меняется на тип новой (303 есть только у одиночного грузовика); ссылка на тягач — только у прицепа. */
 const setRole = (v: AutoVehicle, raw: unknown) => {
   const role = ROLES.includes(raw as AutoVehicleRole) ? (raw as AutoVehicleRole) : v.role
   if (role === v.role) return
@@ -89,6 +97,22 @@ const groupTitle = 'm-0 text-[13px] leading-5 font-semibold text-ink-2'
 
     <div role="group" aria-labelledby="td-vehicles-g-list" class="flex min-w-0 flex-col gap-3" data-vehicles-list>
       <h3 id="td-vehicles-g-list" :class="groupTitle">{{ tr('groupVehicles') }}</h3>
+      <div v-if="showPairs" role="group" :aria-label="tr('pairLabel')" class="flex min-w-0 flex-col gap-1.5" data-vehicle-pairs>
+        <span class="text-xs leading-4 text-muted">{{ tr('pairLabel') }}</span>
+        <div class="flex min-w-0 flex-wrap gap-1.5">
+          <button
+            v-for="p in VEHICLE_PAIRS"
+            :key="p.key"
+            type="button"
+            :disabled="readonly"
+            :aria-pressed="activePair?.key === p.key"
+            :data-vehicle-pair="p.key"
+            :data-active="activePair?.key === p.key ? 'true' : undefined"
+            class="inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-field border-0 bg-surface px-2.5 text-left text-[13px] leading-5 text-ink shadow-[inset_0_0_0_1px_var(--color-line-strong)] outline-hidden transition-colors hover:bg-sunken focus-visible:shadow-focus disabled:cursor-default disabled:opacity-60 aria-pressed:bg-sunken aria-pressed:font-semibold aria-pressed:shadow-[inset_0_0_0_2px_var(--color-ink)] max-sm:min-h-11"
+            @click="pickPair(p)"
+          >{{ tr(`pair.${p.key}`, { head: p.head, trailer: p.trailer }) }}</button>
+        </div>
+      </div>
       <p v-if="!auto.vehicles.length" class="m-0 text-sm text-ink-3" data-vehicles-empty>{{ tr('empty') }}</p>
       <ul v-else role="list" class="m-0 flex list-none flex-col gap-2.5 p-0">
         <li
