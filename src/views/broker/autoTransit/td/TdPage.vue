@@ -518,7 +518,7 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
             <SectionCarriers :draft="draft" :readonly="readOnly" />
             <TdSectionVehicles :auto="auto" :readonly="readOnly" />
             <SectionSeals :draft="draft" :readonly="readOnly" />
-            <SectionGoods :draft="draft" :readonly="readOnly" />
+            <SectionGoods :draft="draft" :readonly="readOnly" workbook />
             <SectionDoc44 :draft="draft" :readonly="readOnly" />
             <SectionPackaging :draft="draft" :readonly="readOnly" />
             <SectionPreceding :draft="draft" :readonly="readOnly" />

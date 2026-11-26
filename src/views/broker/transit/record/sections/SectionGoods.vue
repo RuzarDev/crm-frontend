@@ -10,6 +10,7 @@ import { goodsTotals, type RecordDraft } from '../recordModel'
 import GoodsCard from './GoodsCard.vue'
 import { formatKg, formatQty, formatValue, goodsHasData, newGoodsItem, provideTnvedCheck } from './goods'
 import { GOODS_EXCEL_ACCEPT, GOODS_EXCEL_MESSAGES, isExcelFileName, readGoodsExcel } from '@/utils/goodsExcel'
+import { readGoodsWorkbook } from '@/views/broker/autoTransit/td/goodsWorkbook'
 import RecordSection from './RecordSection.vue'
 import SectionAddButton from './SectionAddButton.vue'
 
@@ -18,7 +19,8 @@ import SectionAddButton from './SectionAddButton.vue'
 // Товары пишутся прямо в draft.goods. Итоги записи («Основное») пишет useTransitRecord — здесь только показ.
 // Развёрнутость — по стабильному ключу товара (WeakMap по объекту), не по индексу: при открытии записи
 // развёрнута первая карточка, добавленная кнопкой — тоже; строки из Excel приходят свёрнутыми.
-const props = defineProps<{ draft: RecordDraft; readonly: boolean }>()
+// workbook — «Из Excel» читает книгу «инвойс + упаковочный» (все листы, валюта; авто-транзит). По умолчанию выключен.
+const props = defineProps<{ draft: RecordDraft; readonly: boolean; workbook?: boolean }>()
 const { t, locale } = useI18n()
 const tr = (key: string, p?: Record<string, unknown>) => t(`broker.transitRecord.goods.${key}`, p ?? {})
 const { confirm } = useConfirm()
@@ -92,6 +94,23 @@ const onFile = async (e: Event) => {
   }
   excelBusy.value = true
   try {
+    if (props.workbook) {
+      const book = await readGoodsWorkbook(file)
+      if ('problem' in book) {
+        message.warning(t(GOODS_EXCEL_MESSAGES[book.problem]))
+        return
+      }
+      props.draft.goods.push(...book.goods)
+      const r = book.report
+      message.success(r.packingSheet
+        ? tr('workbookLoaded', { n: book.goods.length, gross: r.gross, qty: r.quantity })
+        : t('dt.zagruzhenoTovarov', { n: book.goods.length }))
+      if (r.unmatched.length) {
+        const shown = r.unmatched.slice(0, 5).join('; ') + (r.unmatched.length > 5 ? ` … (${r.unmatched.length})` : '')
+        message.warning(tr('workbookUnmatched', { rows: shown }))
+      }
+      return
+    }
     const result = await readGoodsExcel(file)
     if ('problem' in result) {
       message.warning(t(GOODS_EXCEL_MESSAGES[result.problem]))

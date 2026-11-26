@@ -25,7 +25,7 @@ export const fullData = (o: Partial<DeclarationData> = {}): DeclarationData => {
 
 /** n товаров с дробными брутто и стоимостью (точность decimal 18,4). */
 export const manyGoods = (n: number) => Array.from({ length: n }, (_, i) => good({
-  tnvedCode: String(8471300000 + i), description: `Товар ${i + 1}`, packagesCount: i + 1,
+  tnvedCode: String(8471300000 + i), description: `Товар ${i + 1}`, packagesCount: i + 1, quantity: i + 1,
   grossWeightKg: 10.1234 + i, customsValue: 1234.5678 + i, currency: 'USD',
 }))
 
