@@ -88,6 +88,8 @@ export interface Party {
   piSubmittedAtUtc?: string | null
   /** Краткий номер от СВХ (до 32): без него «ТД подана» — 409 short_number_required. */
   shortNumber?: string | null
+  /** Дата краткого номера, YYYY-MM-DD (предшествующий документ 09026); необязательна. */
+  shortNumberDate?: string | null
   /** Ещё инвойсы того же отправителя и получателя; основной — invoiceNumber/invoiceDate. */
   additionalInvoices?: PartyInvoice[]
 }

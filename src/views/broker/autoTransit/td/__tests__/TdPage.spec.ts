@@ -331,17 +331,37 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     expect(body.data.transportMeans).toEqual(data.transportMeans)
   })
 
-  it('добавить прицеп — тип 312 и ссылка на тягач; удалить тягач — ссылка снимается', async () => {
+  it('добавить прицеп — тип пуст (связку выбирает декларант), ссылка на тягач; удалить тягач — ссылка снимается', async () => {
     await open(response({ data: { ...fullData(), vehicles: [vehicles[0]] } as never }))
     await w.get('[data-vehicle-add="trailer"]').trigger('click')
     let cards = w.findAll('[data-vehicle]')
-    expect(cards[1]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('312')
+    expect(cards[1]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('')
     expect(cards[1]!.get('[data-f="vin"] input, input[data-f="vin"]').exists()).toBe(true)
     expect(cards[1]!.get('[data-f="headIndex"]').attributes('data-value')).toBe('0')
     await cards[0]!.get('[data-vehicle-delete]').trigger('click')
     cards = w.findAll('[data-vehicle]')
     expect(cards).toHaveLength(1)
     expect(cards[0]!.get('[data-f="headIndex"]').attributes('data-value')).toBe('')
+  })
+
+  it('сцепка: кнопка связки ставит коды обоим ТС и подсвечивается; у одиночной машины кнопок нет', async () => {
+    const bare = vehicles.map((v) => ({ ...v, typeCode: null }))
+    await open(response({ data: { ...fullData(), vehicles: bare, driver } as never }))
+    expect(w.findAll('[data-vehicle-pair]')).toHaveLength(3)
+    expect(w.find('[data-vehicle-pair][data-active]').exists()).toBe(false)
+    const btn = w.get('[data-vehicle-pair="tractorSemi"]')
+    expect(text(btn.text())).toBe('Тягач + полуприцеп (307 + 319)')
+    await btn.trigger('click')
+    const cards = w.findAll('[data-vehicle]')
+    expect(cards[0]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('307')
+    expect(cards[1]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('319')
+    expect(w.get('[data-vehicle-pair="tractorSemi"]').attributes('data-active')).toBe('true')
+    await w.get('[data-vehicle-pair="truckTrailer"]').trigger('click')
+    expect(cards[1]!.get('[data-f="typeCode"]').attributes('data-value')).toBe('312')
+    expect(w.get('[data-vehicle-pair="tractorSemi"]').attributes('data-active')).toBeUndefined()
+    w.unmount()
+    await open(response({ data: { ...fullData(), vehicles: [{ ...vehicles[0]!, role: 'truck' }], driver } as never }))
+    expect(w.find('[data-vehicle-pairs]').exists()).toBe(false)
   })
 
   it('старая ТД без машин и водителя открывается: пусто, без ошибок', async () => {

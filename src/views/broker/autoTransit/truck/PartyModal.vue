@@ -39,7 +39,7 @@ type Draft = {
   shipperName: string; shipperCountry: string; invoiceNumber: string; invoiceDate: string | null
   places: number | null; grossKg: number | null; value: number | null; currency: string
   destinationCountry: string; destinationOfficeCode: string
-  piNumber: string; shortNumber: string
+  piNumber: string; shortNumber: string; shortNumberDate: string | null
 }
 const fromParty = (p: Party | null): Draft => ({
   clientId: p?.clientId ?? null,
@@ -49,7 +49,7 @@ const fromParty = (p: Party | null): Draft => ({
   invoiceNumber: p?.invoiceNumber ?? '', invoiceDate: p?.invoiceDate ?? null,
   places: p ? p.places || null : null, grossKg: p ? p.grossKg || null : null, value: p ? p.value || null : null, currency: p?.currency ?? '',
   destinationCountry: p?.destinationCountry ?? '', destinationOfficeCode: p?.destinationOfficeCode ?? '',
-  piNumber: p?.piNumber ?? '', shortNumber: p?.shortNumber ?? '',
+  piNumber: p?.piNumber ?? '', shortNumber: p?.shortNumber ?? '', shortNumberDate: p?.shortNumberDate ?? null,
 })
 const invoicesOf = (p: Party | null): PartyInvoice[] => (p?.additionalInvoices ?? []).map((x) => ({ number: x.number ?? '', date: x.date ?? null }))
 const invoices = ref<PartyInvoice[]>([])
@@ -239,6 +239,9 @@ const section = 'col-span-full m-0 mt-2 text-xs font-semibold tracking-[0.02em] 
       </ZField>
       <ZField :label="t(`${F}.shortNumber`)" :error="errors.shortNumber" :extra="t(`${F}.shortNumberHint`)">
         <ZInput v-model:value="draft.shortNumber" mono :maxlength="32" data-party-short-number />
+      </ZField>
+      <ZField :label="t(`${F}.shortNumberDate`)" :error="errors.shortNumberDate" :extra="t(`${F}.shortNumberDateHint`)">
+        <ZDate v-model:value="draft.shortNumberDate" allow-clear data-party-short-number-date />
       </ZField>
 
       <h3 :class="section">{{ t(`${F}.sectionDestination`) }}</h3>

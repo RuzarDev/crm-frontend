@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AutoVehicle } from '@/api/autoTransit'
 import {
   autoToData, dataExtras, dataToAuto, dataToDraft, draftToData, missingLabel, missingSection, missingTarget, newVehicle,
-  removeVehicle, totalsMismatch, vehiclesState,
+  removeVehicle, totalsMismatch, vehiclesState, applyVehiclePair, currentVehiclePair, firstHitch, VEHICLE_PAIRS,
 } from '../tdModel'
 import { fullData, manyGoods } from './tdFixture'
 
@@ -10,6 +10,48 @@ import { fullData, manyGoods } from './tdFixture'
 const tractor = (o: Partial<AutoVehicle> = {}): AutoVehicle => ({ role: 'tractor', typeCode: '303', regNumber: '123ASD12', countryCode: 'KZ', vin: '-', headIndex: null, ...o })
 const trailer = (o: Partial<AutoVehicle> = {}): AutoVehicle => ({ role: 'trailer', typeCode: '312', regNumber: '12DS12', countryCode: 'KZ', vin: '-', headIndex: 0, ...o })
 const driver = { fullName: 'ТЕСТОВ ТЕСТ', countryCode: 'KZ', docKindCode: '10022', docNumber: 'N0000001', personalNumber: '900101300000' }
+
+describe('tdModel: связка типов ТС', () => {
+  it('связка ставит коды голове и прицепу; подсветка — когда коды совпадают с одной из связок', () => {
+    const list = [tractor({ typeCode: null }), trailer({ typeCode: null })]
+    expect(currentVehiclePair(list)).toBeNull()
+    applyVehiclePair(list, VEHICLE_PAIRS[0])
+    expect(list.map((v) => v.typeCode)).toEqual(['307', '319'])
+    expect(currentVehiclePair(list)?.key).toBe('tractorSemi')
+    list[1]!.typeCode = '312'
+    expect(currentVehiclePair(list)).toBeNull()
+    applyVehiclePair(list, VEHICLE_PAIRS[1])
+    expect(currentVehiclePair(list)?.key).toBe('truckTrailer')
+  })
+
+  it('связка ставит роли и headIndex первой сцепке, вторую сцепку не трогает', () => {
+    const list = [
+      { ...tractor({ typeCode: null }), role: 'truck' as const }, trailer({ typeCode: null, headIndex: null }),
+      tractor({ regNumber: '2', typeCode: '303' }), trailer({ regNumber: '3', typeCode: '312', headIndex: 2 }),
+    ]
+    applyVehiclePair(list, VEHICLE_PAIRS[0])
+    expect(list.map((v) => [v.role, v.typeCode, v.headIndex])).toEqual([
+      ['tractor', '307', null], ['trailer', '319', 0], ['tractor', '303', null], ['trailer', '312', 2],
+    ])
+  })
+
+  it('[тягач A, тягач B, прицеп → B]: связка ставится сцепке B, тягач A не трогается', () => {
+    const list = [tractor({ regNumber: 'A', typeCode: null }), tractor({ regNumber: 'B', typeCode: null }), trailer({ regNumber: 'T', typeCode: null, headIndex: 1 })]
+    expect(firstHitch(list)).toEqual({ head: 1, trailers: [2] })
+    applyVehiclePair(list, VEHICLE_PAIRS[0])
+    expect(list.map((v) => [v.typeCode, v.headIndex])).toEqual([[null, null], ['307', null], ['319', 1]])
+    expect(currentVehiclePair(list)?.key).toBe('tractorSemi')
+  })
+
+  it('одиночная машина без прицепа — связки нет', () => {
+    expect(currentVehiclePair([{ ...tractor(), role: 'truck', typeCode: '303' }])).toBeNull()
+  })
+
+  it('пустой код типа — машины в меню «Не заполнено» (warn)', () => {
+    expect(vehiclesState({ vehicles: [tractor({ typeCode: null })], driver })).toBe('warn')
+    expect(vehiclesState({ vehicles: [tractor()], driver })).toBe('done')
+  })
+})
 
 describe('tdModel: машины и водитель', () => {
   it('старая ТД без vehicles/driver — пустой список и пустой водитель', () => {
@@ -41,11 +83,11 @@ describe('tdModel: машины и водитель', () => {
     expect(auto.vehicles[0]).toEqual({ role: 'truck', typeCode: null, regNumber: 'A1', countryCode: null, vin: null, headIndex: null })
   })
 
-  it('новые строки: тягач 303, прицеп 312 со ссылкой на тягач, грузовик без типа; VIN «-»', () => {
-    expect(newVehicle('tractor', [])).toEqual({ role: 'tractor', typeCode: '303', regNumber: null, countryCode: null, vin: '-', headIndex: null })
-    expect(newVehicle('trailer', [tractor()])).toEqual({ role: 'trailer', typeCode: '312', regNumber: null, countryCode: null, vin: '-', headIndex: 0 })
+  it('новые строки: тягач и прицеп без типа (выбирает декларант), прицеп со ссылкой на тягач, грузовик 303; VIN «-»', () => {
+    expect(newVehicle('tractor', [])).toEqual({ role: 'tractor', typeCode: null, regNumber: null, countryCode: null, vin: '-', headIndex: null })
+    expect(newVehicle('trailer', [tractor()])).toEqual({ role: 'trailer', typeCode: null, regNumber: null, countryCode: null, vin: '-', headIndex: 0 })
     expect(newVehicle('trailer', [])).toMatchObject({ headIndex: null })
-    expect(newVehicle('truck', [])).toEqual({ role: 'truck', typeCode: null, regNumber: null, countryCode: null, vin: '-', headIndex: null })
+    expect(newVehicle('truck', [])).toEqual({ role: 'truck', typeCode: '303', regNumber: null, countryCode: null, vin: '-', headIndex: null })
   })
 
   it('удаление тягача снимает ссылку прицепа, ссылки на следующие сдвигаются', () => {

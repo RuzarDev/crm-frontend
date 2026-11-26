@@ -80,8 +80,60 @@ export interface AutoPart { vehicles: AutoVehicle[]; driver: AutoDriver }
 
 const DRIVER_KEYS = ['fullName', 'countryCode', 'docKindCode', 'docNumber', 'personalNumber'] as const
 const ROLES: AutoVehicleRole[] = ['tractor', 'trailer', 'truck']
-/** Тип ТС по классификатору 2024 по умолчанию: тягач 303, прицеп 312; одиночный грузовик — пусто [проверить код]. */
-export const DEFAULT_TYPE: Record<AutoVehicleRole, string | null> = { tractor: '303', trailer: '312', truck: null }
+/**
+ * Тип ТС по классификатору 2024 по умолчанию: только у одиночного грузовика — 303 (в ТД КЕДЕН так у всех одиночных машин).
+ * Сцепку молча не угадываем: связку выбирает декларант (VEHICLE_PAIRS), код тягача и прицепа без выбора пуст.
+ */
+export const DEFAULT_TYPE: Record<AutoVehicleRole, string | null> = { tractor: null, trailer: null, truck: '303' }
+
+/** Связки типов ТС сцепки: голова + прицеп (по выборке ТД КЕДЕН 26.11: 307+319 чаще всего). */
+export const VEHICLE_PAIRS = [
+  { key: 'tractorSemi', head: '307', trailer: '319' },
+  { key: 'truckTrailer', head: '303', trailer: '312' },
+  { key: 'truckSemi', head: '303', trailer: '319' },
+] as const
+export type VehiclePair = (typeof VEHICLE_PAIRS)[number]
+
+/**
+ * Первая сцепка: первое головное ТС (не прицеп), у которого есть прицеп, и его прицепы. Прицеп привязан к головному через headIndex;
+ * прицеп без ссылки считается прицепом первого головного ТС списка.
+ */
+export function firstHitch(list: AutoVehicle[]): { head: number; trailers: number[] } | null {
+  const firstHead = list.findIndex((v) => v.role !== 'trailer')
+  for (let head = 0; head < list.length; head++) {
+    if (list[head]!.role === 'trailer') continue
+    const trailers = list.flatMap((v, i) => (v.role === 'trailer' && (v.headIndex === head || (v.headIndex == null && head === firstHead)) ? [i] : []))
+    if (trailers.length) return { head, trailers }
+  }
+  return null
+}
+
+/**
+ * Ставит связку первой сцепке: головному ТС — роль tractor и код головного, прицепам — роль trailer, headIndex на головное ТС
+ * и код прицепа. Остальные машины списка не трогаются.
+ */
+export function applyVehiclePair(list: AutoVehicle[], pair: VehiclePair): void {
+  const hitch = firstHitch(list)
+  if (!hitch) return
+  const head = list[hitch.head]!
+  head.role = 'tractor'
+  head.typeCode = pair.head
+  head.headIndex = null
+  for (const i of hitch.trailers) {
+    const v = list[i]!
+    v.role = 'trailer'
+    v.typeCode = pair.trailer
+    v.headIndex = hitch.head
+  }
+}
+
+/** Связка, коды которой стоят у первой сцепки (голова и её прицепы); null — коды другие или пусты, или сцепки нет. */
+export function currentVehiclePair(list: AutoVehicle[]): VehiclePair | null {
+  const hitch = firstHitch(list)
+  if (!hitch) return null
+  return VEHICLE_PAIRS.find((p) => list[hitch.head]!.typeCode === p.head && hitch.trailers.every((i) => list[i]!.typeCode === p.trailer)) ?? null
+}
+
 /** VIN по умолчанию — «-» (так вносят в КЕДЕН, спека 4.3). */
 export const DEFAULT_VIN = '-'
 
@@ -110,7 +162,7 @@ export function autoToData(auto: AutoPart): { vehicles: AutoVehicle[]; driver: A
   return { vehicles: a.vehicles, driver: DRIVER_KEYS.every((k) => blank(a.driver[k])) ? null : a.driver }
 }
 
-/** Новая строка: тягач 303, прицеп 312 со ссылкой на первый тягач списка, грузовик без типа; VIN «-». */
+/** Новая строка: тип пуст у тягача и прицепа (выбирает декларант), грузовик 303; прицеп — со ссылкой на первый тягач списка; VIN «-». */
 export function newVehicle(role: AutoVehicleRole, list: AutoVehicle[]): AutoVehicle {
   const head = role === 'trailer' ? list.findIndex((v) => v.role === 'tractor') : -1
   return { role, typeCode: DEFAULT_TYPE[role], regNumber: null, countryCode: null, vin: DEFAULT_VIN, headIndex: head >= 0 ? head : null }
@@ -125,11 +177,11 @@ export function removeVehicle(list: AutoVehicle[], index: number): AutoVehicle[]
   })
 }
 
-/** Точка в меню: пусто — ни машин, ни водителя; заполнен — у машин номер и страна, у водителя ФИО и документ. */
+/** Точка в меню: пусто — ни машин, ни водителя; заполнен — у машин номер, страна и тип, у водителя ФИО и документ. */
 export function vehiclesState(auto: AutoPart): 'done' | 'warn' | 'empty' {
   const driverEmpty = DRIVER_KEYS.every((k) => blank(auto.driver[k]))
   if (!auto.vehicles.length && driverEmpty) return 'empty'
-  const vehiclesOk = auto.vehicles.length > 0 && auto.vehicles.every((v) => !blank(v.regNumber) && !blank(v.countryCode))
+  const vehiclesOk = auto.vehicles.length > 0 && auto.vehicles.every((v) => !blank(v.regNumber) && !blank(v.countryCode) && !blank(v.typeCode))
   const driverOk = !blank(auto.driver.fullName) && !blank(auto.driver.docNumber)
   return vehiclesOk && driverOk ? 'done' : 'warn'
 }
