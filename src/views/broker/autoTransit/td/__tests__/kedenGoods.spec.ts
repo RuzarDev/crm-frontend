@@ -6,7 +6,7 @@ const full = (o: Partial<Parameters<typeof good>[0]> = {}) => good({
   tnvedCode: '0101210000', description: 'Лошади', countryOfOrigin: 'DE', quantity: 2, unitCode: '796', grossWeightKg: 0.125, netWeightKg: 0.1,
   packagesCount: 3, customsValue: 1234.5, currency: 'USD', ...o,
 })
-const src = (goods = [full()], o: Partial<KedenGoodsSource> = {}): KedenGoodsSource => ({ goods, packages: [], containers: [], ...o })
+const src = (goods = [full()], o: Partial<KedenGoodsSource> = {}): KedenGoodsSource => ({ goods, packages: [{ packagingInfoKindCode: null, packageTypeCode: 'PK', packageCount: null, description: null }], containers: [], ...o })
 
 describe('kedenGoodsRows', () => {
   it('подписи столбцов в заданном порядке (для «Схемы» и окна), нет «Кода доп. ед.»', () => {
@@ -22,7 +22,7 @@ describe('kedenGoodsRows', () => {
 
   it('числа без округления, места → наличие упаковки и количество упаковок', () => {
     const [row] = kedenGoodsRows(src()).rows
-    expect(row).toEqual(['0101210000', 'Лошади', 'DE', '1234.5', 'USD', '0.125', '0.1', '2', '0', '3', '1', '', '3', '', ''])
+    expect(row).toEqual(['0101210000', 'Лошади', 'DE', '1234.5', 'USD', '0.125', '0.1', '2', '0', '3', '1', 'PK', '3', '', ''])
   })
 
   it('нет мест — упаковки 0, пустые ячейки; код — только цифры', () => {
@@ -130,3 +130,14 @@ describe('kedenGoodsFileName', () => {
     expect(kedenGoodsFileName(null, null)).toBe('Товары-КЕДЕН.xlsx')
   })
 })
+
+describe('kedenGoodsCheck: вид упаковки (проверка импорта ПИ 26.11)', () => {
+  it('нет «Упаковки» у товаров с местами — ошибка noPackageKind', () => {
+    const r = kedenGoodsCheck(src([full()], { packages: [] }))
+    expect(r.errors.map((e) => e.key)).toContain('noPackageKind')
+  })
+  it('один вид в «Упаковке» — ошибки нет', () => {
+    expect(kedenGoodsCheck(src()).errors.map((e) => e.key)).not.toContain('noPackageKind')
+  })
+})
+
