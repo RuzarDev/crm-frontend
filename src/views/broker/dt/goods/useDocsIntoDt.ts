@@ -11,6 +11,7 @@ import { import40Api, type Import40CaseDto, type Import40DeclarationDto, type Im
 import { message } from '@/ui/message'
 import { formatMoney } from '@/ui/number'
 import { extractionRefusalText } from '@/utils/uploadLimits'
+import { historyHsCount } from '@/utils/historyHs'
 import { prepareDocumentsDeclaration, type DocumentsDeclaration } from '@/views/broker/case/steps/documentsImport'
 import { cmrInBatch, documentsNoteText, loadDocKindNames, loadPackageKinds, readExcelDocs } from '@/views/broker/case/steps/documentsSources'
 import type { DtFormState } from '../dtPayload'
@@ -134,6 +135,8 @@ export function useDocsIntoDt(o: UseDocsIntoDtOptions) {
     const notes = pd.prepared.notes.filter((n) => !party[n.key] || p.header.groups.includes(party[n.key])).map((n) => documentsNoteText(n, t))
     return [...own, ...notes, ...pd.result.warnings]
   })
+  /** Сколько позиций разбора получили код из истории клиента (26.11.2026): в сводке — «проверьте». */
+  const historyHs = computed(() => historyHsCount(pending.value?.result))
   const extractionConflicts = computed(() => pending.value?.result.conflicts ?? [])
   /** Замечания важности error (04.11.2026): в сводке — отдельным заметным блоком. */
   const criticalRemarks = computed(() => pending.value?.result.criticalWarnings ?? [])
@@ -182,7 +185,7 @@ export function useDocsIntoDt(o: UseDocsIntoDtOptions) {
   }
 
   return {
-    pickOpen, summaryOpen, loadingFiles, busy, files, defaults, plan, mode, setMode, remarks, criticalRemarks, extractionConflicts, open, submit,
+    pickOpen, summaryOpen, loadingFiles, busy, files, defaults, plan, mode, setMode, remarks, criticalRemarks, historyHs, extractionConflicts, open, submit,
     apply, close,
   }
 }

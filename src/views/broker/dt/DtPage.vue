@@ -1236,6 +1236,7 @@ onBeforeUnmount(() => wideQuery?.removeEventListener?.('change', onWideChange))
           :plan="docsInto.plan.value"
           :remarks="docsInto.remarks.value"
           :critical="docsInto.criticalRemarks.value"
+          :history-hs="docsInto.historyHs.value"
           :conflicts="docsInto.extractionConflicts.value"
           :mode="docsInto.mode.value"
           :existing-goods="form.goodsItems.length"
