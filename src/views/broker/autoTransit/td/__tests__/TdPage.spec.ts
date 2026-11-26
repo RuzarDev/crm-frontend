@@ -81,11 +81,12 @@ describe('TdPage', () => {
     expect(head).toContain('ТОО «Получатель 1»')
     expect(w.get('[data-td-back]').attributes('href')).toBe('/auto-transit/t1')
     expect(w.findAll('[data-td-sections] > section').map((s) => s.attributes('data-record-section'))).toEqual([
-      'main', 'organizations', 'carriers', 'vehicles', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc',
+      'main', 'organizations', 'carriers', 'vehicles', 'seals', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc',
     ])
-    // ЖД-раздел «Транспорт» и «Пломбы» на странице ПИ не показываются.
+    // ЖД-раздел «Транспорт» на странице ПИ не показывается; «Пломбы» — показываются и есть в меню.
     expect(has('[data-record-section="transport"]')).toBe(false)
-    expect(has('[data-record-section="seals"]')).toBe(false)
+    expect(has('[data-record-section="seals"]')).toBe(true)
+    expect(has('[data-nav-item="seals"]')).toBe(true)
     expect(text(w.get('h1').text())).toBe('ПИ / ТД')
     expect(has('[data-record-section="row"]')).toBe(false)
     expect(has('[data-f="post"]')).toBe(false)
@@ -494,5 +495,64 @@ describe('TdPage: ПИ под авто (очередь 3)', () => {
     api.downloadPartyDoc.mockRejectedValue(httpError(409, new Blob([JSON.stringify({ code: 'contract_template_missing', error: 'x' })])))
     ;(await openDocs())[2]!.click()
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('Шаблон договора экспедиции не загружен. Загрузите .docx в «Настройки → Авто-транзит».'))
+  })
+  describe('«Товары для КЕДЕН»', () => {
+    const clip = vi.fn()
+    const dom = (sel: string) => document.body.querySelector<HTMLElement>(sel)
+    const openKeden = async () => {
+      await w.get('[data-td-keden]').trigger('click')
+      await settle()
+    }
+    beforeEach(() => {
+      clip.mockReset().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: clip }, configurable: true })
+    })
+
+    it('товары в порядке: «Копировать» кладёт в буфер TSV и показывает тост', async () => {
+      await open(response({ data: fullData({ goods: manyGoods(2) }) }))
+      await openKeden()
+      expect(dom('[data-td-keden-errors]')).toBeNull()
+      expect(dom('[data-td-keden-copy]')!.hasAttribute('disabled')).toBe(false)
+      dom('[data-td-keden-copy]')!.click()
+      await vi.waitFor(() => expect(clip).toHaveBeenCalledTimes(1))
+      const tsv = clip.mock.calls[0]![0] as string
+      const lines = tsv.split('\n')
+      expect(lines).toHaveLength(3)
+      expect(lines[0]!.startsWith('Код ТН ВЭД\tПолное описание товара')).toBe(true)
+      expect(lines[1]!.split('\t').slice(0, 5)).toEqual(['8471300000', 'Товар 1', lines[1]!.split('\t')[2], '1234.5678', 'USD'])
+      await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith('Скопировано: 2 товаров'))
+    })
+
+    it('«Скачать Excel» отдаёт файл с именем из госномера и партии', async () => {
+      await open(response({ data: fullData({ goods: manyGoods(1) }) }))
+      await openKeden()
+      dom('[data-td-keden-xlsx]')!.click()
+      await vi.waitFor(() => expect(dl.saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'Товары-КЕДЕН-123ASD12-1.xlsx'))
+    })
+
+    it('ошибка проверки (нет товаров): обе кнопки неактивны, буфер не трогается', async () => {
+      await open(response({ data: fullData({ goods: [] }) }))
+      await openKeden()
+      expect(text(dom('[data-td-keden-errors]')!.textContent ?? '')).toContain('В ТД нет товаров')
+      expect(dom('[data-td-keden-copy]')!.hasAttribute('disabled')).toBe(true)
+      expect(dom('[data-td-keden-xlsx]')!.hasAttribute('disabled')).toBe(true)
+      dom('[data-td-keden-copy]')!.click()
+      await settle()
+      expect(clip).not.toHaveBeenCalled()
+    })
+
+    it('черновик: предупреждение «сохраните ТД»', async () => {
+      await open(response({ isDraft: true, data: fullData({ goods: manyGoods(1) }) }))
+      await openKeden()
+      expect(text(dom('[data-td-keden-stale]')!.textContent ?? '')).toContain('Сохраните ТД')
+    })
+
+    it('сбой буфера обмена — сообщение об ошибке', async () => {
+      clip.mockRejectedValue(new Error('denied'))
+      await open(response({ data: fullData({ goods: manyGoods(1) }) }))
+      await openKeden()
+      dom('[data-td-keden-copy]')!.click()
+      await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Не удалось скопировать')))
+    })
   })
 })

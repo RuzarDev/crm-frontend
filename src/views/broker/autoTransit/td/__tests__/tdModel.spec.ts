@@ -58,7 +58,7 @@ describe('tdModel: незаполненное', () => {
     expect(missingSection({ key: 'destinationCustomsOffice', section: '' })).toBe('main')
     // ЖД-раздела «Транспорт» и «Пломб» на странице ПИ нет — ведём к «Машинам и водителю».
     expect(missingSection({ key: 'transportMeans', section: '' })).toBe('vehicles')
-    expect(missingSection({ key: 'identificationMeans', section: 'seals' })).toBe('vehicles')
+    expect(missingSection({ key: 'identificationMeans', section: 'seals' })).toBe('seals')
     expect(missingSection({ key: 'guarantees', section: '' })).toBe('guarantees')
     expect(missingSection({ key: 'непонятно', section: '' })).toBe('main')
     // «Строка реестра» на странице ТД нет — в «Основное».
@@ -78,6 +78,6 @@ describe('tdModel: незаполненное', () => {
   })
 
   it('порядок разделов страницы ТД — без «Строки реестра», контейнеры отдельно', () => {
-    expect(TD_SECTIONS).toEqual(['main', 'organizations', 'carriers', 'vehicles', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc'])
+    expect(TD_SECTIONS).toEqual(['main', 'organizations', 'carriers', 'vehicles', 'seals', 'goods', 'doc44', 'packaging', 'preceding', 'guarantees', 'misc'])
   })
 })

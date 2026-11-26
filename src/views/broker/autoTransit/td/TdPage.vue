@@ -22,17 +22,19 @@ import SectionMisc from '@/views/broker/transit/record/sections/SectionMisc.vue'
 import SectionOrganizations from '@/views/broker/transit/record/sections/SectionOrganizations.vue'
 import SectionPackaging from '@/views/broker/transit/record/sections/SectionPackaging.vue'
 import SectionPreceding from '@/views/broker/transit/record/sections/SectionPreceding.vue'
+import SectionSeals from '@/views/broker/transit/record/sections/SectionSeals.vue'
 import { provideRecordRefs } from '@/views/broker/transit/record/sections/refs'
 import type { SectionKey } from '@/views/broker/transit/record/recordModel'
 import { formatNumberIn } from '@/ui/number'
 import PlateTag from '../PlateTag.vue'
 import CopyTdModal, { type CopyResult } from './CopyTdModal.vue'
 import FromDocsModal from './FromDocsModal.vue'
+import KedenGoodsModal from './KedenGoodsModal.vue'
 import { conflictKey, documentsMismatch, wouldReplaceGoods, type DocCheckRow, type GoodsMode } from './fromDocs'
 import TdNav from './TdNav.vue'
 import TdSectionMain from './TdSectionMain.vue'
 import TdSectionVehicles from './TdSectionVehicles.vue'
-import { TD_SECTIONS, copyWouldReplace, missingLabel, missingSection, missingTarget, parseMissingKey, type TdSectionKey, type TotalsRow } from './tdModel'
+import { TD_SECTIONS, copyWouldReplace, dataToDraft, missingLabel, missingSection, missingTarget, parseMissingKey, type TdSectionKey, type TotalsRow } from './tdModel'
 import { useTd } from './useTd'
 
 // ТД партии «Авто-транзита» — /auto-transit/:id/parties/:partyId/td (очередь 2а, спека 2026-11-17). Разделы — те же,
@@ -40,7 +42,8 @@ import { useTd } from './useTd'
 // Шапка: госномер тягача и прицепа, партия, получатель, «Сохранить», «Назад к машине». Черновик (isDraft) помечен,
 // «Не заполнено: N» — подсказка от сервера (сохранение не блокирует), клик ведёт к разделу и полю.
 // Контейнеры — свёрнутым блоком в конце (у авто обычно не нужны). Уход с несохранённым спрашивает, beforeunload — тоже.
-// Очередь 3 (спека 2026-11-25): форма «ПИ / ТД»; вместо ЖД «Транспорт» и «Пломбы» — «Машины и водитель» (TdSectionVehicles);
+// Очередь 3 (спека 2026-11-25): форма «ПИ / ТД»; вместо ЖД «Транспорт» — «Машины и водитель» (TdSectionVehicles);
+// этап 4 (спека 2026-11-26): «Пломбы» (средства идентификации) вернулись, кнопка «Товары для КЕДЕН» (KedenGoodsModal);
 // плашка расхождения итогов товаров и партии (totalsCheck, без округления).
 // Этап 3 (спека 2026-11-25-auto-transit-docs): меню «Документы» — опись документов ТД и заготовка акта осмотра (.docx)
 // из сохранённой ПИ; при черновике или несохранённых правках пункты выключены с подсказкой «Сначала сохраните ПИ».
@@ -186,7 +189,7 @@ const onKey = (e: KeyboardEvent) => {
   if (e.code !== 'KeyS' && e.key.toLowerCase() !== 's') return
   if (!response.value || readOnly.value) return
   const openDialog = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
-  if (copyOpen.value || fromDocsOpen.value || confirmState.open || document.querySelector(openDialog)) return
+  if (copyOpen.value || fromDocsOpen.value || kedenOpen.value || confirmState.open || document.querySelector(openDialog)) return
   e.preventDefault()
   if (dirty.value || isDraft.value) void onSave()
 }
@@ -280,6 +283,13 @@ const onDoc = async (key: string) => {
     docBusy.value = false
   }
 }
+
+// ---- «Товары для КЕДЕН» (этап 4, спека 2026-11-26) ----
+// Таблица строится из СОХРАНЁННОЙ ТД (response.data), не из формы: несохранённые правки и черновик в неё не попадают,
+// окно об этом предупреждает.
+const kedenOpen = ref(false)
+const kedenSource = computed(() => dataToDraft(response.value?.data))
+const kedenStale = computed(() => isDraft.value || dirty.value)
 
 // ---- «Заполнить из документов» (очередь 3, спека 5.2–5.3) ----
 // Окно: выбор файлов → ответ сервера → «Подставить в форму». После — плашки «Проверьте» (расхождения между документами
@@ -376,6 +386,7 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
               {{ t(`${T}.docs.button`) }}<PhCaretDown :size="14" aria-hidden="true" />
             </ZButton>
           </ZDropdown>
+          <ZButton :disabled="busy" class="max-sm:h-11 max-sm:w-full" data-td-keden @click="kedenOpen = true">{{ t(`${T}.kedenGoods.button`) }}</ZButton>
           <ZButton
             v-if="!readOnly"
             :disabled="busy"
@@ -506,6 +517,7 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
             <SectionOrganizations :draft="draft" :readonly="readOnly" />
             <SectionCarriers :draft="draft" :readonly="readOnly" />
             <TdSectionVehicles :auto="auto" :readonly="readOnly" />
+            <SectionSeals :draft="draft" :readonly="readOnly" />
             <SectionGoods :draft="draft" :readonly="readOnly" />
             <SectionDoc44 :draft="draft" :readonly="readOnly" />
             <SectionPackaging :draft="draft" :readonly="readOnly" />
@@ -531,6 +543,14 @@ const backClass = 'inline-flex min-h-9 items-center gap-1.5 rounded-row text-[13
       </div>
 
       <CopyTdModal v-model:open="copyOpen" :sources="copySources" :run="runCopy" />
+      <KedenGoodsModal
+        v-model:open="kedenOpen"
+        :source="kedenSource"
+        :totals="response.totalsCheck"
+        :plate="truck?.plate"
+        :party-number="party?.number"
+        :stale="kedenStale"
+      />
       <FromDocsModal
         v-if="!readOnly"
         v-model:open="fromDocsOpen"
