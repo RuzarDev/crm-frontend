@@ -32,6 +32,17 @@ vi.mock('@/api/import40', async (orig) => ({ ...(await orig<typeof import('@/api
 vi.mock('@/api/dts', () => ({ dtsApi: dts }))
 vi.mock('@/api/references', () => ({ referencesApi: refs }))
 vi.mock('@/api/tnved', () => ({ tnvedApi: tnved }))
+// Запросы, которые страница делает сама (НДС-зачёт и маркировка по коду, договоры клиента): без заглушки jsdom шёл в сеть,
+// и в выводе тестов сыпались AggregateError (26.11.2026).
+vi.mock('@/api/vatOffset', async (orig) => ({ ...(await orig<typeof import('@/api/vatOffset')>()), vatOffsetApi: { match: vi.fn(async () => ({ items: [] })), lists: vi.fn(async () => []) } }))
+vi.mock('@/api/nationalLists', async (orig) => {
+  const m = await orig<typeof import('@/api/nationalLists')>()
+  return { ...m, nationalListsApi: { ...m.nationalListsApi, marking: vi.fn(async () => ({ actLabel: '', actUrl: '', items: [] })) } }
+})
+vi.mock('@/api/foreignContracts', async (orig) => {
+  const m = await orig<typeof import('@/api/foreignContracts')>()
+  return { ...m, foreignContractsApi: { ...m.foreignContractsApi, list: vi.fn(async () => []) } }
+})
 vi.mock('@/api/trois', async (orig) => ({ ...(await orig<typeof import('@/api/trois')>()), troisApi: { check: vi.fn(async () => []), search: vi.fn(async () => []) } }))
 vi.mock('@/api/kedenProcedureLists', async (orig) => ({ ...(await orig<typeof import('@/api/kedenProcedureLists')>()), kedenProcedureListsApi: { get: vi.fn(async () => ({})) } }))
 vi.mock('@/api/import40Contract', () => ({ import40ContractApi: contract }))
