@@ -539,6 +539,8 @@ export interface Import40ExtractionGoodsExtra {
   originText?: string | null
   /** Код NTIN из документа: гр. 33.3. */
   ntin?: string | null
+  /** Код ТН ВЭД подобран Zircon AI по истории клиента, а не прочитан из документов (26.11.2026) — проверить. */
+  hsFromHistory?: boolean
 }
 
 /**

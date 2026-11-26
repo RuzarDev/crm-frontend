@@ -2,7 +2,10 @@
 import type { Import40ExtractionResult } from '@/api/import40'
 
 /** Что показывает окно: один разбор или сводка по файлам («Каждый файл — отдельная ДТ»). */
-export type ExtractionIssues = Pick<Import40ExtractionResult, 'warnings' | 'criticalWarnings' | 'conflicts'>
+export type ExtractionIssues = Pick<Import40ExtractionResult, 'warnings' | 'criticalWarnings' | 'conflicts'> & {
+  /** Позиций с кодом ТН ВЭД из истории клиента (26.11.2026). */
+  historyHs?: number
+}
 </script>
 
 <script setup lang="ts">
@@ -38,6 +41,9 @@ const warnings = computed(() => (props.issues?.warnings ?? []).filter((w) => !cr
           <li v-for="(w, i) in critical" :key="`e${i}`" class="[overflow-wrap:anywhere]">{{ w }}</li>
         </ul>
       </section>
+      <p v-if="issues?.historyHs" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink" data-issues-history-hs>
+        {{ t('import40Case.historyHs', { n: issues.historyHs }) }}
+      </p>
       <section v-if="issues?.conflicts.length" data-issues-conflicts>
         <p class="m-0 mb-2 text-ink-2">{{ t('import40Case.conflictsIntro') }}</p>
         <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
