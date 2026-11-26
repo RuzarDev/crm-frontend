@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { good } from '@/views/broker/transit/record/__tests__/recordFixture'
-import { KEDEN_GOODS_HEADER, kedenGoodsCheck, kedenGoodsFileName, kedenGoodsRows, kedenGoodsTsv, kedenGoodsXlsx, type KedenGoodsSource } from '../kedenGoods'
+import { KEDEN_GOODS_COLUMNS, KEDEN_GOODS_HEADER, kedenGoodsCheck, kedenGoodsFileName, kedenGoodsRows, kedenGoodsTsv, kedenGoodsXlsx, type KedenGoodsSource } from '../kedenGoods'
 
 const full = (o: Partial<Parameters<typeof good>[0]> = {}) => good({
   tnvedCode: '0101210000', description: 'Лошади', countryOfOrigin: 'DE', quantity: 2, unitCode: '796', grossWeightKg: 0.125, netWeightKg: 0.1,
@@ -9,24 +9,26 @@ const full = (o: Partial<Parameters<typeof good>[0]> = {}) => good({
 const src = (goods = [full()], o: Partial<KedenGoodsSource> = {}): KedenGoodsSource => ({ goods, packages: [], containers: [], ...o })
 
 describe('kedenGoodsRows', () => {
-  it('заголовки ровно в заданном порядке', () => {
+  it('подписи столбцов в заданном порядке (для «Схемы» и окна), нет «Кода доп. ед.»', () => {
     expect(kedenGoodsRows(src()).header).toEqual([
-      'Код ТН ВЭД', 'Полное описание товара', 'Страна происхождения', 'Стоимость', 'Валюта', 'Масса брутто, кг', 'Масса нетто, кг',
-      'Количество в доп. ед.', 'Код доп. ед.', 'Количество грузовых мест', 'Наличие упаковки', 'Вид упаковки', 'Количество упаковок',
-      'Описание грузового места', 'Номер контейнера',
+      'Код ТН ВЭД', 'Описание товара', 'Страна происхождения', 'Стоимость', 'Валюта', 'Масса брутто, кг', 'Масса нетто, кг',
+      'Количество в доп. ед.', 'Вид информации об упаковке (всегда 0)', 'Количество грузовых мест', 'Наличие упаковки (1/0)', 'Вид упаковки',
+      'Количество упаковок', 'Описание грузового места', 'Номер контейнера',
     ])
     expect(KEDEN_GOODS_HEADER).toHaveLength(15)
+    expect(KEDEN_GOODS_HEADER.join()).not.toContain('Код доп. ед.')
+    expect(KEDEN_GOODS_COLUMNS[1]!.kedenType).toBe('*Коммерческое описание товара')
   })
 
   it('числа без округления, места → наличие упаковки и количество упаковок', () => {
     const [row] = kedenGoodsRows(src()).rows
-    expect(row).toEqual(['0101210000', 'Лошади', 'DE', '1234.5', 'USD', '0.125', '0.1', '2', '796', '3', '1', '', '3', '', ''])
+    expect(row).toEqual(['0101210000', 'Лошади', 'DE', '1234.5', 'USD', '0.125', '0.1', '2', '0', '3', '1', '', '3', '', ''])
   })
 
   it('нет мест — упаковки 0, пустые ячейки; код — только цифры', () => {
     const [row] = kedenGoodsRows(src([full({ packagesCount: null, tnvedCode: '0101 21.0000', netWeightKg: null })])).rows
     expect(row![0]).toBe('0101210000')
-    expect(row!.slice(6)).toEqual(['', '2', '796', '', '0', '', '', '', ''])
+    expect(row!.slice(6)).toEqual(['', '2', '0', '', '0', '', '', '', ''])
   })
 
   it('вид упаковки, описание места и контейнер — когда они одни на партию; разные — пусто', () => {
@@ -50,9 +52,9 @@ describe('kedenGoodsTsv', () => {
   it('табуляции и переводы строк внутри значений заменяются пробелом', () => {
     const tsv = kedenGoodsTsv(kedenGoodsRows(src([full({ description: 'А\tБ\nВ' })])))
     const lines = tsv.split('\n')
-    expect(lines).toHaveLength(2)
-    expect(lines[0]).toBe(KEDEN_GOODS_HEADER.join('\t'))
-    const cells = lines[1]!.split('\t')
+    expect(lines).toHaveLength(1)
+    expect(tsv).not.toContain('Код ТН ВЭД')
+    const cells = lines[0]!.split('\t')
     expect(cells).toHaveLength(15)
     expect(cells[1]).toBe('А Б В')
   })
@@ -64,10 +66,16 @@ describe('kedenGoodsXlsx', () => {
     const XLSX = await import('xlsx')
     const wb = XLSX.read(new Uint8Array(await new Promise<ArrayBuffer>((res) => { const r = new FileReader(); r.onload = () => res(r.result as ArrayBuffer); r.readAsArrayBuffer(blob) })), { type: 'array' })
     const ws = wb.Sheets[wb.SheetNames[0]!]!
-    expect(ws.A2).toMatchObject({ t: 's', v: '0101210000' })
-    expect(ws.D2).toMatchObject({ t: 's', v: '1234.5' })
-    expect(ws.F2).toMatchObject({ t: 's', v: '0.125' })
-    expect(ws.A1).toMatchObject({ t: 's', v: 'Код ТН ВЭД' })
+    expect(wb.SheetNames).toEqual(['Товары', 'Схема'])
+    expect(ws.A1).toMatchObject({ t: 's', v: '0101210000' })
+    expect(ws.D1).toMatchObject({ t: 's', v: '1234.5' })
+    expect(ws.F1).toMatchObject({ t: 's', v: '0.125' })
+    expect(ws.I1).toMatchObject({ t: 's', v: '0' })
+    expect(ws.A2).toBeUndefined()
+    const sch = wb.Sheets['Схема']!
+    expect(sch.A1).toMatchObject({ v: '№ столбца' })
+    expect(sch.C3).toMatchObject({ v: '*Коммерческое описание товара' })
+    expect(sch.C16).toMatchObject({ v: 'Контейнеры → Номер' })
   })
 })
 
@@ -95,6 +103,11 @@ describe('kedenGoodsCheck', () => {
     expect(r.errors).toEqual([])
     expect(r.warnings.map((w) => w.key)).toEqual(['codeNot10', 'totals'])
     expect(r.warnings[1]).toMatchObject({ totalsKey: 'places' })
+  })
+  it('нет количества в доп. ед. — предупреждение, не ошибка', () => {
+    const r = kedenGoodsCheck(src([full({ quantity: null })]))
+    expect(r.errors).toEqual([])
+    expect(r.warnings.map((w) => w.key)).toEqual(['noQuantity'])
   })
   it('чистый набор — без ошибок и предупреждений', () => {
     expect(kedenGoodsCheck(src())).toEqual({ errors: [], warnings: [] })

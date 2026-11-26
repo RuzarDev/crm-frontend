@@ -1016,7 +1016,8 @@ export default {
         kedenGoods: {
           button: 'Goods for KEDEN',
           title: 'Goods for KEDEN',
-          hint: 'In KEDEN: PI → Consignment → Goods list → Import from file → upload the file or paste the table (Cmd+V) → map the columns.',
+          hint: 'Import from file → paste the table (Cmd+V) or upload the file → for each column choose its type from the list below → tick “Save column scheme for import” (next time the mapping is filled in automatically) → Upload.',
+          schemeTitle: 'Table columns and their KEDEN types',
           stale: 'Save the TD to export the current goods: only saved data goes into the table.',
           errorsTitle: 'Export unavailable',
           warningsTitle: 'Please check',
@@ -1028,6 +1029,7 @@ export default {
           copyFailed: 'Could not copy to the clipboard. Download the Excel file.',
           xlsxFailed: 'Could not build the Excel file. Try again.',
           issue: {
+            noQuantity: 'KEDEN will require a quantity if the code has a supplementary unit; no quantity in the supplementary unit: goods {numbers}.',
             noGoods: 'The TD has no goods.',
             tooMany: '{n} goods: split the consignment — KEDEN imports up to {max} rows.',
             codeShort: 'HS code shorter than 6 digits: goods {numbers}.',

@@ -8,7 +8,7 @@ import type { TotalsCheck } from '@/api/autoTransit'
 import { saveBlob } from '@/ui/download'
 import { message } from '@/ui/message'
 import {
-  kedenGoodsCheck, kedenGoodsFileName, kedenGoodsRows, kedenGoodsTsv, kedenGoodsXlsx, type KedenGoodsSource, type KedenIssue,
+  KEDEN_GOODS_COLUMNS, kedenGoodsCheck, kedenGoodsFileName, kedenGoodsRows, kedenGoodsTsv, kedenGoodsXlsx, type KedenGoodsSource, type KedenIssue,
 } from './kedenGoods'
 
 // «Товары для КЕДЕН» (этап 4, спека 2026-11-26): таблица товаров СОХРАНЁННОЙ ПИ / ТД для «Импорта из файла» списка
@@ -74,6 +74,14 @@ const onCopy = async () => {
   >
     <div class="flex min-w-0 flex-col gap-3">
       <p class="m-0 text-sm text-ink-2" data-td-keden-hint>{{ t(`${K}.hint`) }}</p>
+      <section class="flex min-w-0 flex-col gap-1" data-td-keden-scheme>
+        <h3 class="m-0 text-xs font-semibold text-ink-2">{{ t(`${K}.schemeTitle`) }}</h3>
+        <ol role="list" class="m-0 flex list-none flex-col gap-0.5 p-0 text-xs text-ink">
+          <li v-for="(c, i) in KEDEN_GOODS_COLUMNS" :key="c.name" class="min-w-0 [overflow-wrap:anywhere]" data-td-keden-scheme-row>
+            <span class="tabular-nums text-muted">{{ i + 1 }}.</span> {{ c.name }} → <span class="font-semibold">{{ c.kedenType }}</span>
+          </li>
+        </ol>
+      </section>
       <ZAlert v-if="stale" type="warning" show-icon data-td-keden-stale>{{ t(`${K}.stale`) }}</ZAlert>
       <ZAlert v-if="check.errors.length" type="error" show-icon :message="t(`${K}.errorsTitle`)" data-td-keden-errors>
         <ul role="list" class="m-0 flex list-none flex-col gap-1 p-0 text-sm">
