@@ -23,6 +23,19 @@ const { t } = useI18n()
 const tr = (key: string) => t(`broker.transitRecord.main.${key}`)
 
 const refs = useRecordRefs()
+// Таможня назначения ПИ (27.11.2026): у авто пост назначения обычно в РК (55510…), а список ЖД-раздела — только таможни
+// других стран ЕАЭС. Сначала посты РК (значение — код поста, как у таможни отправления), затем таможни других стран.
+const destinationOfficeOptions = computed(() => {
+  const seen = new Set<string>()
+  const out: { value: string; label: string }[] = []
+  for (const o of [...refs.departureOfficeOptions.value, ...refs.foreignOfficeOptions.value]) {
+    const v = String(o.value)
+    if (seen.has(v)) continue
+    seen.add(v)
+    out.push({ value: v, label: String(o.label) })
+  }
+  return out
+})
 void refs.ensure('posts', 'countries', 'foreignOffices')
 void refs.ensureClassifiers(['presentation-purpose', 'entry-method', 'movement-direction', 'used-as-declaration', 'transport-mode', '2009'])
 
@@ -107,7 +120,7 @@ const officeError = computed(() => departureOfficeTooLong(props.draft.transit.de
             <ZSelect :value="draft.transit.unloadingCountryCode" :options="refs.countryOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('choose'))" :class="boxCtl" data-f="unloadingCountryCode" @update:value="setStr('unloadingCountryCode', $event)" />
           </ZField>
           <ZField :label="tr('destinationOffice')">
-            <ZSelect :value="draft.transit.destinationCustomsOffice" :options="refs.foreignOfficeOptions.value" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('destinationOfficePlaceholder'))" :class="boxCtl" data-f="destinationCustomsOffice" @update:value="setStr('destinationCustomsOffice', $event)" />
+            <ZSelect :value="draft.transit.destinationCustomsOffice" :options="destinationOfficeOptions" show-search allow-clear :disabled="readonly" :placeholder="ph(readonly, tr('destinationOfficePlaceholder'))" :class="boxCtl" data-f="destinationCustomsOffice" @update:value="setStr('destinationCustomsOffice', $event)" />
           </ZField>
         </div>
 

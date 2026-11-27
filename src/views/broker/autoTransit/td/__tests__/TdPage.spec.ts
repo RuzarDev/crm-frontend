@@ -97,6 +97,14 @@ describe('TdPage', () => {
     expect(has('[data-td-draft]')).toBe(false)
   })
 
+  it('таможня назначения: посты РК (код поста) и таможни других стран — в одном списке (27.11.2026)', async () => {
+    await open(response())
+    await settle()
+    const f = w.get('[data-f="destinationCustomsOffice"]')
+    expect(f.find('[data-option="57507"]').exists()).toBe(true)
+    expect(f.find('[data-option="10001"]').exists()).toBe(true)
+  })
+
   it('черновик помечен и сохраняется: плашка сохранения видна сразу', async () => {
     await open(response({ isDraft: true }))
     expect(text(w.get('[data-td-draft]').text())).toContain('Заполнено из машины и партии, не сохранено')
