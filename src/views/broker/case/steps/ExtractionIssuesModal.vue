@@ -5,6 +5,8 @@ import type { Import40ExtractionResult } from '@/api/import40'
 export type ExtractionIssues = Pick<Import40ExtractionResult, 'warnings' | 'criticalWarnings' | 'conflicts'> & {
   /** Позиций с кодом ТН ВЭД из истории клиента (26.11.2026). */
   historyHs?: number
+  /** Строки про догадки кода Zircon AI у товаров без кода (27.11.2026), по одной на пакет. */
+  hsGuess?: string[]
 }
 </script>
 
@@ -43,6 +45,9 @@ const warnings = computed(() => (props.issues?.warnings ?? []).filter((w) => !cr
       </section>
       <p v-if="issues?.historyHs" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink" data-issues-history-hs>
         {{ t('import40Case.historyHs', { n: issues.historyHs }) }}
+      </p>
+      <p v-for="(g, i) in issues?.hsGuess ?? []" :key="`g${i}`" class="m-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink [overflow-wrap:anywhere]" data-issues-hs-guess>
+        {{ g }}
       </p>
       <section v-if="issues?.conflicts.length" data-issues-conflicts>
         <p class="m-0 mb-2 text-ink-2">{{ t('import40Case.conflictsIntro') }}</p>

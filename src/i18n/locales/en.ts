@@ -1,5 +1,11 @@
 export default {
   lang: { label: 'Language', ru: 'Русский', kk: 'Қазақша', en: 'English' },
+  hsGuess: {
+    line: 'No HS code in the documents — Zircon AI suggests: {list}. Not filled in: please check and pick the full code.',
+    item: '“{name}” — {code}',
+    noName: 'item {n}',
+    more: 'and {n} more',
+  },
   errors: {
     forbidden: 'You do not have permission for this action',
     notFound: 'Resource not found',

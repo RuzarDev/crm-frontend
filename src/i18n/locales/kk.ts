@@ -1,5 +1,11 @@
 export default {
   lang: { label: 'Тіл', ru: 'Русский', kk: 'Қазақша', en: 'English' },
+  hsGuess: {
+    line: 'Құжаттарда СЭҚ ТН коды жоқ — Zircon AI болжамы: {list}. Бағанға қойылмады: тексеріп, толық кодты таңдаңыз.',
+    item: '«{name}» — {code}',
+    noName: '{n}-тауар',
+    more: 'және тағы {n}',
+  },
   errors: {
     forbidden: 'Бұл әрекетке құқық жеткіліксіз',
     notFound: 'Ресурс табылмады',

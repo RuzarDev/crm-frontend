@@ -28,6 +28,7 @@ import {
   splitBatchWarning, splitExportWarning, splitTag, type DtListRow,
 } from '../declarations'
 import { historyHsCount } from '@/utils/historyHs'
+import { hsGuessesFromImport40, hsGuessText } from '@/utils/hsGuess'
 import ExtractionIssuesModal, { type ExtractionIssues } from './ExtractionIssuesModal.vue'
 import ExtractDocsModal from './ExtractDocsModal.vue'
 import { invoiceNumbers, invoicesNotice } from './extractDocs'
@@ -323,9 +324,11 @@ const runBatch = async (files: File[], fileIds: readonly string[] = []) => {
   message.success(t(out.usedExcel ? 'broker.case.declaring.batch.doneFromExcel' : 'import40Case.batchProcessed'))
   const warnings = [...out.extracted.warnings, ...out.warnings, ...out.critical]
   const historyHs = historyHsCount(out.extracted)
-  if (out.extracted.conflicts.length || warnings.length || historyHs) {
+  const guess = hsGuessText(hsGuessesFromImport40(out.extracted), t)
+  if (out.extracted.conflicts.length || warnings.length || historyHs || guess) {
     issues.value = {
       ...out.extracted, warnings, criticalWarnings: [...(out.extracted.criticalWarnings ?? []), ...out.critical], historyHs,
+      hsGuess: guess ? [guess] : [],
     }
     pendingDt = out.dtId
     issuesOpen.value = true
@@ -413,6 +416,8 @@ const runPerFile = async (files: File[], fileIds: readonly string[]) => {
         .filter((w) => !pack.result.criticalWarnings?.includes(w)).map(named))
       merged.conflicts.push(...pack.result.conflicts.map((c) => ({ ...c, fieldLabel: named(c.fieldLabel) })))
       merged.historyHs = (merged.historyHs ?? 0) + historyHsCount(pack.result)
+      const guess = hsGuessText(hsGuessesFromImport40(pack.result), t)
+      if (guess) (merged.hsGuess ??= []).push(named(guess))
     }
     const bodies = whole ? [whole.prepared.body] : parts.map((p) => p.prepared.body)
     const currencies = distinctCurrencies(whole ? parts.map((p) => p.prepared.body) : bodies)
@@ -430,7 +435,7 @@ const runPerFile = async (files: File[], fileIds: readonly string[]) => {
   if (dtId) message.success(t('broker.case.declaring.batch.perFileDone', { n: parts.length, total: units.length }))
   else message.error(t('broker.case.declaring.batch.perFileFailed'))
   merged.warnings.push(...merged.criticalWarnings!.filter((w) => !merged.warnings.includes(w)))
-  if (merged.conflicts.length || merged.warnings.length || merged.historyHs) {
+  if (merged.conflicts.length || merged.warnings.length || merged.historyHs || merged.hsGuess?.length) {
     issues.value = merged
     pendingDt = dtId
     issuesOpen.value = true

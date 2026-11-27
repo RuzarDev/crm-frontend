@@ -17,6 +17,8 @@ const props = defineProps<{
   critical?: readonly string[]
   /** Позиций с кодом ТН ВЭД из истории клиента (26.11.2026): метка «проверьте». */
   historyHs?: number
+  /** Строка про догадки кода Zircon AI у товаров без кода (27.11.2026). */
+  hsGuess?: string | null
   conflicts: readonly Import40ExtractionConflict[]
   /** «Дополнить совпавшие» / «Добавить все как новые» (ревью 29.10, I1); выбор — только когда в ДТ уже есть товары. */
   mode: 'fill' | 'append'
@@ -96,6 +98,7 @@ const warn = 'm-0 rounded-row bg-gold-soft px-3 py-2 text-gold-ink'
       </details>
 
       <p v-if="historyHs" :class="warn" data-docs-into-history-hs>{{ tx('historyHs', { n: historyHs }) }}</p>
+      <p v-if="hsGuess" :class="warn" class="[overflow-wrap:anywhere]" data-docs-into-hs-guess>{{ hsGuess }}</p>
 
       <section v-if="critical?.length" class="rounded-row bg-tone-danger-bg px-3 py-2 text-tone-danger-fg" data-docs-into-critical>
         <p class="m-0 mb-1.5 font-medium">{{ t('import40Case.criticalIntro') }}</p>

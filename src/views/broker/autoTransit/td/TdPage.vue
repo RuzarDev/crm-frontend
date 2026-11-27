@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hsGuessesFromAutoTransit, hsGuessText } from '@/utils/hsGuess'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -315,7 +316,11 @@ const applyFromDocs = async (r: FromDocumentsResult, mode: GoodsMode): Promise<b
     if (!ok) return false
   }
   td.applyFromDocuments(r.data, mode)
-  const report: FromDocsReport = { conflicts: r.conflicts ?? [], warnings: r.warnings ?? [], mismatch: documentsMismatch(r.documentsCheck) }
+  // Догадки кода Zircon AI у товаров без кода (27.11.2026) — первой строкой замечаний, в графу не подставляются.
+  const guess = hsGuessText(hsGuessesFromAutoTransit(r), t)
+  const report: FromDocsReport = {
+    conflicts: r.conflicts ?? [], warnings: [...(guess ? [guess] : []), ...(r.warnings ?? [])], mismatch: documentsMismatch(r.documentsCheck),
+  }
   fromDocsReport.value = report.conflicts.length || report.warnings.length || report.mismatch.length ? report : null
   message.success(t(`${T}.fromDocs.done`))
   return true
