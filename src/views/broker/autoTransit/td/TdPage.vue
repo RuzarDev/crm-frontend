@@ -87,7 +87,10 @@ const totalsLines = computed(() => totals.value.map((r) => {
 const truckPath = computed(() => `/auto-transit/${encodeURIComponent(truckId.value)}`)
 const truck = computed(() => response.value?.truck ?? null)
 const party = computed(() => response.value?.party ?? null)
-const recipient = computed(() => party.value?.recipientName?.trim() || t('broker.autoTransit.party.noRecipient'))
+// Получатель в шапке: из карточки партии, а если там пусто — из ПИ (организация с ролью «Получатель»), иначе «не указан» (27.11.2026).
+const recipient = computed(() => party.value?.recipientName?.trim()
+  || draft.organizations.find((o) => o.role === 'Получатель' && o.name?.trim())?.name?.trim()
+  || t('broker.autoTransit.party.noRecipient'))
 const busy = computed(() => loading.value || saving.value || reloading.value)
 
 // ---- Сохранение ----

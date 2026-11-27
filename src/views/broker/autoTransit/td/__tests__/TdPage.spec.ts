@@ -97,6 +97,13 @@ describe('TdPage', () => {
     expect(has('[data-td-draft]')).toBe(false)
   })
 
+  it('шапка: получателя нет в партии — берётся из ПИ (организация «Получатель»), 27.11.2026', async () => {
+    const data = fullData()
+    data.organizations = [...data.organizations, { role: 'Получатель', subjectType: 'ЮЛ', bin: '000000000000', name: 'ТОО «Из ПИ»', shortName: null, address: null, phone: null, email: null }]
+    await open(response({ data, party: { id: 'p1', number: 1, recipientName: '', submitted: false } }))
+    expect(text(w.get('[data-td-header]').text())).toContain('ТОО «Из ПИ»')
+  })
+
   it('таможня назначения: посты РК (код поста) и таможни других стран — в одном списке (27.11.2026)', async () => {
     await open(response())
     await settle()
