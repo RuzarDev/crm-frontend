@@ -149,6 +149,22 @@ describe('TdPage: «Заполнить из документов»', () => {
     expect(w.find('[data-td-review]').exists()).toBe(false)
   })
 
+  it('догадка кода Zircon AI (hs_guess) — первой строкой «Проверьте», в графу не подставляется', async () => {
+    await open(response({ data: fullData() }))
+    await openModal()
+    const empty = { cmr: null, invoice: null, packing: null }
+    api.fromDocuments.mockResolvedValue(RESULT({
+      data: { goods: [good({ description: 'Автомобиль легковой', tnvedCode: null })], transit: null as never, organizations: null as never, vehicles: null as never, doc44: null as never },
+      conflicts: [], warnings: [], documentsCheck: { places: empty, grossKg: empty, plates: empty }, hsGuesses: [{ index: 0, code: '870323' }],
+    }))
+    await runRecognize()
+    $('[data-from-docs-apply]')!.click()
+    await settle()
+    const line = text(w.get('[data-td-review-warning]').text())
+    expect(line).toContain('«Автомобиль легковой» — 8703 23')
+    expect(line).toContain('В графу не подставлено')
+  })
+
   it('сервис занят (503) — текст с минутами, выбор файлов остаётся', async () => {
     await open(response())
     await openModal()

@@ -451,6 +451,8 @@ export interface FromDocumentsResult {
   conflicts: FromDocsConflict[]
   warnings: string[]
   documentsCheck: DocumentsCheck
+  /** Товары без кода в документах, для которых Zircon AI предполагает код (index — в data.goods, 27.11.2026). Старый сервер — нет. */
+  hsGuesses?: { index: number; code: string }[]
 }
 
 /** Сколько ждать разбор: сервис Zircon AI отвечает до ~220 с, файлы уже на сервере. */

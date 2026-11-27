@@ -541,6 +541,8 @@ export interface Import40ExtractionGoodsExtra {
   ntin?: string | null
   /** Код ТН ВЭД подобран Zircon AI по истории клиента, а не прочитан из документов (26.11.2026) — проверить. */
   hsFromHistory?: boolean
+  /** Кода в документах нет — догадка Zircon AI (обычно 6 знаков, 27.11.2026); в графу не идёт, только подсказка. */
+  hsGuess?: string | null
 }
 
 /**

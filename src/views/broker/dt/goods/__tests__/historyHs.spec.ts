@@ -49,3 +49,19 @@ describe('код из истории клиента', () => {
     expect(off.find('[data-issues-history-hs]').exists()).toBe(false)
   })
 })
+
+describe('догадка кода Zircon AI (hs_guess, 27.11.2026)', () => {
+  it('сводка «Из документов» и окно замечаний показывают строку только когда она есть', () => {
+    const line = 'Кода ТН ВЭД нет в документах — Zircon AI предполагает: «Автомобиль» — 8703 23.'
+    const into = (hsGuess?: string | null) => mountWithI18n(DocsIntoDtModal, {
+      props: { open: true, plan: emptyPlan, remarks: [], conflicts: [], mode: 'fill', existingGoods: 0, hsGuess },
+      global: { stubs },
+    })
+    expect(into(null).find('[data-docs-into-hs-guess]').exists()).toBe(false)
+    expect(into(line).get('[data-docs-into-hs-guess]').text()).toBe(line)
+    const issues = mountWithI18n(ExtractionIssuesModal, {
+      props: { open: true, issues: { warnings: [], conflicts: [], hsGuess: [line, `Вагон 2: ${line}`] } }, global: { stubs },
+    })
+    expect(issues.findAll('[data-issues-hs-guess]').map((p) => p.text())).toEqual([line, `Вагон 2: ${line}`])
+  })
+})
